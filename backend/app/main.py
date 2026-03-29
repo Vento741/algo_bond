@@ -23,8 +23,12 @@ from app.modules.market.ws_info_router import router as ws_info_router
 async def lifespan(app: FastAPI):
     """Инициализация и завершение приложения."""
     # Startup
+    from app.modules.trading.ws_bridge import start_ws_bridge
+    start_ws_bridge()
     yield
     # Shutdown
+    from app.modules.trading.ws_bridge import stop_ws_bridge
+    await stop_ws_bridge()
     from app.redis import pool
     await pool.disconnect()
 

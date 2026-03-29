@@ -78,6 +78,21 @@ services:
       - redis
     restart: unless-stopped
 
+  bybit-listener:
+    build: ./backend
+    container_name: algobond-listener
+    command: python -m app.modules.trading.bybit_listener
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   frontend:
     build: ./frontend
     container_name: algobond-frontend
