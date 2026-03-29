@@ -121,9 +121,10 @@ function formatPrice(value: number | null | undefined): string {
   });
 }
 
-function formatPnl(value: number): string {
-  const prefix = value >= 0 ? '+' : '';
-  return `${prefix}$${value.toFixed(2)}`;
+function formatPnl(value: number | string): string {
+  const n = Number(value);
+  const prefix = n >= 0 ? '+' : '';
+  return `${prefix}$${n.toFixed(2)}`;
 }
 
 /* ---- Main Component ---- */
@@ -487,7 +488,7 @@ export function BotDetail() {
         <Card className="border-white/5 bg-white/[0.02]">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
-              {bot.total_pnl >= 0 ? (
+              {Number(bot.total_pnl) >= 0 ? (
                 <TrendingUp className="h-4 w-4 text-brand-profit" />
               ) : (
                 <TrendingDown className="h-4 w-4 text-brand-loss" />
@@ -498,7 +499,7 @@ export function BotDetail() {
             </div>
             <p
               className={`text-2xl font-bold font-mono ${
-                bot.total_pnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'
+                Number(bot.total_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'
               }`}
             >
               {formatPnl(bot.total_pnl)}
@@ -531,12 +532,12 @@ export function BotDetail() {
               </p>
             </div>
             <p className="text-2xl font-bold font-mono text-white">
-              {(bot.win_rate * 100).toFixed(1)}%
+              {(Number(bot.win_rate) * 100).toFixed(1)}%
             </p>
             <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
               <div
                 className="h-full rounded-full bg-brand-premium transition-all duration-500"
-                style={{ width: `${Math.min(bot.win_rate * 100, 100)}%` }}
+                style={{ width: `${Math.min(Number(bot.win_rate) * 100, 100)}%` }}
               />
             </div>
           </CardContent>

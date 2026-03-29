@@ -125,8 +125,8 @@ export function Bots() {
       });
   }
 
-  /** Суммарный P&L всех ботов */
-  const totalPnl = bots.reduce((s, b) => s + (b.total_pnl ?? 0), 0);
+  /** Суммарный P&L всех ботов (total_pnl приходит как string от Decimal) */
+  const totalPnl = bots.reduce((s, b) => s + Number(b.total_pnl ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -250,7 +250,7 @@ export function Bots() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Win Rate</span>
                     <span className="text-xs text-white font-mono">
-                      {(bot.win_rate * 100).toFixed(1)}%
+                      {(Number(bot.win_rate) * 100).toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -260,7 +260,7 @@ export function Bots() {
                         bot.total_pnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'
                       }`}
                     >
-                      {bot.total_pnl >= 0 ? '+' : ''}${bot.total_pnl.toFixed(2)}
+                      {Number(bot.total_pnl) >= 0 ? '+' : ''}${Number(bot.total_pnl).toFixed(2)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
