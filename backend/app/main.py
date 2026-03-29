@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.modules.auth.router import router as auth_router
 from app.modules.billing.router import router as billing_router
+from app.modules.strategy.router import router as strategy_router
 
 
 @asynccontextmanager
@@ -40,6 +41,7 @@ app.add_middleware(
 # Роутеры модулей
 app.include_router(auth_router)
 app.include_router(billing_router)
+app.include_router(strategy_router)
 
 
 @app.get("/health")
