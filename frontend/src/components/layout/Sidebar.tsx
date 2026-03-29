@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -6,11 +7,15 @@ import {
   FlaskConical,
   Settings,
   TrendingUp,
+  CandlestickChart,
+  Menu,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'График', href: '/chart/BTCUSDT', icon: CandlestickChart, matchPrefix: '/chart' },
   { name: 'Стратегии', href: '/strategies', icon: Brain },
   { name: 'Боты', href: '/bots', icon: Bot },
   { name: 'Бэктест', href: '/backtest', icon: FlaskConical },
@@ -19,9 +24,10 @@ const navigation = [
 
 export function Sidebar() {
   const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-brand-bg flex flex-col">
+  const navContent = (
+    <>
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-6 py-5 border-b border-border">
         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-brand-premium/10">
@@ -30,19 +36,27 @@ export function Sidebar() {
         <span className="text-xl font-bold text-white tracking-tight">
           AlgoBond
         </span>
+        {/* Mobile close */}
+        <button
+          className="ml-auto md:hidden text-gray-400 hover:text-white"
+          onClick={() => setMobileOpen(false)}
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navigation.map((item) => {
+          const prefix = item.matchPrefix ?? item.href;
           const isActive =
             location.pathname === item.href ||
-            (item.href !== '/dashboard' &&
-              location.pathname.startsWith(item.href));
+            (prefix !== '/dashboard' && location.pathname.startsWith(prefix));
           return (
             <Link
               key={item.name}
               to={item.href}
+              onClick={() => setMobileOpen(false)}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 isActive
@@ -59,8 +73,43 @@ export function Sidebar() {
 
       {/* Bottom */}
       <div className="px-4 py-4 border-t border-border">
-        <div className="text-xs text-gray-500 font-mono">v0.1.0</div>
+        <div className="text-xs text-gray-500 font-mono">v0.2.0</div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile hamburger */}
+      <button
+        className="fixed top-4 left-4 z-50 md:hidden flex items-center justify-center w-10 h-10 rounded-lg bg-brand-card border border-white/10"
+        onClick={() => setMobileOpen(true)}
+      >
+        <Menu className="h-5 w-5 text-gray-300" />
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile sidebar */}
+      <aside
+        className={cn(
+          'fixed left-0 top-0 z-50 h-screen w-64 border-r border-border bg-brand-bg flex flex-col transition-transform duration-200 md:hidden',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+        )}
+      >
+        {navContent}
+      </aside>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-brand-bg flex-col">
+        {navContent}
+      </aside>
+    </>
   );
 }

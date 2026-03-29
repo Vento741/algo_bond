@@ -5,39 +5,46 @@ import { Register } from '@/pages/Register';
 import { Dashboard } from '@/pages/Dashboard';
 import { Strategies } from '@/pages/Strategies';
 import { StrategyDetail } from '@/pages/StrategyDetail';
+import { Chart } from '@/pages/Chart';
+import { Bots } from '@/pages/Bots';
+import { Backtest } from '@/pages/Backtest';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { ToastProvider } from '@/components/ui/toast';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+    <ToastProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
-        {/* Protected routes with dashboard layout */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <DashboardLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/strategies" element={<Strategies />} />
-          <Route path="/strategies/:slug" element={<StrategyDetail />} />
-          {/* Placeholder routes for future pages */}
-          <Route path="/bots" element={<ComingSoon title="Боты" />} />
-          <Route path="/backtest" element={<ComingSoon title="Бэктестинг" />} />
-          <Route path="/settings" element={<ComingSoon title="Настройки" />} />
-        </Route>
+          {/* Protected routes with dashboard layout */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/strategies" element={<Strategies />} />
+            <Route path="/strategies/:slug" element={<StrategyDetail />} />
+            <Route path="/chart/:symbol" element={<Chart />} />
+            <Route path="/chart" element={<Chart />} />
+            <Route path="/bots" element={<Bots />} />
+            <Route path="/backtest" element={<Backtest />} />
+            <Route path="/settings" element={<ComingSoon title="Настройки" />} />
+          </Route>
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ToastProvider>
   );
 }
 
