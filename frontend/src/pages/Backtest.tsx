@@ -876,7 +876,19 @@ function TradesChart({
         })),
       );
 
-      // Trade markers on candlestick chart
+      // Trade markers — price lines for entry/exit levels
+      // Build price map for fast lookup: price → closest candle time
+      const priceTimeMap = new Map<number, Time>();
+      for (const c of candles) {
+        const roundedPrice = Math.round(c.close * 100) / 100;
+        if (!priceTimeMap.has(roundedPrice)) {
+          priceTimeMap.set(roundedPrice, c.time);
+        }
+      }
+
+      // Limit markers to avoid performance issues
+      const recentTrades = trades.slice(-100);
+
       type MarkerItem = {
         time: Time;
         position: 'belowBar' | 'aboveBar';
@@ -886,20 +898,29 @@ function TradesChart({
       };
       const markers: MarkerItem[] = [];
 
-      for (const trade of trades) {
-        // Extract bar timestamps from trade entry/exit times
-        // entry_time format: "bar 271" — we need actual timestamps
-        // Use entry_price to find closest candle
-        const entryCandle = candles.find(
-          (c) => Math.abs(c.close - trade.entry_price) / trade.entry_price < 0.01,
-        );
-        const exitCandle = candles.find(
-          (c) => Math.abs(c.close - trade.exit_price) / trade.exit_price < 0.01,
-        );
+      for (const trade of recentTrades) {
+        // Find closest price in candle data
+        let bestEntryTime: Time | null = null;
+        let bestEntryDist = Infinity;
+        let bestExitTime: Time | null = null;
+        let bestExitDist = Infinity;
 
-        if (entryCandle) {
+        for (const c of candles) {
+          const entryDist = Math.abs(c.close - trade.entry_price);
+          if (entryDist < bestEntryDist) {
+            bestEntryDist = entryDist;
+            bestEntryTime = c.time;
+          }
+          const exitDist = Math.abs(c.close - trade.exit_price);
+          if (exitDist < bestExitDist) {
+            bestExitDist = exitDist;
+            bestExitTime = c.time;
+          }
+        }
+
+        if (bestEntryTime) {
           markers.push({
-            time: entryCandle.time,
+            time: bestEntryTime,
             position: trade.side === 'long' ? 'belowBar' : 'aboveBar',
             color: trade.side === 'long' ? '#00E676' : '#FF1744',
             shape: trade.side === 'long' ? 'arrowUp' : 'arrowDown',
@@ -907,9 +928,9 @@ function TradesChart({
           });
         }
 
-        if (exitCandle && exitCandle.time !== entryCandle?.time) {
+        if (bestExitTime && bestExitTime !== bestEntryTime) {
           markers.push({
-            time: exitCandle.time,
+            time: bestExitTime,
             position: trade.side === 'long' ? 'aboveBar' : 'belowBar',
             color: trade.pnl >= 0 ? '#FFD700' : '#FF6D00',
             shape: 'circle',
@@ -918,10 +939,18 @@ function TradesChart({
         }
       }
 
-      // Sort markers by time (required by lightweight-charts)
-      markers.sort((a, b) => (a.time as number) - (b.time as number));
-      if (markers.length > 0) {
-        candleSeries.setMarkers(markers);
+      // Deduplicate markers on the same time (lightweight-charts requires unique times)
+      const seen = new Set<number>();
+      const uniqueMarkers = markers.filter((m) => {
+        const t = m.time as number;
+        if (seen.has(t)) return false;
+        seen.add(t);
+        return true;
+      });
+
+      uniqueMarkers.sort((a, b) => (a.time as number) - (b.time as number));
+      if (uniqueMarkers.length > 0) {
+        candleSeries.setMarkers(uniqueMarkers);
       }
 
       chart.timeScale().fitContent();
