@@ -949,16 +949,13 @@ function TradesChart({
     return () => cleanup?.();
   }, [initChart]);
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center py-16 text-gray-500 text-sm">
-        {error}
-      </div>
-    );
-  }
-
   return (
     <div className="relative">
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-brand-bg/90 z-20 text-gray-400 text-sm">
+          {error}
+        </div>
+      )}
       {/* Timeframe selector */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
         <div className="flex items-center gap-2">
