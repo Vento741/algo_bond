@@ -9,16 +9,6 @@ from app.celery_app import celery
 
 logger = logging.getLogger(__name__)
 
-_loop = None
-
-
-def _get_loop() -> asyncio.AbstractEventLoop:
-    """Получить или создать persistent event loop для Celery worker."""
-    global _loop
-    if _loop is None or _loop.is_closed():
-        _loop = asyncio.new_event_loop()
-    return _loop
-
 
 async def _run_backtest(run_id: uuid.UUID) -> dict:
     """Выполнить бэктест: загрузить свечи → стратегия → движок → сохранить результат."""
@@ -184,16 +174,12 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
 
 @celery.task(name="backtest.run_backtest", bind=True, max_retries=0)
 def run_backtest_task(self: Any, run_id: str) -> dict:
-    """Celery task: запустить бэктест.
-
-    Обёртка над async _run_backtest.
-    """
-    # Импорт ВСЕХ моделей ДО запуска async — для SQLAlchemy mapper resolution
+    """Celery task: запустить бэктест."""
+    # Импорт ВСЕХ моделей для SQLAlchemy mapper resolution
     import app.modules.auth.models  # noqa: F401
     import app.modules.billing.models  # noqa: F401
     import app.modules.strategy.models  # noqa: F401
     import app.modules.trading.models  # noqa: F401
     import app.modules.backtest.models  # noqa: F401
 
-    loop = _get_loop()
-    return loop.run_until_complete(_run_backtest(uuid.UUID(run_id)))
+    return asyncio.run(_run_backtest(uuid.UUID(run_id)))

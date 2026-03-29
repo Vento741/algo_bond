@@ -9,34 +9,22 @@ from app.celery_app import celery
 
 logger = logging.getLogger(__name__)
 
-_loop = None
-
-
-def _get_loop() -> asyncio.AbstractEventLoop:
-    """Получить или создать persistent event loop для Celery worker."""
-    global _loop
-    if _loop is None or _loop.is_closed():
-        _loop = asyncio.new_event_loop()
-    return _loop
-
-
-@celery.task(name="trading.run_bot_cycle", bind=True, max_retries=0)
-def run_bot_cycle_task(self: Any, bot_id: str) -> dict:
-    """Celery task: один цикл торгового бота.
-
-    Обёртка над async run_bot_cycle — запускает через persistent event loop.
-    Принимает bot_id как строку (Celery JSON-сериализация).
-    """
-    # Импорт ВСЕХ модулей моделей для резолва SQLAlchemy relationships
+def _import_all_models() -> None:
+    """Импорт всех модулей моделей для резолва SQLAlchemy relationships."""
     import app.modules.auth.models  # noqa: F401
     import app.modules.billing.models  # noqa: F401
     import app.modules.strategy.models  # noqa: F401
     import app.modules.trading.models  # noqa: F401
     import app.modules.backtest.models  # noqa: F401
+
+
+@celery.task(name="trading.run_bot_cycle", bind=True, max_retries=0)
+def run_bot_cycle_task(self: Any, bot_id: str) -> dict:
+    """Celery task: один цикл торгового бота."""
+    _import_all_models()
     from app.modules.trading.bot_worker import run_bot_cycle
 
-    loop = _get_loop()
-    return loop.run_until_complete(run_bot_cycle(uuid.UUID(bot_id)))
+    return asyncio.run(run_bot_cycle(uuid.UUID(bot_id)))
 
 
 async def _fetch_running_bot_ids() -> list[str]:
@@ -55,14 +43,9 @@ async def _fetch_running_bot_ids() -> list[str]:
 
 @celery.task(name="trading.run_active_bots")
 def run_active_bots_task() -> dict:
-    """Периодическая задача: запустить цикл для всех активных ботов.
-
-    Вызывается Celery Beat каждые 5 минут.
-    Получает все боты со статусом RUNNING и диспатчит
-    run_bot_cycle_task для каждого из них.
-    """
-    loop = _get_loop()
-    bot_ids = loop.run_until_complete(_fetch_running_bot_ids())
+    """Периодическая задача: запустить цикл для всех активных ботов."""
+    _import_all_models()
+    bot_ids = asyncio.run(_fetch_running_bot_ids())
 
     for bot_id in bot_ids:
         run_bot_cycle_task.delay(bot_id)
