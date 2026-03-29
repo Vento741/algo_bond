@@ -4,12 +4,17 @@ import enum
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.modules.auth.models import ExchangeAccount
+    from app.modules.strategy.models import StrategyConfig
 
 
 # === Enums ===
@@ -106,6 +111,12 @@ class Bot(Base):
     )
 
     # Связи (однонаправленные — не модифицируем User/StrategyConfig/ExchangeAccount)
+    strategy_config: Mapped["StrategyConfig"] = relationship(
+        "StrategyConfig", foreign_keys=[strategy_config_id], lazy="selectin"
+    )
+    exchange_account: Mapped["ExchangeAccount"] = relationship(
+        "ExchangeAccount", foreign_keys=[exchange_account_id], lazy="selectin"
+    )
     orders: Mapped[list["Order"]] = relationship(
         back_populates="bot", cascade="all, delete-orphan"
     )

@@ -3,6 +3,7 @@
 # --- Monkey-patch: passlib + bcrypt 4.x/5.x совместимость ---
 # passlib не обновляется и ломается с bcrypt>=4.1 (нет __about__.__version__).
 # Патчим ДО любого импорта passlib.
+import os
 import types
 
 import bcrypt as _bcrypt_module
@@ -10,6 +11,12 @@ import bcrypt as _bcrypt_module
 if not hasattr(_bcrypt_module, "__about__"):
     _about = types.SimpleNamespace(__version__=getattr(_bcrypt_module, "__version__", "5.0.0"))
     _bcrypt_module.__about__ = _about
+
+# --- Fernet encryption key для тестов ---
+# Устанавливаем до импорта app.config.settings
+os.environ.setdefault(
+    "ENCRYPTION_KEY", "oPQzU1kJKtMupq8qe5cdSJ2u5kDoiRxnDXwVIeNECIY="
+)
 
 import asyncio
 import uuid
@@ -38,8 +45,8 @@ from app.database import Base, get_db
 from app.main import app as fastapi_app
 from app.modules.auth.models import User, UserRole, UserSettings
 
-# Тестовая БД — SQLite async (in-memory)
-TEST_DATABASE_URL = "sqlite+aiosqlite://"
+# Тестовая БД — SQLite async (in-memory, shared cache для доступа из нескольких сессий)
+TEST_DATABASE_URL = "sqlite+aiosqlite:///file:testdb?mode=memory&cache=shared&uri=true"
 
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
 test_session = async_sessionmaker(
