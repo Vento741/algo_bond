@@ -188,5 +188,12 @@ def run_backtest_task(self: Any, run_id: str) -> dict:
 
     Обёртка над async _run_backtest.
     """
+    # Импорт ВСЕХ моделей ДО запуска async — для SQLAlchemy mapper resolution
+    import app.modules.auth.models  # noqa: F401
+    import app.modules.billing.models  # noqa: F401
+    import app.modules.strategy.models  # noqa: F401
+    import app.modules.trading.models  # noqa: F401
+    import app.modules.backtest.models  # noqa: F401
+
     loop = _get_loop()
     return loop.run_until_complete(_run_backtest(uuid.UUID(run_id)))
