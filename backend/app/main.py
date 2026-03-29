@@ -10,6 +10,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.billing.router import router as billing_router
 from app.modules.market.router import router as market_router
 from app.modules.strategy.router import router as strategy_router
+from app.modules.backtest.router import router as backtest_router
 from app.modules.trading.router import router as trading_router
 
 
@@ -46,6 +47,7 @@ app.include_router(billing_router)
 app.include_router(strategy_router)
 app.include_router(market_router)
 app.include_router(trading_router)
+app.include_router(backtest_router)
 
 
 @app.get("/health")

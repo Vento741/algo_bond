@@ -38,6 +38,7 @@ SQLiteTypeCompiler.visit_JSONB = lambda self, type_, **kw: "JSON"
 import app.modules.billing.models  # noqa: F401
 import app.modules.market.models  # noqa: F401
 import app.modules.strategy.models  # noqa: F401
+import app.modules.backtest.models  # noqa: F401
 import app.modules.trading.models  # noqa: F401
 
 from app.core.security import create_access_token, hash_password
