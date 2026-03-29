@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from sqlalchemy import select
 
 from app.database import async_session
+from app.modules.auth.models import User  # noqa: F401 — нужен для relationship resolution
 from app.modules.billing.models import Plan
 
 PLANS = [
