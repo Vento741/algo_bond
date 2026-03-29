@@ -102,7 +102,10 @@ export function useMarketStream(
     return () => {
       unmountedRef.current = true;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      wsRef.current?.close();
+      // Закрываем только если соединение открыто (не CONNECTING)
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+      }
       wsRef.current = null;
     };
   }, [connect]);

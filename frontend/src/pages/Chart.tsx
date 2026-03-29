@@ -86,20 +86,7 @@ export function Chart() {
       .finally(() => setLoading(false));
   }, [symbol, interval]);
 
-  // Добавляем real-time свечу
-  useEffect(() => {
-    if (!lastKline) return;
-    setKlines((prev) => {
-      const copy = [...prev];
-      const lastIdx = copy.length - 1;
-      if (lastIdx >= 0 && copy[lastIdx].time === lastKline.time) {
-        copy[lastIdx] = lastKline;
-      } else {
-        copy.push(lastKline);
-      }
-      return copy;
-    });
-  }, [lastKline]);
+  // lastKline передаётся напрямую в TradingChart через prop (без setKlines)
 
   const handleSymbolChange = useCallback(
     (val: string) => {
@@ -189,6 +176,7 @@ export function Chart() {
               symbol={symbol}
               interval={interval}
               initialData={klines}
+              lastKline={lastKline}
               onCrosshairMove={setCrosshair}
             />
           )}

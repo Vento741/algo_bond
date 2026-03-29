@@ -25,6 +25,7 @@ interface TradingChartProps {
   symbol: string;
   interval: string;
   initialData?: KlineData[];
+  lastKline?: KlineData | null;
   onCrosshairMove?: (params: {
     time: number | null;
     price: number | null;
@@ -61,6 +62,7 @@ export function TradingChart({
   symbol: _symbol,
   interval: _interval,
   initialData,
+  lastKline,
   onCrosshairMove,
 }: TradingChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -168,7 +170,7 @@ export function TradingChart({
     };
   }, [handleCrosshair]);
 
-  // Загрузка данных
+  // Загрузка исторических данных (только при смене symbol/interval)
   useEffect(() => {
     if (!initialData || initialData.length === 0) return;
     const sorted = [...initialData].sort((a, b) => a.time - b.time);
@@ -176,6 +178,13 @@ export function TradingChart({
     volumeSeriesRef.current?.setData(sorted.map(toVolume));
     chartRef.current?.timeScale().fitContent();
   }, [initialData]);
+
+  // Real-time обновление последней свечи (без сброса зума)
+  useEffect(() => {
+    if (!lastKline) return;
+    candleSeriesRef.current?.update(toCandlestick(lastKline));
+    volumeSeriesRef.current?.update(toVolume(lastKline));
+  }, [lastKline]);
 
   return (
     <div

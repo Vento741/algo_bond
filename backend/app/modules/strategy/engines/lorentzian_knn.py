@@ -259,7 +259,10 @@ class LorentzianKNNStrategy(BaseStrategy):
         of_filter_long = np.ones(n, dtype=bool)
         of_filter_short = np.ones(n, dtype=bool)
         if use_order_flow:
-            vwap_line, _ = vwap_bands(data.high, data.low, data.close, data.volume)
+            vwap_line, _ = vwap_bands(
+                data.high, data.low, data.close, data.volume,
+                timestamps=data.timestamps, cvd_length=cvd_period,
+            )
             of_bull, of_bear = order_flow_signals(
                 data.open, data.close, data.volume, vwap_line, cvd_period, cvd_threshold
             )
@@ -364,46 +367,115 @@ class LorentzianKNNStrategy(BaseStrategy):
         short_condition = (trend_short | breakout_short | mr_short) & ribbon_filter_short & of_filter_short & smc_filter_short
 
         # --- Generate Signals ---
+        # Pine Script: полная симуляция SL/TP/Trailing Stop на каждом баре.
+        # Старая логика выходила только по противоположному сигналу — неверно.
         signals: list[Signal] = []
         in_position = False
+        position_side: str = ""
+        stop_loss_price: float = 0.0
+        take_profit_price: float = 0.0
+        current_trailing_stop: float = 0.0
+        trailing_atr_value: float = 0.0
 
         for i in range(n):
             if np.isnan(atr_vals[i]):
                 continue
 
+            # --- Проверка SL/TP/Trailing для открытой позиции ---
+            if in_position:
+                if position_side == "long":
+                    # Trailing stop: подтягиваем вверх вслед за ценой
+                    if use_trailing and trailing_atr_value > 0:
+                        new_trail = float(data.close[i]) - trailing_atr_value
+                        if new_trail > current_trailing_stop:
+                            current_trailing_stop = new_trail
+                        # Trailing stop hit: low пробивает trailing
+                        if float(data.low[i]) <= current_trailing_stop:
+                            in_position = False
+                            continue
+                    # Stop-loss hit
+                    if float(data.low[i]) <= stop_loss_price:
+                        in_position = False
+                        continue
+                    # Take-profit hit
+                    if float(data.high[i]) >= take_profit_price:
+                        in_position = False
+                        continue
+                    # Противоположный сигнал — тоже закрытие
+                    if short_condition[i]:
+                        in_position = False
+                        # Не continue — позволяем открыть short на этом же баре
+
+                elif position_side == "short":
+                    # Trailing stop: подтягиваем вниз вслед за ценой
+                    if use_trailing and trailing_atr_value > 0:
+                        new_trail = float(data.close[i]) + trailing_atr_value
+                        if new_trail < current_trailing_stop:
+                            current_trailing_stop = new_trail
+                        # Trailing stop hit: high пробивает trailing
+                        if float(data.high[i]) >= current_trailing_stop:
+                            in_position = False
+                            continue
+                    # Stop-loss hit
+                    if float(data.high[i]) >= stop_loss_price:
+                        in_position = False
+                        continue
+                    # Take-profit hit
+                    if float(data.low[i]) <= take_profit_price:
+                        in_position = False
+                        continue
+                    # Противоположный сигнал — закрытие
+                    if long_condition[i]:
+                        in_position = False
+
+            # --- Открытие новой позиции ---
             if not in_position and long_condition[i]:
                 sig_type = "trend" if trend_long[i] else "breakout" if breakout_long[i] else "mean_reversion"
+                entry = float(data.close[i])
+                sl = float(data.close[i] - atr_vals[i] * stop_atr_mult)
+                tp = float(data.close[i] + atr_vals[i] * tp_atr_mult)
+                trail = float(atr_vals[i] * trailing_atr_mult) if use_trailing else None
                 signals.append(Signal(
                     bar_index=i,
                     direction="long",
-                    entry_price=float(data.close[i]),
-                    stop_loss=float(data.close[i] - atr_vals[i] * stop_atr_mult),
-                    take_profit=float(data.close[i] + atr_vals[i] * tp_atr_mult),
-                    trailing_atr=float(atr_vals[i] * trailing_atr_mult) if use_trailing else None,
+                    entry_price=entry,
+                    stop_loss=sl,
+                    take_profit=tp,
+                    trailing_atr=trail,
                     confluence_score=float(score_long[i]),
                     signal_type=sig_type,
                 ))
                 in_position = True
+                position_side = "long"
+                stop_loss_price = sl
+                take_profit_price = tp
+                trailing_atr_value = trail if trail is not None else 0.0
+                # Начальный trailing stop = entry - ATR*mult
+                current_trailing_stop = entry - trailing_atr_value if use_trailing else 0.0
 
             elif not in_position and short_condition[i]:
                 sig_type = "trend" if trend_short[i] else "breakout" if breakout_short[i] else "mean_reversion"
+                entry = float(data.close[i])
+                sl = float(data.close[i] + atr_vals[i] * stop_atr_mult)
+                tp = float(data.close[i] - atr_vals[i] * tp_atr_mult)
+                trail = float(atr_vals[i] * trailing_atr_mult) if use_trailing else None
                 signals.append(Signal(
                     bar_index=i,
                     direction="short",
-                    entry_price=float(data.close[i]),
-                    stop_loss=float(data.close[i] + atr_vals[i] * stop_atr_mult),
-                    take_profit=float(data.close[i] - atr_vals[i] * tp_atr_mult),
-                    trailing_atr=float(atr_vals[i] * trailing_atr_mult) if use_trailing else None,
+                    entry_price=entry,
+                    stop_loss=sl,
+                    take_profit=tp,
+                    trailing_atr=trail,
                     confluence_score=float(score_short[i]),
                     signal_type=sig_type,
                 ))
                 in_position = True
-
-            elif in_position:
-                if signals[-1].direction == "long" and short_condition[i]:
-                    in_position = False
-                elif signals[-1].direction == "short" and long_condition[i]:
-                    in_position = False
+                position_side = "short"
+                stop_loss_price = sl
+                take_profit_price = tp
+                trailing_atr_value = trail if trail is not None else 0.0
+                # Начальный trailing stop = entry + ATR*mult
+                current_trailing_stop = entry + trailing_atr_value if use_trailing else float("inf")
 
         return StrategyResult(
             signals=signals,
