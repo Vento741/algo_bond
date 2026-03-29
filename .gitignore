@@ -63,3 +63,11 @@ coverage.xml
 # Celery
 celerybeat-schedule
 celerybeat.pid
+
+# Проектные файлы (не для GitHub)
+CLAUDE.md
+CHANGELOG.md
+strategis_1.pine
+scripts/
+docs/
+.claude/
