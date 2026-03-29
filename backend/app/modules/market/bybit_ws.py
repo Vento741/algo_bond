@@ -107,6 +107,7 @@ class BybitWebSocketPrivate:
         demo: bool = False,
     ) -> None:
         self._ws = WebSocket(
+            testnet=False,
             demo=demo,
             channel_type="private",
             api_key=api_key or settings.bybit_api_key,
