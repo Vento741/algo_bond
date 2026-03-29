@@ -58,8 +58,11 @@ export function useMarketStream(
         const msg: MarketMessage = JSON.parse(event.data);
         if (msg.type === 'kline') {
           const d = msg.data;
+          // Bybit WS может отдавать timestamp в ms — конвертируем в секунды
+          const rawTs = Number(d.timestamp ?? d.time ?? d.start);
+          const timeSec = rawTs > 1e12 ? Math.floor(rawTs / 1000) : rawTs;
           const kline: KlineData = {
-            time: Number(d.time),
+            time: timeSec,
             open: Number(d.open),
             high: Number(d.high),
             low: Number(d.low),

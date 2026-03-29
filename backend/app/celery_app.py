@@ -21,6 +21,13 @@ celery.conf.update(
     worker_prefetch_multiplier=1,
 )
 
+celery.conf.beat_schedule = {
+    "run-active-bots": {
+        "task": "trading.run_active_bots",
+        "schedule": 300.0,  # каждые 5 минут
+    },
+}
+
 celery.autodiscover_tasks([
     "app.modules.trading",
     "app.modules.backtest",

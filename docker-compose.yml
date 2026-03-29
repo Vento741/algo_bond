@@ -54,6 +54,18 @@ services:
       - db
     restart: unless-stopped
 
+  celery-beat:
+    build: ./backend
+    container_name: algobond-beat
+    command: celery -A app.celery_app beat --loglevel=info
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    restart: unless-stopped
+
   flower:
     build: ./backend
     container_name: algobond-flower

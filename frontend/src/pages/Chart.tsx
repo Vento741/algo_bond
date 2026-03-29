@@ -63,14 +63,19 @@ export function Chart() {
       })
       .then(({ data }) => {
         const mapped: KlineData[] = (data as Record<string, unknown>[]).map(
-          (d: Record<string, unknown>) => ({
-            time: Number(d.time ?? d.open_time ?? d.t),
-            open: Number(d.open ?? d.o),
-            high: Number(d.high ?? d.h),
-            low: Number(d.low ?? d.l),
-            close: Number(d.close ?? d.c),
-            volume: Number(d.volume ?? d.v ?? 0),
-          }),
+          (d: Record<string, unknown>) => {
+            // Bybit отдаёт timestamp в миллисекундах, lightweight-charts ожидает секунды
+            const rawTs = Number(d.timestamp ?? d.time ?? d.open_time ?? d.t);
+            const timeSec = rawTs > 1e12 ? Math.floor(rawTs / 1000) : rawTs;
+            return {
+              time: timeSec,
+              open: Number(d.open ?? d.o),
+              high: Number(d.high ?? d.h),
+              low: Number(d.low ?? d.l),
+              close: Number(d.close ?? d.c),
+              volume: Number(d.volume ?? d.v ?? 0),
+            };
+          },
         );
         setKlines(mapped);
       })

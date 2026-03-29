@@ -12,12 +12,14 @@ import { useAuthStore } from '@/stores/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
-import type { Strategy } from '@/types/api';
+import type { Strategy, BotResponse } from '@/types/api';
 
 export function Dashboard() {
   const { user } = useAuthStore();
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [loadingStrategies, setLoadingStrategies] = useState(true);
+  const [bots, setBots] = useState<BotResponse[]>([]);
+  const [loadingBots, setLoadingBots] = useState(true);
 
   useEffect(() => {
     api
@@ -27,7 +29,23 @@ export function Dashboard() {
         /* нет стратегий — не критично */
       })
       .finally(() => setLoadingStrategies(false));
+
+    api
+      .get('/trading/bots')
+      .then(({ data }) => setBots(data))
+      .catch(() => {
+        /* нет ботов — не критично */
+      })
+      .finally(() => setLoadingBots(false));
   }, []);
+
+  const activeBots = bots.filter((b) => b.status === 'running').length;
+  const totalPnl = bots.reduce((sum, b) => sum + Number(b.total_pnl), 0);
+  const totalTrades = bots.reduce((sum, b) => sum + b.total_trades, 0);
+
+  const pnlFormatted = `${totalPnl >= 0 ? '+' : ''}$${Math.abs(totalPnl).toFixed(2)}`;
+  const pnlColor = totalPnl > 0 ? 'text-brand-profit' : totalPnl < 0 ? 'text-brand-loss' : 'text-gray-400';
+  const pnlBg = totalPnl > 0 ? 'bg-brand-profit/10' : totalPnl < 0 ? 'bg-brand-loss/10' : 'bg-gray-500/10';
 
   const quickStats = [
     {
@@ -39,21 +57,21 @@ export function Dashboard() {
     },
     {
       title: 'Активные боты',
-      value: '0',
+      value: loadingBots ? '...' : String(activeBots),
       icon: Bot,
       color: 'text-brand-profit',
       bgColor: 'bg-brand-profit/10',
     },
     {
-      title: 'Дневной P&L',
-      value: '$0.00',
+      title: 'Общий P&L',
+      value: loadingBots ? '...' : pnlFormatted,
       icon: TrendingUp,
-      color: 'text-gray-400',
-      bgColor: 'bg-gray-500/10',
+      color: loadingBots ? 'text-gray-400' : pnlColor,
+      bgColor: loadingBots ? 'bg-gray-500/10' : pnlBg,
     },
     {
-      title: 'Сигналы (24ч)',
-      value: '0',
+      title: 'Всего сделок',
+      value: loadingBots ? '...' : String(totalTrades),
       icon: Activity,
       color: 'text-brand-premium',
       bgColor: 'bg-brand-premium/10',

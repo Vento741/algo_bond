@@ -8,6 +8,7 @@ import { StrategyDetail } from '@/pages/StrategyDetail';
 import { Chart } from '@/pages/Chart';
 import { Bots } from '@/pages/Bots';
 import { Backtest } from '@/pages/Backtest';
+import { Settings } from '@/pages/Settings';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ToastProvider } from '@/components/ui/toast';
@@ -37,7 +38,7 @@ function App() {
             <Route path="/chart" element={<Chart />} />
             <Route path="/bots" element={<Bots />} />
             <Route path="/backtest" element={<Backtest />} />
-            <Route path="/settings" element={<ComingSoon title="Настройки" />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
 
           {/* Fallback */}
@@ -45,16 +46,6 @@ function App() {
         </Routes>
       </BrowserRouter>
     </ToastProvider>
-  );
-}
-
-/** Страница-заглушка для будущих разделов */
-function ComingSoon({ title }: { title: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-20">
-      <h1 className="text-2xl font-bold text-white mb-2">{title}</h1>
-      <p className="text-gray-400">Этот раздел скоро будет доступен</p>
-    </div>
   );
 }
 

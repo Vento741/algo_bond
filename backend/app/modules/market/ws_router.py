@@ -5,14 +5,20 @@ Endpoints:
 - /ws/trading — приватный: order + position updates (требует JWT)
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from jose import JWTError
 
 from app.core.security import decode_token
 from app.modules.market.ws_manager import manager
+
+if TYPE_CHECKING:
+    from app.modules.market.bybit_ws import BybitWebSocketPublic
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +55,10 @@ async def market_stream(
                 await websocket.send_text("pong")
     except WebSocketDisconnect:
         manager.disconnect(websocket, channel)
+        _cleanup_stream_if_empty(channel)
     except Exception:
         manager.disconnect(websocket, channel)
+        _cleanup_stream_if_empty(channel)
 
 
 @router.websocket("/ws/trading")
@@ -88,21 +96,22 @@ async def trading_stream(
                 await websocket.send_text("pong")
     except WebSocketDisconnect:
         manager.disconnect(websocket, channel)
+        _cleanup_stream_if_empty(channel)
     except Exception:
         manager.disconnect(websocket, channel)
+        _cleanup_stream_if_empty(channel)
 
 
 # === Bybit Stream Integration ===
 
-_active_streams: dict[str, bool] = {}
+# channel → экземпляр BybitWebSocketPublic (None если стрим не Bybit, напр. trading)
+_active_streams: dict[str, BybitWebSocketPublic | None] = {}
 
 
 def _start_bybit_stream(symbol: str, interval: int, channel: str) -> None:
     """Запустить Bybit WebSocket подписку для канала."""
     if channel in _active_streams:
         return
-
-    _active_streams[channel] = True
 
     # Сохраняем running loop — вызывается из async контекста (WebSocket endpoint)
     loop = asyncio.get_running_loop()
@@ -128,8 +137,36 @@ def _start_bybit_stream(symbol: str, interval: int, channel: str) -> None:
 
         ws.subscribe_kline(symbol, interval, on_kline)
         ws.subscribe_ticker(symbol, on_ticker)
+
+        # Сохраняем экземпляр для последующего закрытия
+        _active_streams[channel] = ws
         logger.info("Started Bybit stream for %s (interval=%d)", symbol, interval)
 
     except Exception:
         logger.exception("Failed to start Bybit stream for %s", symbol)
         _active_streams.pop(channel, None)
+
+
+def _stop_bybit_stream(channel: str) -> None:
+    """Остановить Bybit WebSocket подписку для канала.
+
+    Вызывает close() на экземпляре BybitWebSocketPublic и удаляет запись из
+    _active_streams. Безопасно вызывать повторно — если канал уже удалён,
+    ничего не произойдёт.
+    """
+    ws = _active_streams.pop(channel, None)
+    if ws is None:
+        return
+
+    try:
+        ws.close()
+    except Exception:
+        logger.exception("Ошибка при закрытии Bybit стрима для канала %s", channel)
+
+    logger.info("Stopped Bybit stream for channel %s", channel)
+
+
+def _cleanup_stream_if_empty(channel: str) -> None:
+    """Проверить количество клиентов и остановить стрим, если никого не осталось."""
+    if manager.get_client_count(channel) == 0 and channel in _active_streams:
+        _stop_bybit_stream(channel)

@@ -9,6 +9,8 @@ import {
   Target,
   Shield,
   Percent,
+  AlertCircle,
+  Settings2,
 } from 'lucide-react';
 import {
   createChart,
@@ -31,6 +33,13 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import api from '@/lib/api';
+import type {
+  StrategyConfig,
+  BacktestRunResponse,
+  BacktestResultResponse,
+  BacktestResultTradeEntry,
+  BacktestStatus,
+} from '@/types/api';
 
 /* ---- Types ---- */
 
@@ -59,9 +68,75 @@ interface BacktestResult {
   }[];
 }
 
+/* ---- Timeframe mapping ---- */
+
+const TIMEFRAME_OPTIONS = [
+  { value: '5m', label: '5m' },
+  { value: '15m', label: '15m' },
+  { value: '1h', label: '1h' },
+  { value: '4h', label: '4h' },
+] as const;
+
+const TIMEFRAME_TO_BACKEND: Record<string, string> = {
+  '5m': '5',
+  '15m': '15',
+  '1h': '60',
+  '4h': '240',
+};
+
+/* ---- Backend response mapping ---- */
+
+function mapBackendResultToUI(
+  res: BacktestResultResponse,
+): BacktestResult {
+  const trades = res.trades_log.map(
+    (t: BacktestResultTradeEntry, idx: number) => ({
+      id: idx + 1,
+      side: (t.direction === 'long' ? 'long' : 'short') as 'long' | 'short',
+      entry_time: `bar ${t.entry_bar}`,
+      exit_time: `bar ${t.exit_bar} (${t.exit_reason})`,
+      entry_price: t.entry_price,
+      exit_price: t.exit_price,
+      pnl: t.pnl,
+      pnl_pct: t.pnl_pct,
+    }),
+  );
+
+  const pnls = trades.map((t) => t.pnl);
+  const avgTradePnl = pnls.length > 0 ? pnls.reduce((a, b) => a + b, 0) / pnls.length : 0;
+  const bestTrade = pnls.length > 0 ? Math.max(...pnls) : 0;
+  const worstTrade = pnls.length > 0 ? Math.min(...pnls) : 0;
+
+  const equityCurve = res.equity_curve.map((pt) => ({
+    time: pt.timestamp,
+    equity: pt.equity,
+  }));
+
+  return {
+    metrics: {
+      total_trades: res.total_trades,
+      win_rate: Number(res.win_rate) * 100,
+      profit_factor: Number(res.profit_factor),
+      total_pnl: Number(res.total_pnl),
+      max_drawdown: Number(res.max_drawdown),
+      sharpe_ratio: Number(res.sharpe_ratio),
+      avg_trade_pnl: +avgTradePnl.toFixed(2),
+      best_trade: +bestTrade.toFixed(2),
+      worst_trade: +worstTrade.toFixed(2),
+    },
+    equity_curve: equityCurve,
+    trades,
+  };
+}
+
 /* ---- Component ---- */
 
 export function Backtest() {
+  // Strategy configs
+  const [configs, setConfigs] = useState<StrategyConfig[]>([]);
+  const [configsLoading, setConfigsLoading] = useState(true);
+  const [selectedConfigId, setSelectedConfigId] = useState('');
+
   // Form state
   const [symbol, setSymbol] = useState('BTCUSDT');
   const [timeframe, setTimeframe] = useState('5m');
@@ -72,24 +147,128 @@ export function Backtest() {
   // Result state
   const [result, setResult] = useState<BacktestResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [runStatus, setRunStatus] = useState<BacktestStatus | null>(null);
+  const [runProgress, setRunProgress] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const runBacktest = () => {
-    setLoading(true);
+  // Polling ref for cleanup
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Fetch user's strategy configs on mount
+  useEffect(() => {
     api
-      .post('/backtest/run', {
-        symbol,
-        timeframe,
-        start_date: startDate,
-        end_date: endDate,
-        initial_capital: Number(initialCapital),
+      .get<StrategyConfig[]>('/strategies/configs/my')
+      .then(({ data }) => {
+        setConfigs(data);
+        if (data.length > 0) {
+          setSelectedConfigId(data[0].id);
+        }
       })
-      .then(({ data }) => setResult(data as BacktestResult))
       .catch(() => {
-        // Demo fallback
-        setResult(generateDemoResult(Number(initialCapital)));
+        setConfigs([]);
       })
-      .finally(() => setLoading(false));
+      .finally(() => setConfigsLoading(false));
+  }, []);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, []);
+
+  const pollRunStatus = useCallback(
+    (runId: string): Promise<BacktestRunResponse> => {
+      return new Promise((resolve, reject) => {
+        const poll = setInterval(async () => {
+          try {
+            const { data: run } = await api.get<BacktestRunResponse>(
+              `/backtest/runs/${runId}`,
+            );
+            setRunStatus(run.status);
+            setRunProgress(run.progress);
+
+            if (run.status === 'completed') {
+              clearInterval(poll);
+              pollingRef.current = null;
+              resolve(run);
+            } else if (run.status === 'failed') {
+              clearInterval(poll);
+              pollingRef.current = null;
+              reject(new Error(run.error_message ?? 'Бэктест завершился с ошибкой'));
+            }
+          } catch (err) {
+            clearInterval(poll);
+            pollingRef.current = null;
+            reject(err);
+          }
+        }, 2000);
+        pollingRef.current = poll;
+      });
+    },
+    [],
+  );
+
+  const runBacktest = async () => {
+    if (!selectedConfigId) return;
+
+    setLoading(true);
+    setResult(null);
+    setErrorMessage(null);
+    setRunStatus('pending');
+    setRunProgress(0);
+
+    try {
+      // Step 1: Create run
+      const { data: run } = await api.post<BacktestRunResponse>('/backtest/runs', {
+        strategy_config_id: selectedConfigId,
+        symbol,
+        timeframe: TIMEFRAME_TO_BACKEND[timeframe] ?? timeframe,
+        start_date: `${startDate}T00:00:00Z`,
+        end_date: `${endDate}T23:59:59Z`,
+        initial_capital: Number(initialCapital),
+      });
+
+      setRunStatus(run.status);
+
+      // Step 2: Poll for completion
+      if (run.status === 'completed') {
+        // Already done (sync backtest)
+      } else if (run.status === 'failed') {
+        throw new Error(run.error_message ?? 'Бэктест завершился с ошибкой');
+      } else {
+        await pollRunStatus(run.id);
+      }
+
+      // Step 3: Fetch results
+      const { data: resultData } = await api.get<BacktestResultResponse>(
+        `/backtest/runs/${run.id}/result`,
+      );
+
+      const mapped = mapBackendResultToUI(resultData);
+      setResult(mapped);
+      setRunStatus('completed');
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Неизвестная ошибка';
+      setErrorMessage(message);
+
+      // Demo fallback
+      setResult(generateDemoResult(Number(initialCapital)));
+      setRunStatus(null);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const configOptions = configs.map((c) => ({
+    value: c.id,
+    label: `${c.name} (${c.symbol} / ${c.timeframe})`,
+  }));
+
+  const hasNoConfigs = !configsLoading && configs.length === 0;
 
   return (
     <div className="space-y-6">
@@ -101,10 +280,58 @@ export function Backtest() {
         </p>
       </div>
 
+      {/* No configs warning */}
+      {hasNoConfigs && (
+        <Card className="border-brand-premium/20 bg-brand-premium/5">
+          <CardContent className="p-5 flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-brand-premium shrink-0 mt-0.5" />
+            <div>
+              <p className="text-white font-medium">
+                Нет конфигураций стратегий
+              </p>
+              <p className="text-gray-400 text-sm mt-1">
+                Для запуска бэктеста нужна конфигурация стратегии. Создайте её
+                на странице{' '}
+                <a
+                  href="/strategies"
+                  className="text-brand-premium hover:underline"
+                >
+                  Стратегии
+                </a>
+                .
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Config form */}
       <Card className="border-white/5 bg-white/[0.02]">
         <CardContent className="p-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4 items-end">
+            <div className="lg:col-span-2">
+              <label className="text-xs text-gray-400 block mb-1.5 flex items-center gap-1">
+                <Settings2 className="h-3 w-3" />
+                Конфигурация стратегии
+              </label>
+              {configsLoading ? (
+                <div className="flex h-9 items-center rounded-md border border-white/10 bg-white/5 px-3">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-500" />
+                  <span className="ml-2 text-sm text-gray-500">Загрузка...</span>
+                </div>
+              ) : configs.length > 0 ? (
+                <Select
+                  value={selectedConfigId}
+                  onChange={setSelectedConfigId}
+                  options={configOptions}
+                  className="w-full"
+                />
+              ) : (
+                <div className="flex h-9 items-center rounded-md border border-white/10 bg-white/5 px-3">
+                  <span className="text-sm text-gray-500">Нет конфигураций</span>
+                </div>
+              )}
+            </div>
             <div>
               <label className="text-xs text-gray-400 block mb-1.5">Символ</label>
               <Select
@@ -124,12 +351,7 @@ export function Backtest() {
               <Select
                 value={timeframe}
                 onChange={setTimeframe}
-                options={[
-                  { value: '5m', label: '5m' },
-                  { value: '15m', label: '15m' },
-                  { value: '1h', label: '1h' },
-                  { value: '4h', label: '4h' },
-                ]}
+                options={[...TIMEFRAME_OPTIONS]}
                 className="w-full"
               />
             </div>
@@ -160,23 +382,54 @@ export function Backtest() {
                 className="bg-white/5 border-white/10 text-white font-mono"
               />
             </div>
-            <div>
-              <Button
-                onClick={runBacktest}
-                disabled={loading}
-                className="w-full bg-brand-premium text-brand-bg hover:bg-brand-premium/90"
-              >
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Play className="mr-2 h-4 w-4" />
-                    Запуск
-                  </>
-                )}
-              </Button>
-            </div>
           </div>
+
+          {/* Run button — full width row below on small screens, inline on large */}
+          <div className="mt-4 flex items-center gap-4">
+            <Button
+              onClick={runBacktest}
+              disabled={loading || !selectedConfigId}
+              className="bg-brand-premium text-brand-bg hover:bg-brand-premium/90 min-w-[140px]"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  Запуск
+                </>
+              )}
+            </Button>
+
+            {/* Progress indicator */}
+            {loading && runStatus && (
+              <div className="flex items-center gap-2 text-sm">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-premium" />
+                <span className="text-gray-400">
+                  {runStatus === 'pending' && 'Запуск бэктеста...'}
+                  {runStatus === 'running' &&
+                    `Вычисление... ${runProgress}%`}
+                  {runStatus === 'completed' && 'Загрузка результатов...'}
+                </span>
+                {runStatus === 'running' && (
+                  <div className="w-32 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-brand-premium rounded-full transition-all duration-300"
+                      style={{ width: `${runProgress}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Error message */}
+          {errorMessage && (
+            <div className="mt-3 flex items-center gap-2 text-sm text-brand-loss">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              <span>{errorMessage} (показаны демо-данные)</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -311,7 +564,8 @@ export function Backtest() {
               Запустите бэктест
             </p>
             <p className="text-gray-500 text-sm mt-1">
-              Настройте параметры выше и нажмите "Запуск"
+              Выберите конфигурацию стратегии, настройте параметры и нажмите
+              "Запуск"
             </p>
           </CardContent>
         </Card>
