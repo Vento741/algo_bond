@@ -20,8 +20,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-algobond}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       POSTGRES_DB: ${POSTGRES_DB:-algobond}
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -34,8 +32,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: algobond-redis
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
