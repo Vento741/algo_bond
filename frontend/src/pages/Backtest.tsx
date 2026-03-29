@@ -795,6 +795,10 @@ function TradesChart({
 
   const initChart = useCallback(async () => {
     if (!containerRef.current) return;
+    // Ensure container has dimensions (lightweight-charts requires non-zero size)
+    if (containerRef.current.clientWidth === 0) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
 
     setLoading(true);
     setError(null);
@@ -936,17 +940,25 @@ function TradesChart({
         chart.remove();
       };
     } catch (err) {
-      setError('Не удалось загрузить данные для графика');
+      console.error('TradesChart error:', err);
+      setError(`Ошибка графика: ${err instanceof Error ? err.message : String(err)}`);
       setLoading(false);
     }
   }, [symbol, activeTimeframe, trades]);
 
   useEffect(() => {
-    let cleanup: (() => void) | undefined;
+    let cancelled = false;
     initChart().then((fn) => {
-      cleanup = fn;
+      if (cancelled && fn) fn();
     });
-    return () => cleanup?.();
+    return () => {
+      cancelled = true;
+      // Cleanup chart directly via ref
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+      }
+    };
   }, [initChart]);
 
   return (
