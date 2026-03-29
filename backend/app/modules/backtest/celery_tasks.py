@@ -75,29 +75,39 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
             end_ms = int(run.end_date.timestamp() * 1000)
 
             all_candles: list[dict] = []
-            current_start = start_ms
+            current_end = end_ms
 
-            while current_start < end_ms:
+            # Bybit V5 kline API возвращает свечи ОТ end НАЗАД.
+            # Пагинация: уменьшаем end каждый раз.
+            while current_end > start_ms:
                 candles = await aio.to_thread(
                     client.get_klines,
                     run.symbol,
                     run.timeframe,
                     1000,
-                    start=current_start,
-                    end=end_ms,
+                    start=start_ms,
+                    end=current_end,
                 )
                 if not candles:
                     break
-                all_candles.extend(candles)
-                # Следующая страница — от последнего timestamp + 1
-                last_ts = candles[-1]["timestamp"]
-                if last_ts <= current_start:
-                    break
-                current_start = last_ts + 1
+                all_candles = candles + all_candles  # prepend (older data)
+                first_ts = candles[0]["timestamp"]
+                if first_ts <= start_ms:
+                    break  # достигли начала
+                current_end = first_ts - 1
 
                 # Обновить прогресс
-                progress = min(20 + int(50 * (current_start - start_ms) / max(end_ms - start_ms, 1)), 70)
+                progress = min(20 + int(50 * (end_ms - current_end) / max(end_ms - start_ms, 1)), 70)
                 await service.update_run_status(run_id, BacktestStatus.RUNNING, progress=progress)
+
+            # Дедупликация по timestamp
+            seen = set()
+            unique_candles: list[dict] = []
+            for c in all_candles:
+                if c["timestamp"] not in seen:
+                    seen.add(c["timestamp"])
+                    unique_candles.append(c)
+            all_candles = sorted(unique_candles, key=lambda c: c["timestamp"])
 
             if len(all_candles) < 100:
                 await service.update_run_status(
