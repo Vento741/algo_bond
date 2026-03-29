@@ -12,6 +12,8 @@ from app.modules.market.router import router as market_router
 from app.modules.strategy.router import router as strategy_router
 from app.modules.backtest.router import router as backtest_router
 from app.modules.trading.router import router as trading_router
+from app.modules.market.ws_router import router as ws_router
+from app.modules.market.ws_info_router import router as ws_info_router
 
 
 @asynccontextmanager
@@ -48,6 +50,8 @@ app.include_router(strategy_router)
 app.include_router(market_router)
 app.include_router(trading_router)
 app.include_router(backtest_router)
+app.include_router(ws_router)
+app.include_router(ws_info_router)
 
 
 @app.get("/health")
