@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# Среда разработки
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Переменные окружения
+.env
+.env.local
+.env.production
+
+# Node
+node_modules/
+frontend/dist/
+frontend/build/
+.npm
+.yarn
+
+# Docker
+docker-compose.override.yml
+
+# PostgreSQL данные
+pgdata/
+
+# Redis данные
+redis_data/
+
+# Логи
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Superpowers brainstorm (временные файлы)
+.superpowers/
+
+# Тестовое покрытие
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# MyPy
+.mypy_cache/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
