@@ -29,6 +29,7 @@ SQLiteTypeCompiler.visit_JSONB = lambda self, type_, **kw: "JSON"
 # Импортируем модели billing, чтобы Base.metadata знала про все таблицы
 # (до импорта app как FastAPI-инстанса, чтобы не было конфликта имён)
 import app.modules.billing.models  # noqa: F401
+import app.modules.market.models  # noqa: F401
 import app.modules.strategy.models  # noqa: F401
 
 from app.core.security import create_access_token, hash_password
