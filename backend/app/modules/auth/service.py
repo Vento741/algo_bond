@@ -48,6 +48,7 @@ class AuthService:
         user_settings = UserSettings(user_id=user.id)
         self.db.add(user_settings)
         await self.db.flush()
+        await self.db.commit()
 
         return user
 
@@ -84,6 +85,7 @@ class AuthService:
         if username is not None:
             user.username = username
         await self.db.flush()
+        await self.db.commit()
         return user
 
     # === Exchange Accounts ===
@@ -102,6 +104,7 @@ class AuthService:
         )
         self.db.add(account)
         await self.db.flush()
+        await self.db.commit()
         return account
 
     async def get_exchange_accounts(self, user_id: uuid.UUID) -> list[ExchangeAccount]:
@@ -125,6 +128,7 @@ class AuthService:
         if not account:
             raise NotFoundException("Аккаунт биржи не найден")
         await self.db.delete(account)
+        await self.db.commit()
 
     # === User Settings ===
 
@@ -147,4 +151,5 @@ class AuthService:
         for field, value in update_data.items():
             setattr(settings, field, value)
         await self.db.flush()
+        await self.db.commit()
         return settings

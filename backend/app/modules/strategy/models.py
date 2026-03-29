@@ -47,10 +47,10 @@ class StrategyConfig(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     strategy_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("strategies.id", ondelete="CASCADE")
+        UUID(as_uuid=True), ForeignKey("strategies.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(200))
     symbol: Mapped[str] = mapped_column(String(30), default="RIVERUSDT")

@@ -83,13 +83,13 @@ class Bot(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     strategy_config_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("strategy_configs.id", ondelete="CASCADE")
+        UUID(as_uuid=True), ForeignKey("strategy_configs.id", ondelete="CASCADE"), index=True
     )
     exchange_account_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("exchange_accounts.id", ondelete="CASCADE")
+        UUID(as_uuid=True), ForeignKey("exchange_accounts.id", ondelete="CASCADE"), index=True
     )
     status: Mapped[BotStatus] = mapped_column(
         Enum(BotStatus, name="bot_status"), default=BotStatus.STOPPED
@@ -137,7 +137,7 @@ class Order(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     bot_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("bots.id", ondelete="CASCADE")
+        UUID(as_uuid=True), ForeignKey("bots.id", ondelete="CASCADE"), index=True
     )
     exchange_order_id: Mapped[str | None] = mapped_column(
         String(100), nullable=True
@@ -175,7 +175,7 @@ class Position(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     bot_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("bots.id", ondelete="CASCADE")
+        UUID(as_uuid=True), ForeignKey("bots.id", ondelete="CASCADE"), index=True
     )
     symbol: Mapped[str] = mapped_column(String(30))
     side: Mapped[PositionSide] = mapped_column(
@@ -211,10 +211,10 @@ class TradeSignal(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     bot_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("bots.id", ondelete="CASCADE")
+        UUID(as_uuid=True), ForeignKey("bots.id", ondelete="CASCADE"), index=True
     )
     strategy_config_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("strategy_configs.id", ondelete="CASCADE")
+        UUID(as_uuid=True), ForeignKey("strategy_configs.id", ondelete="CASCADE"), index=True
     )
     symbol: Mapped[str] = mapped_column(String(30))
     direction: Mapped[SignalDirection] = mapped_column(

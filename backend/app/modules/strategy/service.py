@@ -22,11 +22,14 @@ class StrategyService:
 
     # === Strategies ===
 
-    async def list_strategies(self, public_only: bool = True) -> list[Strategy]:
+    async def list_strategies(
+        self, public_only: bool = True, limit: int = 50, offset: int = 0
+    ) -> list[Strategy]:
         """Список стратегий."""
         query = select(Strategy).order_by(Strategy.name)
         if public_only:
             query = query.where(Strategy.is_public.is_(True))
+        query = query.limit(limit).offset(offset)
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
@@ -63,18 +66,20 @@ class StrategyService:
         strategy = Strategy(**data.model_dump(), author_id=author_id)
         self.db.add(strategy)
         await self.db.flush()
+        await self.db.commit()
         return strategy
 
     # === Strategy Configs ===
 
     async def list_user_configs(
-        self, user_id: uuid.UUID, strategy_id: uuid.UUID | None = None
+        self, user_id: uuid.UUID, strategy_id: uuid.UUID | None = None,
+        limit: int = 50, offset: int = 0,
     ) -> list[StrategyConfig]:
         """Список конфигов пользователя."""
         query = select(StrategyConfig).where(StrategyConfig.user_id == user_id)
         if strategy_id:
             query = query.where(StrategyConfig.strategy_id == strategy_id)
-        query = query.order_by(StrategyConfig.created_at.desc())
+        query = query.order_by(StrategyConfig.created_at.desc()).limit(limit).offset(offset)
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
@@ -109,6 +114,7 @@ class StrategyService:
         )
         self.db.add(config)
         await self.db.flush()
+        await self.db.commit()
         return config
 
     async def update_config(
@@ -120,6 +126,7 @@ class StrategyService:
         for field, value in update_data.items():
             setattr(config, field, value)
         await self.db.flush()
+        await self.db.commit()
         return config
 
     async def delete_config(
@@ -129,3 +136,4 @@ class StrategyService:
         config = await self.get_config(config_id, user_id)
         await self.db.delete(config)
         await self.db.flush()
+        await self.db.commit()

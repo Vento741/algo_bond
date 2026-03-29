@@ -61,8 +61,8 @@ class BybitClient:
     ) -> None:
         self._session = HTTP(
             testnet=testnet if testnet is not None else settings.bybit_testnet,
-            api_key=api_key or settings.bybit_api_key,
-            api_secret=api_secret or settings.bybit_api_secret,
+            api_key=api_key or "",
+            api_secret=api_secret or "",
             recv_window=10000,
             max_retries=3,
             retry_delay=1,

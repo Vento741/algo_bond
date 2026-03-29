@@ -27,10 +27,12 @@ router = APIRouter(prefix="/api/strategies", tags=["strategies"])
 @router.get("", response_model=list[StrategyListResponse])
 async def list_strategies(
     db: AsyncSession = Depends(get_db),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ) -> list[StrategyListResponse]:
     """Список доступных стратегий (публичный)."""
     service = StrategyService(db)
-    return await service.list_strategies()
+    return await service.list_strategies(limit=limit, offset=offset)
 
 
 @router.get("/{slug}", response_model=StrategyResponse)
@@ -63,10 +65,12 @@ async def list_my_configs(
     strategy_id: uuid.UUID | None = Query(None),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ) -> list[StrategyConfigResponse]:
     """Мои конфигурации стратегий."""
     service = StrategyService(db)
-    return await service.list_user_configs(user.id, strategy_id)
+    return await service.list_user_configs(user.id, strategy_id, limit=limit, offset=offset)
 
 
 @router.get("/configs/{config_id}", response_model=StrategyConfigResponse)

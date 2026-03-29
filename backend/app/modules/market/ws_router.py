@@ -104,6 +104,9 @@ def _start_bybit_stream(symbol: str, interval: int, channel: str) -> None:
 
     _active_streams[channel] = True
 
+    # Сохраняем running loop — вызывается из async контекста (WebSocket endpoint)
+    loop = asyncio.get_running_loop()
+
     try:
         from app.modules.market.bybit_ws import BybitWebSocketPublic
 
@@ -111,14 +114,14 @@ def _start_bybit_stream(symbol: str, interval: int, channel: str) -> None:
 
         def on_kline(data: dict) -> None:
             """Callback: новая свеча → broadcast."""
-            asyncio.get_event_loop().call_soon_threadsafe(
+            loop.call_soon_threadsafe(
                 asyncio.ensure_future,
                 manager.broadcast(channel, {"type": "kline", "data": data}),
             )
 
         def on_ticker(data: dict) -> None:
             """Callback: тикер → broadcast."""
-            asyncio.get_event_loop().call_soon_threadsafe(
+            loop.call_soon_threadsafe(
                 asyncio.ensure_future,
                 manager.broadcast(channel, {"type": "ticker", "data": data}),
             )

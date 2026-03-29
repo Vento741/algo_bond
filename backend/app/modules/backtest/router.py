@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -34,10 +34,12 @@ async def create_backtest_run(
 async def list_backtest_runs(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ) -> list[BacktestRunResponse]:
     """Список моих запусков бэктеста."""
     service = BacktestService(db)
-    return await service.list_runs(user.id)
+    return await service.list_runs(user.id, limit=limit, offset=offset)
 
 
 @router.get("/runs/{run_id}", response_model=BacktestRunResponse)

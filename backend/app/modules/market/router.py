@@ -1,9 +1,17 @@
 """API-эндпоинты модуля market."""
 
-from fastapi import APIRouter, Depends, Query
+import uuid
 
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import NotFoundException
+from app.core.security import decrypt_value
+from app.database import get_db
 from app.modules.auth.dependencies import get_current_user
-from app.modules.auth.models import User
+from app.modules.auth.models import ExchangeAccount, User
+from app.modules.market.bybit_client import BybitClient
 from app.modules.market.schemas import (
     CandleResponse, SymbolInfoResponse, TickerResponse, WalletBalanceResponse,
 )
@@ -13,7 +21,7 @@ router = APIRouter(prefix="/api/market", tags=["market"])
 
 
 def get_market_service() -> MarketService:
-    """Dependency: MarketService."""
+    """Dependency: MarketService (без API-ключей, для публичных данных)."""
     return MarketService()
 
 
@@ -51,10 +59,27 @@ async def get_symbol_info(
 
 @router.get("/balance", response_model=WalletBalanceResponse)
 async def get_balance(
+    exchange_account_id: uuid.UUID = Query(...),
     coin: str = Query("USDT"),
     user: User = Depends(get_current_user),
-    service: MarketService = Depends(get_market_service),
+    db: AsyncSession = Depends(get_db),
 ) -> WalletBalanceResponse:
-    """Получить баланс кошелька (требует авторизации)."""
+    """Получить баланс кошелька (с ключами пользователя)."""
+    result = await db.execute(
+        select(ExchangeAccount).where(
+            ExchangeAccount.id == exchange_account_id,
+            ExchangeAccount.user_id == user.id,
+        )
+    )
+    account = result.scalar_one_or_none()
+    if not account:
+        raise NotFoundException("Exchange account не найден")
+
+    client = BybitClient(
+        api_key=decrypt_value(account.api_key_encrypted),
+        api_secret=decrypt_value(account.api_secret_encrypted),
+        testnet=account.is_testnet,
+    )
+    service = MarketService(client=client)
     data = await service.get_wallet_balance(coin)
     return WalletBalanceResponse(**data)

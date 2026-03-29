@@ -34,6 +34,7 @@ class BacktestService:
         )
         self.db.add(run)
         await self.db.flush()
+        await self.db.commit()
         return run
 
     async def get_run(
@@ -51,12 +52,16 @@ class BacktestService:
             raise NotFoundException("Бэктест не найден")
         return run
 
-    async def list_runs(self, user_id: uuid.UUID) -> list[BacktestRun]:
+    async def list_runs(
+        self, user_id: uuid.UUID, limit: int = 50, offset: int = 0
+    ) -> list[BacktestRun]:
         """Список запусков бэктеста пользователя."""
         result = await self.db.execute(
             select(BacktestRun)
             .where(BacktestRun.user_id == user_id)
             .order_by(BacktestRun.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         return list(result.scalars().all())
 
@@ -107,6 +112,7 @@ class BacktestService:
         )
         self.db.add(backtest_result)
         await self.db.flush()
+        await self.db.commit()
         return backtest_result
 
     async def update_run_status(
@@ -129,4 +135,5 @@ class BacktestService:
         if error_message is not None:
             run.error_message = error_message
         await self.db.flush()
+        await self.db.commit()
         return run

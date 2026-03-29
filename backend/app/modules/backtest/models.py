@@ -35,10 +35,10 @@ class BacktestRun(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     strategy_config_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("strategy_configs.id", ondelete="CASCADE")
+        UUID(as_uuid=True), ForeignKey("strategy_configs.id", ondelete="CASCADE"), index=True
     )
     symbol: Mapped[str] = mapped_column(String(30))
     timeframe: Mapped[str] = mapped_column(String(10))
@@ -75,6 +75,7 @@ class BacktestResult(Base):
         UUID(as_uuid=True),
         ForeignKey("backtest_runs.id", ondelete="CASCADE"),
         unique=True,
+        index=True,
     )
     total_trades: Mapped[int] = mapped_column(Integer, default=0)
     winning_trades: Mapped[int] = mapped_column(Integer, default=0)

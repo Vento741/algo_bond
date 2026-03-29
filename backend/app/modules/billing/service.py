@@ -45,6 +45,7 @@ class BillingService:
         plan = Plan(**data.model_dump())
         self.db.add(plan)
         await self.db.flush()
+        await self.db.commit()
         return plan
 
     # === Subscriptions ===
@@ -76,6 +77,7 @@ class BillingService:
             existing.plan_id = plan.id
             existing.status = SubscriptionStatus.ACTIVE
             await self.db.flush()
+            await self.db.commit()
             # Подгрузить связанный план
             result = await self.db.execute(
                 select(Subscription)
@@ -87,6 +89,7 @@ class BillingService:
         sub = Subscription(user_id=user_id, plan_id=plan.id)
         self.db.add(sub)
         await self.db.flush()
+        await self.db.commit()
 
         # Подгрузить связанный план
         result = await self.db.execute(

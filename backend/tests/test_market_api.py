@@ -1,10 +1,15 @@
 """Тесты API модуля market с мокированием BybitClient."""
 
+import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import encrypt_value
+from app.modules.auth.models import ExchangeAccount, ExchangeType, User
 from app.modules.market.bybit_client import SymbolInfo, Ticker
 
 
@@ -44,6 +49,27 @@ def mock_redis():
         yield mock
 
 
+@pytest_asyncio.fixture
+async def test_exchange_account(
+    db_session: AsyncSession, test_user: User,
+) -> ExchangeAccount:
+    """Создать тестовый аккаунт биржи для market-тестов."""
+    account = ExchangeAccount(
+        id=uuid.uuid4(),
+        user_id=test_user.id,
+        exchange=ExchangeType.BYBIT,
+        label="Test Bybit Market",
+        api_key_encrypted=encrypt_value("test_api_key"),
+        api_secret_encrypted=encrypt_value("test_api_secret"),
+        is_testnet=True,
+        is_active=True,
+    )
+    db_session.add(account)
+    await db_session.commit()
+    await db_session.refresh(account)
+    return account
+
+
 @pytest.mark.asyncio
 async def test_get_klines(client: AsyncClient) -> None:
     resp = await client.get("/api/market/klines/BTCUSDT?interval=5&limit=1")
@@ -73,13 +99,23 @@ async def test_get_symbol_info(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_get_balance_requires_auth(client: AsyncClient) -> None:
-    resp = await client.get("/api/market/balance")
+    resp = await client.get("/api/market/balance?exchange_account_id=" + str(uuid.uuid4()))
     assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_get_balance_authenticated(client: AsyncClient, auth_headers: dict) -> None:
-    resp = await client.get("/api/market/balance", headers=auth_headers)
+async def test_get_balance_authenticated(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_exchange_account: ExchangeAccount,
+    mock_bybit_client: MagicMock,
+) -> None:
+    with patch("app.modules.market.router.BybitClient") as MockRouterClient:
+        MockRouterClient.return_value = mock_bybit_client
+        resp = await client.get(
+            f"/api/market/balance?exchange_account_id={test_exchange_account.id}",
+            headers=auth_headers,
+        )
     assert resp.status_code == 200
     data = resp.json()
     assert data["wallet_balance"] == 1000.0

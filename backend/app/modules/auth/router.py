@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,12 +24,15 @@ from app.modules.auth.schemas import (
     UserUpdateRequest,
 )
 from app.modules.auth.service import AuthService
+from app.core.rate_limit import limiter
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
+@limiter.limit("3/minute")
 async def register(
+    request: Request,
     data: RegisterRequest,
     db: AsyncSession = Depends(get_db),
 ) -> User:
@@ -39,7 +42,9 @@ async def register(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("5/minute")
 async def login(
+    request: Request,
     data: LoginRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:

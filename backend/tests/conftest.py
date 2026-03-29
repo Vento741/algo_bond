@@ -88,7 +88,6 @@ async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
     async with test_session() as session:
         try:
             yield session
-            await session.commit()
         except Exception:
             await session.rollback()
             raise

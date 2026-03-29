@@ -78,21 +78,34 @@ class ExchangeAccountResponse(BaseModel):
 
 # === Настройки пользователя ===
 
+
+class NotificationChannels(BaseModel):
+    """Каналы уведомлений."""
+    email: bool = True
+    websocket: bool = True
+
+
+class UIPreferences(BaseModel):
+    """Настройки интерфейса."""
+    theme: str = "dark"
+    chart_style: str = "candles"
+
+
 class UserSettingsResponse(BaseModel):
     """Ответ — настройки пользователя."""
     model_config = ConfigDict(from_attributes=True)
 
     timezone: str
-    notification_channels: dict
+    notification_channels: NotificationChannels
     default_symbol: str
     default_timeframe: str
-    ui_preferences: dict
+    ui_preferences: UIPreferences
 
 
 class UserSettingsUpdate(BaseModel):
     """Обновление настроек."""
     timezone: str | None = None
-    notification_channels: dict | None = None
+    notification_channels: NotificationChannels | None = None
     default_symbol: str | None = None
     default_timeframe: str | None = None
-    ui_preferences: dict | None = None
+    ui_preferences: UIPreferences | None = None

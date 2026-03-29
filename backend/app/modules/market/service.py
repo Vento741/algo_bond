@@ -1,5 +1,6 @@
 """Бизнес-логика модуля market."""
 
+import asyncio
 import json
 import logging
 
@@ -27,7 +28,7 @@ class MarketService:
                 return json.loads(cached)
         except Exception:
             logger.warning("Redis cache read failed for %s", cache_key)
-        candles = self.client.get_klines(symbol, interval, limit)
+        candles = await asyncio.to_thread(self.client.get_klines, symbol, interval, limit)
         try:
             await redis_pool.set(cache_key, json.dumps(candles), ex=CACHE_TTL_KLINES)
         except Exception:
@@ -43,7 +44,7 @@ class MarketService:
                 return json.loads(cached)
         except Exception:
             pass
-        ticker = self.client.get_ticker(symbol)
+        ticker = await asyncio.to_thread(self.client.get_ticker, symbol)
         result = {
             "symbol": ticker.symbol, "last_price": ticker.last_price,
             "mark_price": ticker.mark_price, "volume_24h": ticker.volume_24h,
@@ -59,7 +60,7 @@ class MarketService:
 
     async def get_symbol_info(self, symbol: str) -> dict:
         """Получить информацию об инструменте."""
-        info = self.client.get_symbol_info(symbol)
+        info = await asyncio.to_thread(self.client.get_symbol_info, symbol)
         return {
             "symbol": info.symbol, "tick_size": info.tick_size, "qty_step": info.qty_step,
             "min_qty": info.min_qty, "max_qty": info.max_qty,
@@ -68,4 +69,4 @@ class MarketService:
 
     async def get_wallet_balance(self, coin: str = "USDT") -> dict:
         """Получить баланс кошелька."""
-        return self.client.get_wallet_balance(coin)
+        return await asyncio.to_thread(self.client.get_wallet_balance, coin)
