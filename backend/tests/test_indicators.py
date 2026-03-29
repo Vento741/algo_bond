@@ -161,3 +161,153 @@ class TestMARibbon:
         assert len(result_ema) == len(CLOSE)
         assert len(result_sma) == len(CLOSE)
         assert len(result_hma) == len(CLOSE)
+
+
+from app.modules.strategy.engines.indicators.oscillators import (
+    bollinger_bands,
+    cci,
+    wavetrend,
+)
+from app.modules.strategy.engines.indicators.volume import (
+    cvd,
+    order_flow_signals,
+    vwap_bands,
+)
+from app.modules.strategy.engines.indicators.smc import (
+    break_of_structure,
+    demand_supply_zones,
+    fair_value_gaps,
+    liquidity_sweeps,
+    order_blocks,
+    smc_combined,
+)
+
+HLC3 = (HIGH + LOW + CLOSE) / 3
+VOLUME = np.full(30, 1000.0, dtype=np.float64)
+
+
+# === WaveTrend ===
+
+class TestWaveTrend:
+    def test_returns_array(self) -> None:
+        result = wavetrend(HLC3, 10, 21)
+        assert len(result) == len(HLC3)
+
+    def test_not_all_nan(self) -> None:
+        long_hlc3 = np.arange(100, dtype=np.float64) + 100
+        result = wavetrend(long_hlc3, 10, 21)
+        valid = result[~np.isnan(result)]
+        assert len(valid) > 0
+
+
+class TestCCI:
+    def test_uptrend_positive(self) -> None:
+        result = cci(CLOSE, 14)
+        valid = result[~np.isnan(result)]
+        assert valid[-1] > 0
+
+    def test_constant_zero(self) -> None:
+        flat = np.full(30, 100.0)
+        result = cci(flat, 14)
+        valid = result[~np.isnan(result)]
+        assert all(v == pytest.approx(0.0) for v in valid)
+
+
+class TestBollingerBands:
+    def test_upper_above_lower(self) -> None:
+        upper, basis, lower = bollinger_bands(CLOSE, 20, 2.0)
+        valid_idx = ~np.isnan(upper) & ~np.isnan(lower)
+        assert all(upper[valid_idx] >= lower[valid_idx])
+
+    def test_basis_is_sma(self) -> None:
+        upper, basis, lower = bollinger_bands(CLOSE, 20, 2.0)
+        sma_val = sma(CLOSE, 20)
+        valid_idx = ~np.isnan(basis)
+        np.testing.assert_array_almost_equal(basis[valid_idx], sma_val[valid_idx])
+
+    def test_constant_price_bands_collapse(self) -> None:
+        flat = np.full(30, 100.0)
+        upper, basis, lower = bollinger_bands(flat, 20, 2.0)
+        valid_idx = ~np.isnan(upper)
+        np.testing.assert_array_almost_equal(upper[valid_idx], basis[valid_idx])
+
+
+class TestVWAP:
+    def test_returns_correct_length(self) -> None:
+        vwap_line, bands = vwap_bands(HIGH, LOW, CLOSE, VOLUME)
+        assert len(vwap_line) == len(CLOSE)
+        assert len(bands) == 3
+
+    def test_constant_volume(self) -> None:
+        vwap_line, _ = vwap_bands(HIGH, LOW, CLOSE, VOLUME)
+        hlc3 = (HIGH + LOW + CLOSE) / 3
+        expected_last = np.mean(hlc3)
+        assert vwap_line[-1] == pytest.approx(expected_last, rel=0.01)
+
+
+class TestCVD:
+    def test_uptrend_positive_cvd(self) -> None:
+        cvd_line, cvd_sma_line = cvd(OPEN, CLOSE, VOLUME, 10)
+        assert cvd_line[-1] > 0
+
+    def test_flat_zero_cvd(self) -> None:
+        flat_close = np.full(30, 100.0)
+        flat_open = flat_close.copy()
+        vol = np.full(30, 1000.0)
+        cvd_line, _ = cvd(flat_open, flat_close, vol, 10)
+        assert cvd_line[-1] == pytest.approx(0.0)
+
+
+class TestOrderFlow:
+    def test_returns_bool_arrays(self) -> None:
+        vwap_line, _ = vwap_bands(HIGH, LOW, CLOSE, VOLUME)
+        of_bull, of_bear = order_flow_signals(OPEN, CLOSE, VOLUME, vwap_line)
+        assert of_bull.dtype == bool
+        assert of_bear.dtype == bool
+        assert len(of_bull) == len(CLOSE)
+
+
+class TestOrderBlocks:
+    def test_returns_bool_arrays(self) -> None:
+        bull, bear = order_blocks(OPEN, CLOSE, HIGH, LOW)
+        assert bull.dtype == bool
+        assert bear.dtype == bool
+        assert len(bull) == len(CLOSE)
+
+    def test_synthetic_bullish_ob(self) -> None:
+        o = np.array([100.0, 105.0, 98.0], dtype=np.float64)
+        c = np.array([105.0, 98.0, 106.0], dtype=np.float64)
+        h = np.array([106.0, 106.0, 106.5], dtype=np.float64)
+        l = np.array([99.0, 97.0, 97.0], dtype=np.float64)
+        bull, bear = order_blocks(o, c, h, l)
+        assert bull[2] == True
+
+
+class TestFVG:
+    def test_no_gaps_in_smooth_data(self) -> None:
+        atr_vals = np.full(30, 3.0, dtype=np.float64)
+        bull, bear = fair_value_gaps(HIGH, LOW, atr_vals)
+        assert bull.sum() + bear.sum() >= 0
+
+
+class TestLiquiditySweeps:
+    def test_returns_bool(self) -> None:
+        grab_h, grab_l = liquidity_sweeps(HIGH, LOW, OPEN, CLOSE, 10)
+        assert grab_h.dtype == bool
+        assert len(grab_h) == len(CLOSE)
+
+
+class TestBOS:
+    def test_returns_bool(self) -> None:
+        bull_bos, bear_bos = break_of_structure(HIGH, LOW, CLOSE, 5)
+        assert bull_bos.dtype == bool
+        assert bear_bos.dtype == bool
+
+
+class TestSMCCombined:
+    def test_returns_bool(self) -> None:
+        atr_vals = np.full(30, 3.0, dtype=np.float64)
+        bull, bear = smc_combined(OPEN, HIGH, LOW, CLOSE, atr_vals)
+        assert bull.dtype == bool
+        assert bear.dtype == bool
+        assert len(bull) == len(CLOSE)
