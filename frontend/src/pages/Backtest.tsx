@@ -11,6 +11,14 @@ import {
   Percent,
   AlertCircle,
   Settings2,
+  History,
+  Trash2,
+  Download,
+  StickyNote,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  CircleDot,
 } from 'lucide-react';
 import {
   createChart,
@@ -77,11 +85,27 @@ const TIMEFRAME_OPTIONS = [
   { value: '4h', label: '4h' },
 ] as const;
 
+const CHART_TIMEFRAME_OPTIONS = [
+  { value: '1', label: '1m' },
+  { value: '5', label: '5m' },
+  { value: '15', label: '15m' },
+  { value: '60', label: '1h' },
+  { value: '240', label: '4h' },
+] as const;
+
 const TIMEFRAME_TO_BACKEND: Record<string, string> = {
   '5m': '5',
   '15m': '15',
   '1h': '60',
   '4h': '240',
+};
+
+const BACKEND_TO_LABEL: Record<string, string> = {
+  '1': '1m',
+  '5': '5m',
+  '15': '15m',
+  '60': '1h',
+  '240': '4h',
 };
 
 /* ---- Backend response mapping ---- */
@@ -263,6 +287,35 @@ export function Backtest() {
     }
   };
 
+  // History state
+  const [historyRuns, setHistoryRuns] = useState<BacktestRunResponse[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [topTab, setTopTab] = useState('new');
+
+  const fetchHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const { data } = await api.get<BacktestRunResponse[]>('/backtest/runs');
+      setHistoryRuns(data);
+    } catch {
+      setHistoryRuns([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  // Fetch history when switching to history tab
+  useEffect(() => {
+    if (topTab === 'history') {
+      fetchHistory();
+    }
+  }, [topTab, fetchHistory]);
+
+  const handleLoadResult = (loaded: BacktestResult) => {
+    setResult(loaded);
+    setTopTab('new');
+  };
+
   const configOptions = configs.map((c) => ({
     value: c.id,
     label: `${c.name} (${c.symbol} / ${c.timeframe})`,
@@ -279,6 +332,26 @@ export function Backtest() {
           Проверьте стратегию на исторических данных
         </p>
       </div>
+
+      {/* Top-level tabs: Новый бэктест / История */}
+      <Tabs defaultValue="new" value={topTab} onValueChange={setTopTab}>
+        <TabsList>
+          <TabsTrigger value="new">
+            <FlaskConical className="h-3.5 w-3.5 mr-1.5" />
+            Новый бэктест
+          </TabsTrigger>
+          <TabsTrigger value="history">
+            <History className="h-3.5 w-3.5 mr-1.5" />
+            История
+            {historyRuns.length > 0 && (
+              <span className="ml-1.5 text-[10px] bg-white/10 px-1.5 py-0.5 rounded-full font-mono">
+                {historyRuns.length}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="new">
 
       {/* No configs warning */}
       {hasNoConfigs && (
@@ -585,6 +658,17 @@ export function Backtest() {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+
+        <TabsContent value="history">
+          <BacktestHistory
+            runs={historyRuns}
+            loading={historyLoading}
+            onLoadResult={handleLoadResult}
+            onRefresh={fetchHistory}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -687,7 +771,7 @@ function EquityChart({ data }: { data: { time: number; equity: number }[] }) {
 
 function TradesChart({
   symbol,
-  timeframe,
+  timeframe: defaultTimeframe,
   startDate: _startDate,
   endDate: _endDate,
   trades,
@@ -702,6 +786,12 @@ function TradesChart({
   const chartRef = useRef<IChartApi | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTimeframe, setActiveTimeframe] = useState(defaultTimeframe);
+
+  // Reset to backtest's TF when props change
+  useEffect(() => {
+    setActiveTimeframe(defaultTimeframe);
+  }, [defaultTimeframe]);
 
   const initChart = useCallback(async () => {
     if (!containerRef.current) return;
@@ -712,7 +802,7 @@ function TradesChart({
     try {
       // Fetch candle data for the chart
       const { data: klines } = await api.get(`/market/klines/${symbol}`, {
-        params: { interval: timeframe, limit: 1000 },
+        params: { interval: activeTimeframe, limit: 1000 },
       });
 
       const candles = (klines as Record<string, unknown>[]).map((d) => {
@@ -849,7 +939,7 @@ function TradesChart({
       setError('Не удалось загрузить данные для графика');
       setLoading(false);
     }
-  }, [symbol, timeframe, trades]);
+  }, [symbol, activeTimeframe, trades]);
 
   useEffect(() => {
     let cleanup: (() => void) | undefined;
@@ -869,8 +959,35 @@ function TradesChart({
 
   return (
     <div className="relative">
+      {/* Timeframe selector */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500">Таймфрейм:</span>
+          <div className="flex items-center rounded-lg bg-white/5 p-0.5">
+            {CHART_TIMEFRAME_OPTIONS.map((tf) => (
+              <button
+                key={tf.value}
+                onClick={() => setActiveTimeframe(tf.value)}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                  activeTimeframe === tf.value
+                    ? 'bg-brand-premium/10 text-brand-premium'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                {tf.label}
+              </button>
+            ))}
+          </div>
+          {activeTimeframe !== defaultTimeframe && (
+            <span className="text-[10px] text-gray-600">
+              (бэктест: {BACKEND_TO_LABEL[defaultTimeframe] ?? defaultTimeframe})
+            </span>
+          )}
+        </div>
+      </div>
+
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-brand-bg/80 z-10">
+        <div className="absolute inset-0 top-10 flex items-center justify-center bg-brand-bg/80 z-10">
           <Loader2 className="h-6 w-6 animate-spin text-brand-premium" />
         </div>
       )}
@@ -891,6 +1008,354 @@ function TradesChart({
           </span>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---- Backtest History ---- */
+
+const LS_NOTES_KEY = 'algobond_backtest_notes';
+const LS_HIDDEN_KEY = 'algobond_backtest_hidden';
+
+function getStoredNotes(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(LS_NOTES_KEY) ?? '{}') as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function setStoredNote(runId: string, note: string): void {
+  const notes = getStoredNotes();
+  notes[runId] = note;
+  localStorage.setItem(LS_NOTES_KEY, JSON.stringify(notes));
+}
+
+function getHiddenIds(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(LS_HIDDEN_KEY) ?? '[]') as string[];
+  } catch {
+    return [];
+  }
+}
+
+function hideRun(runId: string): void {
+  const hidden = getHiddenIds();
+  if (!hidden.includes(runId)) {
+    hidden.push(runId);
+    localStorage.setItem(LS_HIDDEN_KEY, JSON.stringify(hidden));
+  }
+}
+
+function statusBadge(status: BacktestStatus, errorMsg: string | null) {
+  switch (status) {
+    case 'completed':
+      return (
+        <span className="inline-flex items-center gap-1 text-xs text-brand-profit bg-brand-profit/10 px-2 py-0.5 rounded-full">
+          <CheckCircle2 className="h-3 w-3" /> Завершён
+        </span>
+      );
+    case 'failed':
+      return (
+        <span
+          className="inline-flex items-center gap-1 text-xs text-brand-loss bg-brand-loss/10 px-2 py-0.5 rounded-full"
+          title={errorMsg ?? undefined}
+        >
+          <XCircle className="h-3 w-3" /> Ошибка
+        </span>
+      );
+    case 'running':
+      return (
+        <span className="inline-flex items-center gap-1 text-xs text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded-full">
+          <Loader2 className="h-3 w-3 animate-spin" /> Выполняется
+        </span>
+      );
+    case 'pending':
+      return (
+        <span className="inline-flex items-center gap-1 text-xs text-brand-premium bg-brand-premium/10 px-2 py-0.5 rounded-full">
+          <Clock className="h-3 w-3" /> В очереди
+        </span>
+      );
+  }
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+interface HistoryRunCardProps {
+  run: BacktestRunResponse;
+  onLoad: (result: BacktestResult) => void;
+  onHide: (id: string) => void;
+}
+
+function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
+  const [resultData, setResultData] = useState<BacktestResultResponse | null>(null);
+  const [resultLoading, setResultLoading] = useState(false);
+  const [note, setNote] = useState(() => getStoredNotes()[run.id] ?? '');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Auto-fetch result for completed runs
+  useEffect(() => {
+    if (run.status === 'completed' && !resultData && !resultLoading) {
+      setResultLoading(true);
+      api
+        .get<BacktestResultResponse>(`/backtest/runs/${run.id}/result`)
+        .then(({ data }) => setResultData(data))
+        .catch(() => { /* result not available */ })
+        .finally(() => setResultLoading(false));
+    }
+  }, [run.id, run.status, resultData, resultLoading]);
+
+  const handleNoteChange = (value: string) => {
+    setNote(value);
+    setStoredNote(run.id, value);
+  };
+
+  const handleLoadResult = () => {
+    if (resultData) {
+      onLoad(mapBackendResultToUI(resultData));
+    }
+  };
+
+  const handleDelete = () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    onHide(run.id);
+  };
+
+  const tfLabel = BACKEND_TO_LABEL[run.timeframe] ?? run.timeframe;
+
+  return (
+    <Card className="border-white/5 bg-white/[0.02] overflow-hidden">
+      <CardContent className="p-0">
+        {/* Header row */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <span className="text-white font-medium text-sm">
+              {run.symbol}
+            </span>
+            <span className="text-xs text-gray-500">/</span>
+            <span className="text-xs text-gray-400 font-mono">{tfLabel}</span>
+            <span className="text-xs text-gray-600 font-mono">
+              {run.start_date.slice(0, 10)} → {run.end_date.slice(0, 10)}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {statusBadge(run.status, run.error_message)}
+          </div>
+        </div>
+
+        {/* Info row */}
+        <div className="flex items-center gap-6 px-4 py-2.5 border-b border-white/5 text-xs text-gray-400">
+          <span>
+            Капитал: <span className="font-mono text-white">${run.initial_capital}</span>
+          </span>
+          <span>
+            Создан: <span className="font-mono text-gray-300">{formatDate(run.created_at)}</span>
+          </span>
+        </div>
+
+        {/* Metrics row (if result loaded) */}
+        {resultData && (
+          <div className="flex items-center gap-6 px-4 py-2.5 border-b border-white/5 text-xs">
+            <span className="text-gray-400">
+              Сделок: <span className="font-mono text-white">{resultData.total_trades}</span>
+            </span>
+            <span className="text-gray-400">
+              Win:{' '}
+              <span
+                className={`font-mono ${
+                  Number(resultData.win_rate) * 100 >= 50
+                    ? 'text-brand-profit'
+                    : 'text-brand-loss'
+                }`}
+              >
+                {(Number(resultData.win_rate) * 100).toFixed(1)}%
+              </span>
+            </span>
+            <span className="text-gray-400">
+              PnL:{' '}
+              <span
+                className={`font-mono font-bold ${
+                  Number(resultData.total_pnl) >= 0
+                    ? 'text-brand-profit'
+                    : 'text-brand-loss'
+                }`}
+              >
+                {Number(resultData.total_pnl) >= 0 ? '+' : ''}${Number(resultData.total_pnl).toFixed(2)}
+              </span>
+            </span>
+            <span className="text-gray-400">
+              DD:{' '}
+              <span className="font-mono text-brand-loss">
+                {Number(resultData.max_drawdown).toFixed(1)}%
+              </span>
+            </span>
+          </div>
+        )}
+
+        {resultLoading && (
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5 text-xs text-gray-500">
+            <Loader2 className="h-3 w-3 animate-spin" /> Загрузка результатов...
+          </div>
+        )}
+
+        {/* Error message */}
+        {run.status === 'failed' && run.error_message && (
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5 text-xs text-brand-loss">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{run.error_message}</span>
+          </div>
+        )}
+
+        {/* Notes + Actions */}
+        <div className="px-4 py-3 flex items-start gap-3">
+          <div className="flex-1">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <StickyNote className="h-3 w-3 text-gray-500" />
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider">Заметка</span>
+            </div>
+            <Input
+              value={note}
+              onChange={(e) => handleNoteChange(e.target.value)}
+              placeholder="Добавьте заметку к этому запуску..."
+              className="bg-white/5 border-white/5 text-white text-xs h-8 placeholder:text-gray-600"
+            />
+          </div>
+          <div className="flex items-center gap-2 pt-5">
+            {run.status === 'completed' && resultData && (
+              <Button
+                size="sm"
+                onClick={handleLoadResult}
+                className="bg-brand-accent/10 text-brand-accent hover:bg-brand-accent/20 text-xs h-8"
+              >
+                <Download className="h-3 w-3 mr-1" />
+                Загрузить
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleDelete}
+              onBlur={() => setConfirmDelete(false)}
+              className={`text-xs h-8 ${
+                confirmDelete
+                  ? 'text-brand-loss bg-brand-loss/10 hover:bg-brand-loss/20'
+                  : 'text-gray-500 hover:text-brand-loss hover:bg-brand-loss/10'
+              }`}
+            >
+              <Trash2 className="h-3 w-3 mr-1" />
+              {confirmDelete ? 'Точно?' : 'Удалить'}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function BacktestHistory({
+  runs,
+  loading,
+  onLoadResult,
+  onRefresh,
+}: {
+  runs: BacktestRunResponse[];
+  loading: boolean;
+  onLoadResult: (result: BacktestResult) => void;
+  onRefresh: () => void;
+}) {
+  const [hiddenIds, setHiddenIds] = useState<string[]>(getHiddenIds);
+
+  const visibleRuns = runs
+    .filter((r) => !hiddenIds.includes(r.id))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const handleHide = (id: string) => {
+    hideRun(id);
+    setHiddenIds((prev) => [...prev, id]);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-brand-premium" />
+        <span className="ml-3 text-gray-400">Загрузка истории...</span>
+      </div>
+    );
+  }
+
+  if (visibleRuns.length === 0) {
+    return (
+      <Card className="border-white/5 bg-white/[0.02]">
+        <CardContent className="flex flex-col items-center justify-center py-20">
+          <History className="h-12 w-12 text-gray-600 mb-4" />
+          <p className="text-gray-400 text-lg font-medium">Нет запусков</p>
+          <p className="text-gray-500 text-sm mt-1">
+            Запустите бэктест, и он появится здесь
+          </p>
+          {hiddenIds.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-4 text-xs text-gray-500"
+              onClick={() => {
+                localStorage.removeItem(LS_HIDDEN_KEY);
+                setHiddenIds([]);
+                onRefresh();
+              }}
+            >
+              <CircleDot className="h-3 w-3 mr-1" />
+              Показать скрытые ({hiddenIds.length})
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-500">
+          {visibleRuns.length} {visibleRuns.length === 1 ? 'запуск' : visibleRuns.length < 5 ? 'запуска' : 'запусков'}
+        </p>
+        <div className="flex items-center gap-2">
+          {hiddenIds.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-gray-500 h-7"
+              onClick={() => {
+                localStorage.removeItem(LS_HIDDEN_KEY);
+                setHiddenIds([]);
+                onRefresh();
+              }}
+            >
+              <CircleDot className="h-3 w-3 mr-1" />
+              Показать скрытые ({hiddenIds.length})
+            </Button>
+          )}
+        </div>
+      </div>
+      {visibleRuns.map((run) => (
+        <HistoryRunCard
+          key={run.id}
+          run={run}
+          onLoad={onLoadResult}
+          onHide={handleHide}
+        />
+      ))}
     </div>
   );
 }
