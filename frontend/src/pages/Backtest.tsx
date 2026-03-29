@@ -108,7 +108,7 @@ function mapBackendResultToUI(
   const worstTrade = pnls.length > 0 ? Math.min(...pnls) : 0;
 
   const equityCurve = res.equity_curve.map((pt) => ({
-    time: pt.timestamp,
+    time: pt.timestamp > 1e12 ? Math.floor(pt.timestamp / 1000) : pt.timestamp,
     equity: pt.equity,
   }));
 
@@ -452,7 +452,7 @@ export function Backtest() {
             />
             <MetricCard
               label="Profit Factor"
-              value={result.metrics.profit_factor.toFixed(2)}
+              value={result.metrics.profit_factor >= 999 ? '∞' : result.metrics.profit_factor.toFixed(2)}
               icon={TrendingUp}
               color={result.metrics.profit_factor >= 1 ? 'text-brand-profit' : 'text-brand-loss'}
             />
