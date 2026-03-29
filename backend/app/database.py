@@ -34,3 +34,23 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
+
+
+def create_standalone_session() -> async_sessionmaker[AsyncSession]:
+    """Создать изолированный engine + session для Celery tasks.
+
+    Каждый вызов asyncio.run() создаёт новый event loop.
+    asyncpg привязывает connection pool к loop, поэтому
+    нужен свежий engine для каждого Celery task.
+    """
+    fresh_engine = create_async_engine(
+        settings.database_url,
+        echo=False,
+        pool_size=5,
+        max_overflow=2,
+    )
+    return async_sessionmaker(
+        fresh_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )

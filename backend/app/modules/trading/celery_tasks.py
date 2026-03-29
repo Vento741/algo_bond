@@ -31,10 +31,11 @@ async def _fetch_running_bot_ids() -> list[str]:
     """Получить ID всех ботов со статусом RUNNING из БД."""
     from sqlalchemy import select
 
-    from app.database import async_session
+    from app.database import create_standalone_session
     from app.modules.trading.models import Bot, BotStatus
 
-    async with async_session() as session:
+    session_factory = create_standalone_session()
+    async with session_factory() as session:
         result = await session.execute(
             select(Bot.id).where(Bot.status == BotStatus.RUNNING)
         )

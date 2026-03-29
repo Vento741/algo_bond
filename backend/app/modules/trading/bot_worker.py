@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
 from app.core.security import decrypt_value
-from app.database import async_session
+from app.database import async_session, create_standalone_session
 from app.modules.market.bybit_client import BybitAPIError, BybitClient
 from app.modules.strategy.engines import get_engine
 from app.modules.strategy.engines.base import OHLCV
@@ -85,7 +85,7 @@ async def run_bot_cycle(
     Returns:
         dict с результатом: {"status": "ok"|"no_signal"|"error", ...}
     """
-    factory = session_factory or async_session
+    factory = session_factory or create_standalone_session()
     async with factory() as db:
         try:
             # 1. Загрузить бота с конфигом и exchange account

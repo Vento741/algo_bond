@@ -22,7 +22,7 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
 
-    from app.database import async_session
+    from app.database import create_standalone_session
     from app.modules.backtest.backtest_engine import run_backtest
     from app.modules.backtest.models import BacktestRun, BacktestStatus, BacktestResult
     from app.modules.backtest.service import BacktestService
@@ -33,7 +33,8 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
 
     import numpy as np
 
-    async with async_session() as session:
+    standalone_session = create_standalone_session()
+    async with standalone_session() as session:
         # 1. Загрузить run с config и strategy
         result = await session.execute(
             select(BacktestRun).where(BacktestRun.id == run_id)
