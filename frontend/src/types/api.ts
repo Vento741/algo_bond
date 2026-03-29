@@ -54,6 +54,21 @@ export interface StrategyConfig {
   created_at: string;
 }
 
+export interface StrategyConfigCreate {
+  strategy_id: string;
+  name: string;
+  symbol: string;
+  timeframe: string;
+  config: Record<string, unknown>;
+}
+
+export interface StrategyConfigUpdate {
+  name?: string;
+  symbol?: string;
+  timeframe?: string;
+  config?: Record<string, unknown>;
+}
+
 export interface ExchangeAccount {
   id: string;
   exchange: string;
@@ -154,4 +169,63 @@ export interface BacktestResultResponse {
   sharpe_ratio: number;
   equity_curve: BacktestResultEquityPoint[];
   trades_log: BacktestResultTradeEntry[];
+}
+
+/* ---- Trading: Signals, Orders, Positions, Logs ---- */
+
+export interface TradeSignalResponse {
+  id: string;
+  bot_id: string;
+  strategy_config_id: string;
+  symbol: string;
+  direction: 'long' | 'short';
+  signal_strength: number;
+  knn_class: string;
+  knn_confidence: number;
+  indicators_snapshot: Record<string, unknown>;
+  was_executed: boolean;
+  created_at: string;
+}
+
+export interface OrderResponse {
+  id: string;
+  bot_id: string;
+  exchange_order_id: string | null;
+  symbol: string;
+  side: 'buy' | 'sell';
+  type: 'market' | 'limit';
+  quantity: number;
+  price: number;
+  filled_price: number | null;
+  status: 'open' | 'filled' | 'cancelled' | 'error';
+  filled_at: string | null;
+  created_at: string;
+}
+
+export interface PositionResponse {
+  id: string;
+  bot_id: string;
+  symbol: string;
+  side: 'long' | 'short';
+  entry_price: number;
+  quantity: number;
+  stop_loss: number;
+  take_profit: number;
+  trailing_stop: number | null;
+  unrealized_pnl: number;
+  realized_pnl: number | null;
+  status: 'open' | 'closed';
+  opened_at: string;
+  closed_at: string | null;
+}
+
+export type BotLogLevel = 'info' | 'warn' | 'error' | 'debug';
+
+export interface BotLogResponse {
+  id: string;
+  bot_id: string;
+  level: BotLogLevel;
+  message: string;
+  details: Record<string, unknown> | null;
+  created_at: string;
 }

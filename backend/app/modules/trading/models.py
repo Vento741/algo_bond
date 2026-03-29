@@ -71,6 +71,14 @@ class SignalDirection(str, enum.Enum):
     SHORT = "short"
 
 
+class BotLogLevel(str, enum.Enum):
+    """Уровень лога бота."""
+    INFO = "info"
+    WARN = "warn"
+    ERROR = "error"
+    DEBUG = "debug"
+
+
 # === Models ===
 
 
@@ -124,6 +132,9 @@ class Bot(Base):
         back_populates="bot", cascade="all, delete-orphan"
     )
     trade_signals: Mapped[list["TradeSignal"]] = relationship(
+        back_populates="bot", cascade="all, delete-orphan"
+    )
+    logs: Mapped[list["BotLog"]] = relationship(
         back_populates="bot", cascade="all, delete-orphan"
     )
 
@@ -231,3 +242,27 @@ class TradeSignal(Base):
 
     # Связи
     bot: Mapped["Bot"] = relationship(back_populates="trade_signals")
+
+
+class BotLog(Base):
+    """Лог исполнения цикла бота."""
+
+    __tablename__ = "bot_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    bot_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("bots.id", ondelete="CASCADE"), index=True
+    )
+    level: Mapped[BotLogLevel] = mapped_column(
+        Enum(BotLogLevel, name="bot_log_level"), default=BotLogLevel.INFO
+    )
+    message: Mapped[str] = mapped_column(String(500))
+    details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    # Связи
+    bot: Mapped["Bot"] = relationship(back_populates="logs")

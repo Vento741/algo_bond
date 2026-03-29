@@ -10,6 +10,7 @@ from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
 from app.modules.trading.schemas import (
     BotCreate,
+    BotLogResponse,
     BotResponse,
     OrderResponse,
     PositionResponse,
@@ -125,3 +126,19 @@ async def get_bot_signals(
     """Торговые сигналы бота."""
     service = TradingService(db)
     return await service.get_bot_signals(bot_id, user.id, limit=limit, offset=offset)
+
+
+# === Logs ===
+
+
+@router.get("/bots/{bot_id}/logs", response_model=list[BotLogResponse])
+async def get_bot_logs(
+    bot_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+) -> list[BotLogResponse]:
+    """Логи исполнения бота."""
+    service = TradingService(db)
+    return await service.get_bot_logs(bot_id, user.id, limit=limit, offset=offset)

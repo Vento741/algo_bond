@@ -7,6 +7,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 
 from app.modules.trading.models import (
+    BotLogLevel,
     BotMode,
     BotStatus,
     OrderSide,
@@ -118,4 +119,19 @@ class TradeSignalResponse(BaseModel):
     knn_confidence: Decimal
     indicators_snapshot: dict
     was_executed: bool
+    created_at: datetime
+
+
+# === BotLog ===
+
+
+class BotLogResponse(BaseModel):
+    """Ответ — лог исполнения бота."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    bot_id: uuid.UUID
+    level: BotLogLevel
+    message: str
+    details: dict | None
     created_at: datetime

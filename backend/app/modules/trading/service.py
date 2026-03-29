@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundException
-from app.modules.trading.models import Bot, BotStatus, Order, Position, TradeSignal
+from app.modules.trading.models import Bot, BotLog, BotStatus, Order, Position, TradeSignal
 from app.modules.trading.schemas import BotCreate
 
 
@@ -120,6 +120,23 @@ class TradingService:
             select(TradeSignal)
             .where(TradeSignal.bot_id == bot_id)
             .order_by(TradeSignal.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(result.scalars().all())
+
+    # === Bot Logs ===
+
+    async def get_bot_logs(
+        self, bot_id: uuid.UUID, user_id: uuid.UUID,
+        limit: int = 100, offset: int = 0,
+    ) -> list[BotLog]:
+        """Получить логи бота (проверяя владельца)."""
+        await self.get_bot(bot_id, user_id)
+        result = await self.db.execute(
+            select(BotLog)
+            .where(BotLog.bot_id == bot_id)
+            .order_by(BotLog.created_at.desc())
             .limit(limit)
             .offset(offset)
         )

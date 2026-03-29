@@ -7,6 +7,7 @@ import { Strategies } from '@/pages/Strategies';
 import { StrategyDetail } from '@/pages/StrategyDetail';
 import { Chart } from '@/pages/Chart';
 import { Bots } from '@/pages/Bots';
+import { BotDetail } from '@/pages/BotDetail';
 import { Backtest } from '@/pages/Backtest';
 import { Settings } from '@/pages/Settings';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -37,6 +38,7 @@ function App() {
             <Route path="/chart/:symbol" element={<Chart />} />
             <Route path="/chart" element={<Chart />} />
             <Route path="/bots" element={<Bots />} />
+            <Route path="/bots/:id" element={<BotDetail />} />
             <Route path="/backtest" element={<Backtest />} />
             <Route path="/settings" element={<Settings />} />
           </Route>

@@ -10,6 +10,7 @@
 """
 
 import logging
+import traceback
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -26,6 +27,8 @@ from app.modules.strategy.engines.base import OHLCV
 from app.modules.strategy.models import Strategy, StrategyConfig
 from app.modules.trading.models import (
     Bot,
+    BotLog,
+    BotLogLevel,
     BotMode,
     BotStatus,
     Order,
@@ -43,6 +46,30 @@ logger = logging.getLogger(__name__)
 
 # Минимальное количество свечей для работы стратегии (KNN нужно 80+ баров)
 MIN_CANDLES = 200
+
+
+async def _log(
+    session: AsyncSession,
+    bot_id: uuid.UUID,
+    level: str,
+    message: str,
+    details: dict | None = None,
+) -> None:
+    """Записать лог бота в БД.
+
+    Безопасно обрабатывает ситуации, когда сессия уже закрыта или невалидна.
+    """
+    try:
+        log_entry = BotLog(
+            bot_id=bot_id,
+            level=BotLogLevel(level),
+            message=message[:500],
+            details=details,
+        )
+        session.add(log_entry)
+        await session.commit()
+    except Exception:
+        logger.debug("Не удалось записать лог бота %s в БД", bot_id, exc_info=True)
 
 
 async def run_bot_cycle(
@@ -69,6 +96,8 @@ async def run_bot_cycle(
             if bot.status != BotStatus.RUNNING:
                 return {"status": "skipped", "message": f"Bot status: {bot.status.value}"}
 
+            await _log(db, bot.id, "info", "Цикл бота запущен")
+
             # 2. Создать Bybit клиент с ключами пользователя
             client = _create_client(bot)
 
@@ -83,7 +112,10 @@ async def run_bot_cycle(
                     "Bot %s: not enough candles (%d/%d)",
                     bot_id, len(candles), MIN_CANDLES,
                 )
+                await _log(db, bot.id, "warn", f"Недостаточно свечей: {len(candles)}/{MIN_CANDLES}")
                 return {"status": "error", "message": f"Not enough candles: {len(candles)}"}
+
+            await _log(db, bot.id, "info", f"Получено {len(candles)} свечей", {"symbol": symbol, "interval": timeframe})
 
             # 4. Конвертировать в OHLCV и запустить стратегию
             arrays = client.klines_to_arrays(candles)
@@ -101,8 +133,20 @@ async def run_bot_cycle(
             engine = get_engine(strategy.engine_type, config)
             result = engine.generate_signals(ohlcv)
 
+            knn_score_val = None
+            if result.knn_scores is not None and len(result.knn_scores) > 0:
+                last_knn = result.knn_scores[-1]
+                if last_knn is not None:
+                    knn_score_val = float(last_knn)
+
+            await _log(db, bot.id, "info", "Стратегия выполнена", {
+                "signals_count": len(result.signals),
+                "knn_score": knn_score_val,
+            })
+
             # 5. Проверить последний сигнал
             if not result.signals:
+                await _log(db, bot.id, "debug", "Нет сигнала")
                 return {"status": "no_signal"}
 
             latest_signal = result.signals[-1]
@@ -110,6 +154,7 @@ async def run_bot_cycle(
 
             # Сигнал должен быть на последних 2 барах (свежий)
             if latest_signal.bar_index < last_bar_idx - 1:
+                await _log(db, bot.id, "debug", "Нет сигнала", {"reason": "signal_too_old", "bar_index": latest_signal.bar_index, "last_bar": last_bar_idx})
                 return {"status": "no_signal", "message": "Signal too old"}
 
             # 6. Записать сигнал в БД
@@ -150,6 +195,14 @@ async def run_bot_cycle(
             )
             db.add(trade_signal)
 
+            await _log(db, bot.id, "info", f"Сигнал: {direction.value}", {
+                "confluence": latest_signal.confluence_score,
+                "knn_class": knn_class,
+                "entry_price": latest_signal.entry_price,
+                "stop_loss": latest_signal.stop_loss,
+                "take_profit": latest_signal.take_profit,
+            })
+
             # 7. Проверить нет ли уже открытой позиции
             existing_position = await db.execute(
                 select(Position).where(
@@ -163,6 +216,7 @@ async def run_bot_cycle(
                     "Bot %s: position already open for %s, skipping",
                     bot_id, symbol,
                 )
+                await _log(db, bot.id, "info", f"Позиция уже открыта для {symbol}, пропуск")
                 await db.commit()
                 return {"status": "no_signal", "message": "Position already open"}
 
@@ -195,6 +249,7 @@ async def run_bot_cycle(
                         "Bot %s: qty %s < min %s",
                         bot_id, qty, symbol_info.min_qty,
                     )
+                    await _log(db, bot.id, "warn", f"Объём слишком мал: {qty} < {symbol_info.min_qty}")
                     await db.commit()
                     return {"status": "error", "message": f"Qty too small: {qty}"}
 
@@ -273,6 +328,15 @@ async def run_bot_cycle(
                     latest_signal.take_profit,
                 )
 
+                await _log(db, bot.id, "info", f"Ордер размещён: {side} {qty} {symbol}", {
+                    "order_id": bybit_result.get("orderId"),
+                    "side": side,
+                    "qty": float(qty),
+                    "price": float(ticker.last_price),
+                    "stop_loss": float(latest_signal.stop_loss),
+                    "take_profit": float(latest_signal.take_profit),
+                })
+
                 return {
                     "status": "ok",
                     "signal": {
@@ -290,11 +354,14 @@ async def run_bot_cycle(
 
             except BybitAPIError as e:
                 logger.error("Bot %s: Bybit API error: %s", bot_id, e.message)
+                await _log(db, bot.id, "error", f"Ошибка Bybit API: {e.message}", {"error_code": getattr(e, "code", None)})
                 await db.commit()
                 return {"status": "error", "message": f"Bybit: {e.message}"}
 
         except Exception as e:
             logger.exception("Bot %s: unexpected error", bot_id)
+            # Записать ошибку в лог бота
+            await _log(db, bot_id, "error", f"Ошибка: {str(e)[:400]}", {"traceback": traceback.format_exc()[-1000:]})
             # Попытка пометить бота как error
             try:
                 bot_result = await db.execute(

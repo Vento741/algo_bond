@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Bot,
   Play,
@@ -10,6 +10,7 @@ import {
   MoreVertical,
   Settings,
   Zap,
+  ExternalLink,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,6 +56,7 @@ const MODE_COLORS: Record<BotMode, string> = {
 };
 
 export function Bots() {
+  const navigate = useNavigate();
   const [bots, setBots] = useState<BotResponse[]>([]);
   const [configs, setConfigs] = useState<StrategyConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -203,6 +205,7 @@ export function Bots() {
                   isSelected ? 'ring-1 ring-brand-premium/30' : ''
                 }`}
                 onClick={() => setSelectedBot(bot.id)}
+                onDoubleClick={() => navigate(`/bots/${bot.id}`)}
               >
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <div className="flex items-center gap-3">
@@ -220,7 +223,14 @@ export function Bots() {
                       </p>
                     </div>
                   </div>
-                  <button className="text-gray-500 hover:text-white transition-colors">
+                  <button
+                    className="text-gray-500 hover:text-white transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/bots/${bot.id}`);
+                    }}
+                    title="Подробнее"
+                  >
                     <MoreVertical className="h-4 w-4" />
                   </button>
                 </CardHeader>
@@ -294,6 +304,18 @@ export function Bots() {
                         Старт
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/bots/${bot.id}`);
+                      }}
+                      className="text-gray-400 hover:text-white"
+                      title="Подробнее"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
                     {bot.status === 'error' && (
                       <Button
                         size="sm"
