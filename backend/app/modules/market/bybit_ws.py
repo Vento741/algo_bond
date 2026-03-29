@@ -18,15 +18,18 @@ logger = logging.getLogger(__name__)
 
 
 class BybitWebSocketPublic:
-    """Публичный WebSocket — kline, ticker стримы. Не требует API-ключей."""
+    """Публичный WebSocket — kline, ticker стримы. Не требует API-ключей.
 
-    def __init__(self, testnet: bool | None = None) -> None:
-        self._testnet = testnet if testnet is not None else settings.bybit_testnet
+    Всегда подключается к mainnet (реальные рыночные данные).
+    testnet НЕ используется.
+    """
+
+    def __init__(self) -> None:
         self._ws: WebSocket | None = None
 
     def _ensure_connected(self) -> WebSocket:
         if self._ws is None:
-            self._ws = WebSocket(testnet=self._testnet, channel_type="linear")
+            self._ws = WebSocket(testnet=False, channel_type="linear")
         return self._ws
 
     def subscribe_kline(self, symbol: str, interval: int, callback: Callable[[dict], None]) -> None:
@@ -91,14 +94,20 @@ class BybitWebSocketPublic:
 
 
 class BybitWebSocketPrivate:
-    """Приватный WebSocket — order, position, execution стримы. Требует API-ключи."""
+    """Приватный WebSocket — order, position, execution стримы. Требует API-ключи.
+
+    Режимы:
+    - demo=True  → api-demo.bybit.com (реальные цены, симулированные ордера)
+    - demo=False → api.bybit.com (боевой)
+    - testnet НЕ используется.
+    """
 
     def __init__(
         self, api_key: str | None = None, api_secret: str | None = None,
-        testnet: bool | None = None,
+        demo: bool = False,
     ) -> None:
         self._ws = WebSocket(
-            testnet=testnet if testnet is not None else settings.bybit_testnet,
+            demo=demo,
             channel_type="private",
             api_key=api_key or settings.bybit_api_key,
             api_secret=api_secret or settings.bybit_api_secret,

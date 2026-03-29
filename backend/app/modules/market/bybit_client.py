@@ -8,8 +8,6 @@ from numpy.typing import NDArray
 from pybit.exceptions import FailedRequestError, InvalidRequestError
 from pybit.unified_trading import HTTP
 
-from app.config import settings
-
 logger = logging.getLogger(__name__)
 
 
@@ -51,16 +49,23 @@ class Ticker:
 
 
 class BybitClient:
-    """Клиент Bybit V5 API (USDT-M Linear Futures)."""
+    """Клиент Bybit V5 API (USDT-M Linear Futures).
+
+    Режимы:
+    - demo=True  → api-demo.bybit.com (реальные цены, симулированные ордера)
+    - demo=False → api.bybit.com (боевой, реальные деньги)
+    - Публичные данные (без ключей) → api.bybit.com (mainnet)
+    - testnet НЕ используется (api-testnet.bybit.com — искусственные цены).
+    """
 
     def __init__(
         self,
         api_key: str | None = None,
         api_secret: str | None = None,
-        testnet: bool | None = None,
+        demo: bool = False,
     ) -> None:
         self._session = HTTP(
-            testnet=testnet if testnet is not None else settings.bybit_testnet,
+            demo=demo,
             api_key=api_key or "",
             api_secret=api_secret or "",
             recv_window=10000,

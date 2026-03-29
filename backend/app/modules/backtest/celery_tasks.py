@@ -72,10 +72,10 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
 
             strategy: Strategy = config.strategy
 
-            # 3. Получить свечи с Bybit (mainnet, без ключей)
+            # 3. Получить свечи с Bybit (mainnet, без ключей — публичные данные)
             await service.update_run_status(run_id, BacktestStatus.RUNNING, progress=20)
 
-            client = BybitClient(testnet=False)
+            client = BybitClient()
 
             # Для бэктеста нужно много свечей. Bybit API limit=1000.
             # Запрашиваем в цикле с пагинацией по start/end.

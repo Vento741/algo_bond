@@ -455,10 +455,11 @@ def _connect_account(
         return False
 
     try:
+        # is_testnet в БД означает demo mode (api-demo.bybit.com)
         ws = BybitWebSocketPrivate(
             api_key=api_key,
             api_secret=api_secret,
-            testnet=account.is_testnet,
+            demo=account.is_testnet,
         )
 
         # Callbacks: pybit вызывает из своего потока → нам нужно передать в asyncio loop
@@ -486,7 +487,7 @@ def _connect_account(
 
         _active_connections[account_id] = ws
         logger.info(
-            "Bybit Private WS подключен: account=%s testnet=%s",
+            "Bybit Private WS подключен: account=%s demo=%s",
             account_id, account.is_testnet,
         )
         return True

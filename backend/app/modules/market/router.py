@@ -75,10 +75,11 @@ async def get_balance(
     if not account:
         raise NotFoundException("Exchange account не найден")
 
+    # is_testnet в БД означает demo mode (api-demo.bybit.com)
     client = BybitClient(
         api_key=decrypt_value(account.api_key_encrypted),
         api_secret=decrypt_value(account.api_secret_encrypted),
-        testnet=account.is_testnet,
+        demo=account.is_testnet,
     )
     service = MarketService(client=client)
     data = await service.get_wallet_balance(coin)

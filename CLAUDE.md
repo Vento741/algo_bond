@@ -81,6 +81,7 @@ ssh jeremy-vps "curl -sf http://localhost:8100/health"
 - FastPanel перезаписывает nginx конфиг — НЕ редактировать вручную, только через панель
 - Bybit API sync → async: все вызовы BybitClient обёрнуты в `asyncio.to_thread()`
 - `get_db()` без auto-commit — сервисы должны вызывать `await self.db.commit()` явно
+- Bybit: testnet НЕ используется. Demo mode (`HTTP(demo=True)`) = api-demo.bybit.com (реальные цены, симулированные ордера). Колонка `is_testnet` в БД означает "demo mode" (без миграции). `BybitClient(demo=True)` для demo, `BybitClient()` для публичных данных (mainnet)
 
 ## Рабочий процесс агентов
 

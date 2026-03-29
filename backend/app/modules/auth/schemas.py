@@ -56,7 +56,11 @@ class UserUpdateRequest(BaseModel):
 # === Exchange Account ===
 
 class ExchangeAccountCreate(BaseModel):
-    """Создание аккаунта биржи."""
+    """Создание аккаунта биржи.
+
+    is_testnet: в БД означает "demo mode" (api-demo.bybit.com).
+    True → demo, False → live. testnet (api-testnet) не используется.
+    """
     exchange: str = "bybit"
     label: str = Field(min_length=1, max_length=100)
     api_key: str = Field(min_length=1)

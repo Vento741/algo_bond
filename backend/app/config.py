@@ -43,7 +43,6 @@ class Settings(BaseSettings):
     # Bybit
     bybit_api_key: str = ""
     bybit_api_secret: str = ""
-    bybit_testnet: bool = True
     bybit_demo: bool = False
 
 

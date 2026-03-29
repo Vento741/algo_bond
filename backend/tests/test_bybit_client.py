@@ -14,7 +14,7 @@ def mock_session():
     with patch("app.modules.market.bybit_client.HTTP") as MockHTTP:
         mock = MagicMock()
         MockHTTP.return_value = mock
-        client = BybitClient(api_key="test", api_secret="test", testnet=True)
+        client = BybitClient(api_key="test", api_secret="test", demo=True)
         yield client, mock
 
 

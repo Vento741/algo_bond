@@ -422,7 +422,7 @@ export function Settings() {
                               {account.label}
                             </p>
                             {account.is_testnet && (
-                              <Badge variant="accent">Testnet</Badge>
+                              <Badge variant="accent">Demo</Badge>
                             )}
                             {account.is_active && (
                               <Badge variant="profit">Активен</Badge>
@@ -623,12 +623,12 @@ function AddAccountDialog({
             </div>
           </div>
 
-          {/* Testnet toggle */}
+          {/* Demo mode toggle */}
           <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5">
             <div>
-              <p className="text-sm text-white">Тестовая сеть</p>
+              <p className="text-sm text-white">Demo-режим</p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Используйте testnet для безопасного тестирования
+                Реальные цены, симулированные ордера (без риска)
               </p>
             </div>
             <button

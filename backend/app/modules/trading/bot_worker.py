@@ -396,14 +396,18 @@ async def _load_bot(db: AsyncSession, bot_id: uuid.UUID) -> Bot | None:
 
 
 def _create_client(bot: Bot) -> BybitClient:
-    """Создать BybitClient с ключами пользователя."""
+    """Создать BybitClient с ключами пользователя.
+
+    is_testnet в БД означает demo mode (api-demo.bybit.com).
+    BotMode.DEMO также форсирует demo-режим.
+    """
     account = bot.exchange_account
     api_key = decrypt_value(account.api_key_encrypted)
     api_secret = decrypt_value(account.api_secret_encrypted)
-    testnet = account.is_testnet or bot.mode == BotMode.DEMO
+    demo = account.is_testnet or bot.mode == BotMode.DEMO
 
     return BybitClient(
         api_key=api_key,
         api_secret=api_secret,
-        testnet=testnet,
+        demo=demo,
     )

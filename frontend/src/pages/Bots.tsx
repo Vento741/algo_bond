@@ -492,7 +492,7 @@ function CreateBotDialog({
                   onChange={setExchangeAccountId}
                   options={accounts.map((a) => ({
                     value: a.id,
-                    label: `${a.label} (${a.exchange}${a.is_testnet ? ' testnet' : ''})`,
+                    label: `${a.label} (${a.exchange}${a.is_testnet ? ' demo' : ''})`,
                   }))}
                   className="w-full"
                 />
