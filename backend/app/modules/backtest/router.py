@@ -24,9 +24,13 @@ async def create_backtest_run(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> BacktestRunResponse:
-    """Создать запуск бэктеста."""
+    """Создать запуск бэктеста и диспатчить Celery task."""
+    from app.modules.backtest.celery_tasks import run_backtest_task
+
     service = BacktestService(db)
     run = await service.create_run(user.id, data)
+    # Запускаем бэктест в фоне через Celery
+    run_backtest_task.delay(str(run.id))
     return run
 
 
