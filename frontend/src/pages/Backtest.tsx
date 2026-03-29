@@ -476,12 +476,27 @@ export function Backtest() {
             />
           </div>
 
-          {/* Equity curve + Trades */}
-          <Tabs defaultValue="equity">
+          {/* Equity curve + Chart + Trades */}
+          <Tabs defaultValue="chart">
             <TabsList>
+              <TabsTrigger value="chart">График сделок</TabsTrigger>
               <TabsTrigger value="equity">Equity Curve</TabsTrigger>
               <TabsTrigger value="trades">Сделки ({result.trades.length})</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="chart">
+              <Card className="border-white/5 bg-white/[0.02]">
+                <CardContent className="p-0">
+                  <TradesChart
+                    symbol={symbol}
+                    timeframe={TIMEFRAME_TO_BACKEND[timeframe] ?? timeframe}
+                    startDate={startDate}
+                    endDate={endDate}
+                    trades={result.trades}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="equity">
               <Card className="border-white/5 bg-white/[0.02]">
@@ -666,6 +681,218 @@ function EquityChart({ data }: { data: { time: number; equity: number }[] }) {
   }, [initChart]);
 
   return <div ref={containerRef} className="w-full" style={{ minHeight: 350 }} />;
+}
+
+/* ---- Trades Chart (Candlestick + Entry/Exit Markers) ---- */
+
+function TradesChart({
+  symbol,
+  timeframe,
+  startDate: _startDate,
+  endDate: _endDate,
+  trades,
+}: {
+  symbol: string;
+  timeframe: string;
+  startDate: string;
+  endDate: string;
+  trades: BacktestResult['trades'];
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const initChart = useCallback(async () => {
+    if (!containerRef.current) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Fetch candle data for the chart
+      const { data: klines } = await api.get(`/market/klines/${symbol}`, {
+        params: { interval: timeframe, limit: 1000 },
+      });
+
+      const candles = (klines as Record<string, unknown>[]).map((d) => {
+        const rawTs = Number(d.timestamp ?? d.time);
+        return {
+          time: (rawTs > 1e12 ? Math.floor(rawTs / 1000) : rawTs) as Time,
+          open: Number(d.open),
+          high: Number(d.high),
+          low: Number(d.low),
+          close: Number(d.close),
+          volume: Number(d.volume ?? 0),
+        };
+      });
+
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+      }
+
+      const chart = createChart(containerRef.current, {
+        layout: {
+          background: { type: ColorType.Solid, color: 'transparent' },
+          textColor: '#666',
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 11,
+        },
+        grid: {
+          vertLines: { color: '#1a1a2e' },
+          horzLines: { color: '#1a1a2e' },
+        },
+        rightPriceScale: {
+          borderColor: '#2a2a3e',
+          scaleMargins: { top: 0.1, bottom: 0.2 },
+        },
+        timeScale: { borderColor: '#2a2a3e', timeVisible: true },
+        height: 450,
+      });
+      chartRef.current = chart;
+
+      // Candlestick series
+      const candleSeries = chart.addCandlestickSeries({
+        upColor: '#00E676',
+        downColor: '#FF1744',
+        borderUpColor: '#00E676',
+        borderDownColor: '#FF1744',
+        wickUpColor: '#00E676',
+        wickDownColor: '#FF1744',
+      });
+      candleSeries.setData(candles);
+
+      // Volume
+      const volumeSeries = chart.addHistogramSeries({
+        priceFormat: { type: 'volume' },
+        priceScaleId: '',
+      });
+      volumeSeries.priceScale().applyOptions({
+        scaleMargins: { top: 0.85, bottom: 0 },
+      });
+      volumeSeries.setData(
+        candles.map((c) => ({
+          time: c.time,
+          value: c.volume,
+          color:
+            c.close >= c.open
+              ? 'rgba(0,230,118,0.2)'
+              : 'rgba(255,23,68,0.2)',
+        })),
+      );
+
+      // Trade markers on candlestick chart
+      type MarkerItem = {
+        time: Time;
+        position: 'belowBar' | 'aboveBar';
+        color: string;
+        shape: 'arrowUp' | 'arrowDown' | 'circle';
+        text: string;
+      };
+      const markers: MarkerItem[] = [];
+
+      for (const trade of trades) {
+        // Extract bar timestamps from trade entry/exit times
+        // entry_time format: "bar 271" — we need actual timestamps
+        // Use entry_price to find closest candle
+        const entryCandle = candles.find(
+          (c) => Math.abs(c.close - trade.entry_price) / trade.entry_price < 0.01,
+        );
+        const exitCandle = candles.find(
+          (c) => Math.abs(c.close - trade.exit_price) / trade.exit_price < 0.01,
+        );
+
+        if (entryCandle) {
+          markers.push({
+            time: entryCandle.time,
+            position: trade.side === 'long' ? 'belowBar' : 'aboveBar',
+            color: trade.side === 'long' ? '#00E676' : '#FF1744',
+            shape: trade.side === 'long' ? 'arrowUp' : 'arrowDown',
+            text: `${trade.side === 'long' ? 'BUY' : 'SELL'} $${trade.entry_price.toFixed(4)}`,
+          });
+        }
+
+        if (exitCandle && exitCandle.time !== entryCandle?.time) {
+          markers.push({
+            time: exitCandle.time,
+            position: trade.side === 'long' ? 'aboveBar' : 'belowBar',
+            color: trade.pnl >= 0 ? '#FFD700' : '#FF6D00',
+            shape: 'circle',
+            text: `EXIT ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}`,
+          });
+        }
+      }
+
+      // Sort markers by time (required by lightweight-charts)
+      markers.sort((a, b) => (a.time as number) - (b.time as number));
+      if (markers.length > 0) {
+        candleSeries.setMarkers(markers);
+      }
+
+      chart.timeScale().fitContent();
+
+      // Resize observer
+      const ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          chart.applyOptions({ width: entry.contentRect.width });
+        }
+      });
+      ro.observe(containerRef.current);
+
+      setLoading(false);
+      return () => {
+        ro.disconnect();
+        chart.remove();
+      };
+    } catch (err) {
+      setError('Не удалось загрузить данные для графика');
+      setLoading(false);
+    }
+  }, [symbol, timeframe, trades]);
+
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    initChart().then((fn) => {
+      cleanup = fn;
+    });
+    return () => cleanup?.();
+  }, [initChart]);
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-16 text-gray-500 text-sm">
+        {error}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-brand-bg/80 z-10">
+          <Loader2 className="h-6 w-6 animate-spin text-brand-premium" />
+        </div>
+      )}
+      <div ref={containerRef} className="w-full" style={{ minHeight: 450 }} />
+      {!loading && trades.length > 0 && (
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-white/5 text-xs text-gray-500">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 bg-brand-profit rounded-sm" /> Long вход
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 bg-brand-loss rounded-sm" /> Short вход
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 bg-brand-premium rounded-full" /> Выход (profit)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 bg-orange-500 rounded-full" /> Выход (loss)
+          </span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ---- Demo Data ---- */
