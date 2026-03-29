@@ -1,20 +1,54 @@
-import { TrendingUp } from 'lucide-react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Landing } from '@/pages/Landing';
+import { Login } from '@/pages/Login';
+import { Register } from '@/pages/Register';
+import { Dashboard } from '@/pages/Dashboard';
+import { Strategies } from '@/pages/Strategies';
+import { StrategyDetail } from '@/pages/StrategyDetail';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 
 function App() {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-brand-bg">
-      <div className="text-center">
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <TrendingUp className="w-10 h-10 text-brand-profit" />
-          <h1 className="text-4xl font-bold text-white">AlgoBond</h1>
-        </div>
-        <p className="text-brand-accent text-lg">
-          Платформа алгоритмической торговли
-        </p>
-        <p className="text-gray-500 mt-2 font-data">v0.1.0</p>
-      </div>
-    </div>
-  )
+    <BrowserRouter>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Protected routes with dashboard layout */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/strategies" element={<Strategies />} />
+          <Route path="/strategies/:slug" element={<StrategyDetail />} />
+          {/* Placeholder routes for future pages */}
+          <Route path="/bots" element={<ComingSoon title="Боты" />} />
+          <Route path="/backtest" element={<ComingSoon title="Бэктестинг" />} />
+          <Route path="/settings" element={<ComingSoon title="Настройки" />} />
+        </Route>
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+/** Страница-заглушка для будущих разделов */
+function ComingSoon({ title }: { title: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20">
+      <h1 className="text-2xl font-bold text-white mb-2">{title}</h1>
+      <p className="text-gray-400">Этот раздел скоро будет доступен</p>
+    </div>
+  );
+}
+
+export default App;

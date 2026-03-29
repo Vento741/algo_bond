@@ -2,13 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  font-family: 'Jiro', system-ui, sans-serif;
-  color: #ffffff;
-  background-color: #0d0d1a;
+@layer base {
+  :root {
+    --background: 240 33% 5%;
+    --foreground: 0 0% 95%;
+    --card: 240 33% 9%;
+    --card-foreground: 0 0% 95%;
+    --popover: 240 33% 9%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 45 100% 50%;
+    --primary-foreground: 240 33% 5%;
+    --secondary: 240 20% 15%;
+    --secondary-foreground: 0 0% 90%;
+    --muted: 240 20% 15%;
+    --muted-foreground: 240 5% 55%;
+    --accent: 240 20% 18%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 348 100% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 10% 20%;
+    --input: 240 10% 20%;
+    --ring: 45 100% 50%;
+    --radius: 0.5rem;
+  }
 }
 
-body { margin: 0; min-height: 100vh; }
-.font-data { font-family: 'JetBrains Mono', monospace; }
-.pnl-positive { color: #00E676; }
-.pnl-negative { color: #FF1744; }
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+  }
+}
+
+.font-data {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.pnl-positive {
+  color: #00E676;
+}
+
+.pnl-negative {
+  color: #FF1744;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d0d1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
