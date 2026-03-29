@@ -57,9 +57,9 @@ services:
   flower:
     build: ./backend
     container_name: algobond-flower
-    command: celery -A app.celery_app flower --port=5555
+    command: celery -A app.celery_app flower --port=5555 --basic-auth=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-changeme}
     ports:
-      - "5555:5555"
+      - "127.0.0.1:5555:5555"
     env_file:
       - .env
     depends_on:
