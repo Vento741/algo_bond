@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     app_debug: bool = True
     app_host: str = "0.0.0.0"
     app_port: int = 8000
+    frontend_url: str = "http://localhost:5173"
 
     # База данных
     database_url: str = "postgresql+asyncpg://algobond:changeme@db:5432/algobond"
@@ -31,8 +32,9 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "changeme_jwt_secret_at_least_32_chars"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
+    jwt_refresh_token_expire_days: int = 7
 
-    # Шифрование
+    # Шифрование API-ключей бирж
     encryption_key: str = "changeme_fernet_key_base64"
 
     # CORS

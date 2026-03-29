@@ -68,6 +68,6 @@ celerybeat.pid
 CLAUDE.md
 CHANGELOG.md
 strategis_1.pine
-scripts/
-docs/
+/scripts/
+/docs/
 .claude/
