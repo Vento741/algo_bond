@@ -27,6 +27,9 @@ def run_bot_cycle_task(self: Any, bot_id: str) -> dict:
     Обёртка над async run_bot_cycle — запускает через persistent event loop.
     Принимает bot_id как строку (Celery JSON-сериализация).
     """
+    # Импорт моделей для резолва SQLAlchemy relationship
+    import app.modules.auth.models  # noqa: F401  (ExchangeAccount)
+    import app.modules.strategy.models  # noqa: F401  (StrategyConfig)
     from app.modules.trading.bot_worker import run_bot_cycle
 
     loop = _get_loop()
