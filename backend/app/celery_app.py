@@ -33,4 +33,4 @@ celery.autodiscover_tasks([
     "app.modules.backtest",
     "app.modules.market",
     "app.modules.notifications",
-])
+], related_name="celery_tasks")
