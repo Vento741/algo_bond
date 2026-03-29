@@ -41,7 +41,10 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
 
     # Bybit
+    bybit_api_key: str = ""
+    bybit_api_secret: str = ""
     bybit_testnet: bool = True
+    bybit_demo: bool = False
 
 
 settings = Settings()
