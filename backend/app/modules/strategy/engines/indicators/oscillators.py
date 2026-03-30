@@ -6,7 +6,7 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from app.modules.strategy.engines.indicators.trend import ema, sma, stdev
+from app.modules.strategy.engines.indicators.trend import atr, ema, sma, stdev
 
 
 def wavetrend(
@@ -58,3 +58,76 @@ def bollinger_bands(
     upper = basis + dev
     lower = basis - dev
     return upper, basis, lower
+
+
+def keltner_channel(
+    high: NDArray, low: NDArray, close: NDArray,
+    period: int = 20, multiplier: float = 1.5,
+) -> tuple[NDArray, NDArray, NDArray]:
+    """Keltner Channel. Basis = EMA(close), bands = basis +/- mult * ATR.
+
+    Returns (upper, basis, lower).
+    """
+    basis = ema(close, period)
+    atr_vals = atr(high, low, close, period)
+    upper = basis + multiplier * atr_vals
+    lower = basis - multiplier * atr_vals
+    return upper, basis, lower
+
+
+def squeeze_momentum(
+    high: NDArray, low: NDArray, close: NDArray,
+    bb_period: int = 20, bb_mult: float = 2.0,
+    kc_period: int = 20, kc_mult: float = 1.5,
+    mom_period: int = 20,
+) -> tuple[NDArray, NDArray, NDArray]:
+    """Squeeze Momentum Indicator (LazyBear / TTM Squeeze).
+
+    Squeeze ON: BB inside Keltner Channel (low volatility).
+    Momentum: linear regression of (close - avg(HL2, close)).
+    Histogram color: direction + acceleration.
+
+    Returns (squeeze_on, momentum, hist_color).
+    - squeeze_on: bool array, True when BB is inside KC
+    - momentum: float array, momentum value
+    - hist_color: 1=lime, 2=green, -1=red, -2=maroon
+    """
+    n = len(close)
+
+    # Bollinger Bands
+    bb_upper, bb_basis, bb_lower = bollinger_bands(close, bb_period, bb_mult)
+
+    # Keltner Channel
+    kc_upper, kc_basis, kc_lower = keltner_channel(high, low, close, kc_period, kc_mult)
+
+    # Squeeze detection: BB inside KC
+    squeeze_on = np.zeros(n, dtype=bool)
+    for i in range(n):
+        if not np.isnan(bb_lower[i]) and not np.isnan(kc_lower[i]):
+            squeeze_on[i] = (bb_lower[i] > kc_lower[i]) and (bb_upper[i] < kc_upper[i])
+
+    # Momentum: linear regression of (close - midline)
+    hl2 = (high + low) / 2.0
+    midline = sma(hl2, mom_period)
+    delta = close - np.nan_to_num(midline, nan=close)
+
+    momentum = np.full(n, np.nan, dtype=np.float64)
+    for i in range(mom_period - 1, n):
+        window = delta[i - mom_period + 1:i + 1]
+        if np.any(np.isnan(window)):
+            continue
+        x = np.arange(mom_period, dtype=np.float64)
+        coeffs = np.polyfit(x, window, 1)
+        momentum[i] = coeffs[0] * (mom_period - 1) + coeffs[1]
+
+    # Histogram color: direction + acceleration
+    hist_color = np.zeros(n, dtype=np.float64)
+    for i in range(1, n):
+        if np.isnan(momentum[i]):
+            continue
+        if momentum[i] > 0:
+            hist_color[i] = 1.0 if momentum[i] > momentum[i - 1] else 2.0
+        else:
+            hist_color[i] = -1.0 if momentum[i] < momentum[i - 1] else -2.0
+
+    return squeeze_on, momentum, hist_color
