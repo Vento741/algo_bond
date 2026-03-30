@@ -80,6 +80,17 @@ async def stop_bot(
     return await service.stop_bot(bot_id, user.id)
 
 
+@router.delete("/bots/{bot_id}", status_code=204)
+async def delete_bot(
+    bot_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Удалить бота (только если остановлен)."""
+    service = TradingService(db)
+    await service.delete_bot(bot_id, user.id)
+
+
 # === Orders ===
 
 

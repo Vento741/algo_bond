@@ -11,6 +11,7 @@ import {
   Settings,
   Zap,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -122,6 +123,16 @@ export function Bots() {
               : b,
           ),
         );
+      });
+  }
+
+  function deleteBot(id: string) {
+    if (!confirm('Удалить бота? Все ордера, позиции и логи будут удалены.')) return;
+    api
+      .delete(`/trading/bots/${id}`)
+      .then(() => loadData())
+      .catch((err) => {
+        alert(err?.response?.data?.detail || 'Ошибка удаления');
       });
   }
 
@@ -316,6 +327,20 @@ export function Bots() {
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
                     </Button>
+                    {bot.status !== 'running' && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteBot(bot.id);
+                        }}
+                        className="text-gray-500 hover:text-brand-loss"
+                        title="Удалить бота"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     {bot.status === 'error' && (
                       <Button
                         size="sm"

@@ -74,6 +74,15 @@ class TradingService:
         await self.db.commit()
         return bot
 
+    async def delete_bot(self, bot_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Удалить бота (только если остановлен). Каскадно удалит ордера, позиции, сигналы, логи."""
+        bot = await self.get_bot(bot_id, user_id)
+        if bot.status == BotStatus.RUNNING:
+            from app.core.exceptions import ForbiddenException
+            raise ForbiddenException("Нельзя удалить работающего бота. Сначала остановите.")
+        await self.db.delete(bot)
+        await self.db.commit()
+
     # === Orders ===
 
     async def get_bot_orders(
