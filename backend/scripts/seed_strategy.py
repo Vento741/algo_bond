@@ -22,26 +22,26 @@ STRATEGIES = [
         "description": (
             "Lorentzian KNN — ML-стратегия на основе Lorentzian distance metric. "
             "4 фичи (RSI, WaveTrend, CCI, ADX), inverse distance weighting, "
-            "confluence scoring (max 5.5). Протестирована на RIVERUSDT: +710%."
+            "confluence scoring (max 5.5). Протестирована на RIVERUSDT: +985%."
         ),
         "is_public": True,
         "version": "1.0.0",
         "default_config": {
             "time_filter": {"use": False, "session": "01:30-23:45"},
-            "trend": {"ema_fast": 26, "ema_slow": 50, "ema_filter": 200},
+            "trend": {"ema_fast": 26, "ema_slow": 40, "ema_filter": 200},
             "mtf": {"use": False, "timeframe": "1", "ema_fast": 25, "ema_slow": 50},
             "ribbon": {
                 "use": True,
                 "type": "EMA",
                 "mas": [9, 14, 21, 35, 55, 89, 144, 233],
-                "threshold": 4,
+                "threshold": 5,
             },
             "order_flow": {
                 "use": True,
                 "show_vwap": True,
                 "vwap_stds": [1, 2, 3],
                 "cvd_period": 20,
-                "cvd_threshold": 0.7,
+                "cvd_threshold": 0.5,
                 "show_vp_poc": True,
                 "vp_bins": 20,
             },
@@ -78,11 +78,13 @@ STRATEGIES = [
             "risk": {
                 "atr_period": 14,
                 "stop_atr_mult": 2,
-                "tp_atr_mult": 30,
+                "tp_atr_mult": 10,
                 "use_trailing": True,
-                "trailing_atr_mult": 10,
+                "trailing_atr_mult": 4,
+                "min_bars_trailing": 5,
+                "cooldown_bars": 10,
             },
-            "filters": {"adx_period": 15, "adx_threshold": 10, "volume_mult": 1},
+            "filters": {"adx_period": 15, "adx_threshold": 8, "volume_mult": 1, "min_confluence": 3.0},
             "knn": {
                 "neighbors": 8,
                 "lookback": 50,

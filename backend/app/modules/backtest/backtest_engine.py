@@ -44,6 +44,7 @@ def run_backtest(
     initial_capital: float = 100.0,
     commission_pct: float = 0.05,
     order_size_pct: float = 75.0,
+    min_bars_trailing: int = 0,
 ) -> BacktestMetrics:
     """Запустить бэктест.
 
@@ -117,9 +118,12 @@ def run_backtest(
             exit_price = None
             exit_reason = ""
 
+            bars_in_trade = i - position_entry_bar
+            trailing_ready = bars_in_trade >= min_bars_trailing
+
             if position_direction == "long":
-                # Trailing stop update
-                if position_trailing > 0 and bar_high > position_trailing_active:
+                # Trailing stop update (только после min_bars_trailing баров)
+                if position_trailing > 0 and trailing_ready and bar_high > position_trailing_active:
                     position_trailing_active = bar_high
                     new_sl = bar_high - position_trailing
                     if new_sl > position_sl:
@@ -127,13 +131,13 @@ def run_backtest(
 
                 if position_sl > 0 and bar_low <= position_sl:
                     exit_price = position_sl
-                    exit_reason = "trailing_stop" if position_trailing > 0 else "stop_loss"
+                    exit_reason = "trailing_stop" if position_trailing > 0 and trailing_ready else "stop_loss"
                 elif position_tp > 0 and bar_high >= position_tp:
                     exit_price = position_tp
                     exit_reason = "take_profit"
 
             elif position_direction == "short":
-                if position_trailing > 0 and bar_low < position_trailing_active:
+                if position_trailing > 0 and trailing_ready and bar_low < position_trailing_active:
                     position_trailing_active = bar_low
                     new_sl = bar_low + position_trailing
                     if new_sl < position_sl:
@@ -141,7 +145,7 @@ def run_backtest(
 
                 if position_sl > 0 and bar_high >= position_sl:
                     exit_price = position_sl
-                    exit_reason = "trailing_stop" if position_trailing > 0 else "stop_loss"
+                    exit_reason = "trailing_stop" if position_trailing > 0 and trailing_ready else "stop_loss"
                 elif position_tp > 0 and bar_low <= position_tp:
                     exit_price = position_tp
                     exit_reason = "take_profit"

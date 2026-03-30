@@ -139,12 +139,14 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
 
             # 6. Запустить backtest engine
             backtest_config = merged_config.get("backtest", {})
+            risk_config = merged_config.get("risk", {})
             metrics = run_backtest(
                 ohlcv=ohlcv,
                 signals=strategy_result.signals,
                 initial_capital=float(run.initial_capital),
                 commission_pct=backtest_config.get("commission", 0.05),
                 order_size_pct=backtest_config.get("order_size", 75),
+                min_bars_trailing=risk_config.get("min_bars_trailing", 0),
             )
 
             # 7. Сохранить результат

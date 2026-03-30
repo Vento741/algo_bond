@@ -197,11 +197,14 @@ class LorentzianKNNStrategy(BaseStrategy):
         tp_atr_mult = risk_cfg.get("tp_atr_mult", 30.0)
         use_trailing = risk_cfg.get("use_trailing", True)
         trailing_atr_mult = risk_cfg.get("trailing_atr_mult", 10.0)
+        min_bars_trailing = risk_cfg.get("min_bars_trailing", 5)
+        cooldown_bars = risk_cfg.get("cooldown_bars", 10)
 
         filters_cfg = cfg.get("filters", {})
         adx_period = filters_cfg.get("adx_period", 15)
         adx_threshold = filters_cfg.get("adx_threshold", 10)
         volume_mult = filters_cfg.get("volume_mult", 1.0)
+        min_confluence = filters_cfg.get("min_confluence", 3.0)
 
         knn_cfg = cfg.get("knn", {})
         knn_neighbors = knn_cfg.get("neighbors", 8)
@@ -363,19 +366,29 @@ class LorentzianKNNStrategy(BaseStrategy):
         mr_long = is_ranging & (data.close < bb_lower_safe) & (rsi_safe < rsi_os) & rsi_cross_up
         mr_short = is_ranging & (data.close > bb_upper_safe) & (rsi_safe > rsi_ob) & rsi_cross_down
 
-        long_condition = (trend_long | breakout_long | mr_long) & ribbon_filter_long & of_filter_long & smc_filter_long
-        short_condition = (trend_short | breakout_short | mr_short) & ribbon_filter_short & of_filter_short & smc_filter_short
+        long_condition = (
+            (trend_long | breakout_long | mr_long)
+            & ribbon_filter_long & of_filter_long & smc_filter_long
+            & (score_long >= min_confluence)
+        )
+        short_condition = (
+            (trend_short | breakout_short | mr_short)
+            & ribbon_filter_short & of_filter_short & smc_filter_short
+            & (score_short >= min_confluence)
+        )
 
         # --- Generate Signals ---
-        # Pine Script: полная симуляция SL/TP/Trailing Stop на каждом баре.
-        # Старая логика выходила только по противоположному сигналу — неверно.
         signals: list[Signal] = []
         in_position = False
         position_side: str = ""
+        position_entry_bar: int = 0
         stop_loss_price: float = 0.0
         take_profit_price: float = 0.0
         current_trailing_stop: float = 0.0
         trailing_atr_value: float = 0.0
+        last_exit_bar: int = -999
+        last_exit_direction: str = ""
+        last_exit_was_loss: bool = False
 
         for i in range(n):
             if np.isnan(atr_vals[i]):
@@ -383,53 +396,89 @@ class LorentzianKNNStrategy(BaseStrategy):
 
             # --- Проверка SL/TP/Trailing для открытой позиции ---
             if in_position:
+                bars_in_trade = i - position_entry_bar
+                trailing_active = bars_in_trade >= min_bars_trailing
+
                 if position_side == "long":
-                    # Trailing stop: подтягиваем вверх вслед за ценой
-                    if use_trailing and trailing_atr_value > 0:
-                        new_trail = float(data.close[i]) - trailing_atr_value
+                    # Trailing stop: подтягиваем вверх по HIGH (как на бирже)
+                    if use_trailing and trailing_atr_value > 0 and trailing_active:
+                        new_trail = float(data.high[i]) - trailing_atr_value
                         if new_trail > current_trailing_stop:
                             current_trailing_stop = new_trail
-                        # Trailing stop hit: low пробивает trailing
                         if float(data.low[i]) <= current_trailing_stop:
+                            last_exit_bar = i
+                            last_exit_direction = "long"
+                            last_exit_was_loss = float(data.close[i]) < float(data.close[position_entry_bar])
                             in_position = False
                             continue
                     # Stop-loss hit
                     if float(data.low[i]) <= stop_loss_price:
+                        last_exit_bar = i
+                        last_exit_direction = "long"
+                        last_exit_was_loss = True
                         in_position = False
                         continue
                     # Take-profit hit
                     if float(data.high[i]) >= take_profit_price:
+                        last_exit_bar = i
+                        last_exit_direction = "long"
+                        last_exit_was_loss = False
                         in_position = False
                         continue
                     # Противоположный сигнал — тоже закрытие
                     if short_condition[i]:
+                        last_exit_bar = i
+                        last_exit_direction = "long"
+                        last_exit_was_loss = float(data.close[i]) < float(data.close[position_entry_bar])
                         in_position = False
-                        # Не continue — позволяем открыть short на этом же баре
 
                 elif position_side == "short":
-                    # Trailing stop: подтягиваем вниз вслед за ценой
-                    if use_trailing and trailing_atr_value > 0:
-                        new_trail = float(data.close[i]) + trailing_atr_value
+                    # Trailing stop: подтягиваем вниз по LOW (как на бирже)
+                    if use_trailing and trailing_atr_value > 0 and trailing_active:
+                        new_trail = float(data.low[i]) + trailing_atr_value
                         if new_trail < current_trailing_stop:
                             current_trailing_stop = new_trail
-                        # Trailing stop hit: high пробивает trailing
                         if float(data.high[i]) >= current_trailing_stop:
+                            last_exit_bar = i
+                            last_exit_direction = "short"
+                            last_exit_was_loss = float(data.close[i]) > float(data.close[position_entry_bar])
                             in_position = False
                             continue
                     # Stop-loss hit
                     if float(data.high[i]) >= stop_loss_price:
+                        last_exit_bar = i
+                        last_exit_direction = "short"
+                        last_exit_was_loss = True
                         in_position = False
                         continue
                     # Take-profit hit
                     if float(data.low[i]) <= take_profit_price:
+                        last_exit_bar = i
+                        last_exit_direction = "short"
+                        last_exit_was_loss = False
                         in_position = False
                         continue
                     # Противоположный сигнал — закрытие
                     if long_condition[i]:
+                        last_exit_bar = i
+                        last_exit_direction = "short"
+                        last_exit_was_loss = float(data.close[i]) > float(data.close[position_entry_bar])
                         in_position = False
 
             # --- Открытие новой позиции ---
-            if not in_position and long_condition[i]:
+            # Cooldown: после убыточного стопа не входим в ту же сторону N баров
+            long_cooldown = (
+                last_exit_was_loss
+                and last_exit_direction == "long"
+                and (i - last_exit_bar) < cooldown_bars
+            )
+            short_cooldown = (
+                last_exit_was_loss
+                and last_exit_direction == "short"
+                and (i - last_exit_bar) < cooldown_bars
+            )
+
+            if not in_position and long_condition[i] and not long_cooldown:
                 sig_type = "trend" if trend_long[i] else "breakout" if breakout_long[i] else "mean_reversion"
                 entry = float(data.close[i])
                 sl = float(data.close[i] - atr_vals[i] * stop_atr_mult)
@@ -447,13 +496,13 @@ class LorentzianKNNStrategy(BaseStrategy):
                 ))
                 in_position = True
                 position_side = "long"
+                position_entry_bar = i
                 stop_loss_price = sl
                 take_profit_price = tp
                 trailing_atr_value = trail if trail is not None else 0.0
-                # Начальный trailing stop = entry - ATR*mult
                 current_trailing_stop = entry - trailing_atr_value if use_trailing else 0.0
 
-            elif not in_position and short_condition[i]:
+            elif not in_position and short_condition[i] and not short_cooldown:
                 sig_type = "trend" if trend_short[i] else "breakout" if breakout_short[i] else "mean_reversion"
                 entry = float(data.close[i])
                 sl = float(data.close[i] + atr_vals[i] * stop_atr_mult)
@@ -471,10 +520,10 @@ class LorentzianKNNStrategy(BaseStrategy):
                 ))
                 in_position = True
                 position_side = "short"
+                position_entry_bar = i
                 stop_loss_price = sl
                 take_profit_price = tp
                 trailing_atr_value = trail if trail is not None else 0.0
-                # Начальный trailing stop = entry + ATR*mult
                 current_trailing_stop = entry + trailing_atr_value if use_trailing else float("inf")
 
         return StrategyResult(
