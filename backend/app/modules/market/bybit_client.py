@@ -286,10 +286,11 @@ class BybitClient:
             for c in coins:
                 if c["coin"] == coin:
                     return {
-                        "coin": coin, "wallet_balance": float(c["walletBalance"]),
-                        "available": float(c["availableToWithdraw"]),
-                        "equity": float(c["equity"]),
-                        "unrealized_pnl": float(c["unrealisedPnl"]),
+                        "coin": coin,
+                        "wallet_balance": float(c["walletBalance"] or 0),
+                        "available": float(c["availableToWithdraw"] or 0),
+                        "equity": float(c["equity"] or 0),
+                        "unrealized_pnl": float(c["unrealisedPnl"] or 0),
                     }
             return {"coin": coin, "wallet_balance": 0, "available": 0, "equity": 0, "unrealized_pnl": 0}
         except InvalidRequestError as e:
