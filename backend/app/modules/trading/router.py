@@ -1,8 +1,11 @@
 """API-эндпоинты модуля trading."""
 
+import asyncio
+import json
 import uuid
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -153,3 +156,78 @@ async def get_bot_logs(
     """Логи исполнения бота."""
     service = TradingService(db)
     return await service.get_bot_logs(bot_id, user.id, limit=limit, offset=offset)
+
+
+# === SSE Stream ===
+
+
+@router.get("/bots/{bot_id}/stream")
+async def bot_event_stream(
+    bot_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """SSE-стрим событий бота в реальном времени.
+
+    Подписывается на Redis pub/sub канал trading:{user_id},
+    фильтрует события по bot_id и транслирует клиенту.
+    Heartbeat каждые 15 секунд для поддержания соединения.
+    """
+    # Проверить что бот принадлежит пользователю
+    service = TradingService(db)
+    await service.get_bot(bot_id, user.id)
+
+    async def event_generator():
+        """Генератор SSE-событий из Redis pub/sub."""
+        from redis.asyncio import Redis
+
+        from app.config import settings
+
+        redis = Redis.from_url(settings.redis_url, decode_responses=True)
+        pubsub = redis.pubsub()
+        channel = f"trading:{user.id}"
+        await pubsub.subscribe(channel)
+
+        bot_id_str = str(bot_id)
+
+        try:
+            while True:
+                try:
+                    message = await asyncio.wait_for(
+                        pubsub.get_message(ignore_subscribe_messages=True),
+                        timeout=15.0,
+                    )
+                except asyncio.TimeoutError:
+                    # Heartbeat — nginx не закроет соединение
+                    yield ": heartbeat\n\n"
+                    continue
+
+                if message and message["type"] == "message":
+                    try:
+                        payload = json.loads(message["data"])
+                        event_type = payload.get("type", "")
+                        data = payload.get("data", {})
+
+                        # Фильтр по bot_id
+                        event_bot_ids = data.get("bot_ids", [])
+                        event_bot_id = data.get("bot_id", "")
+                        if bot_id_str in event_bot_ids or event_bot_id == bot_id_str:
+                            yield f"event: {event_type}\ndata: {json.dumps(data, default=str)}\n\n"
+                    except (json.JSONDecodeError, KeyError):
+                        continue
+        except asyncio.CancelledError:
+            pass
+        finally:
+            await pubsub.unsubscribe(channel)
+            await pubsub.aclose()
+            await redis.aclose()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

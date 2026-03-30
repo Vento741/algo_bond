@@ -113,8 +113,11 @@ export interface BotResponse {
   total_pnl: number;
   total_trades: number;
   win_rate: number;
+  max_pnl: number;
+  max_drawdown: number;
   started_at: string | null;
   stopped_at: string | null;
+  updated_at: string | null;
   created_at: string;
 }
 
@@ -209,14 +212,21 @@ export interface PositionResponse {
   side: 'long' | 'short';
   entry_price: number;
   quantity: number;
+  original_quantity: number | null;
   stop_loss: number;
   take_profit: number;
   trailing_stop: number | null;
   unrealized_pnl: number;
   realized_pnl: number | null;
+  max_pnl: number;
+  min_pnl: number;
+  current_price: number | null;
+  max_price: number | null;
+  min_price: number | null;
   status: 'open' | 'closed';
   opened_at: string;
   closed_at: string | null;
+  updated_at: string | null;
 }
 
 export type BotLogLevel = 'info' | 'warn' | 'error' | 'debug';

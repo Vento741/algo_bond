@@ -21,6 +21,11 @@ import {
   AlertCircle,
   Hash,
   BarChart3,
+  Crosshair,
+  ArrowDownRight,
+  Wifi,
+  WifiOff,
+  Target,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,6 +56,7 @@ import type {
 /* ---- Constants ---- */
 
 const REFRESH_INTERVAL_MS = 30_000;
+const REFRESH_INTERVAL_SSE_MS = 60_000;
 
 const STATUS_CONFIG: Record<
   BotStatus,
@@ -84,6 +90,34 @@ const LOG_LEVEL_CONFIG: Record<
   debug: { icon: Bug, color: 'text-gray-500', label: 'Debug' },
 };
 
+/* ---- SSE connection status ---- */
+
+type SseStatus = 'disconnected' | 'connecting' | 'connected';
+
+/* ---- SSE event payload types ---- */
+
+interface PositionUpdatePayload {
+  bot_id: string;
+  position_id: string;
+  symbol: string;
+  side: string;
+  size: string;
+  unrealized_pnl: string;
+  mark_price: string;
+  closed: boolean;
+  entry_price: string;
+  quantity: string;
+  stop_loss: string;
+  take_profit: string;
+  trailing_stop: string | null;
+  max_pnl: string;
+  min_pnl: string;
+  max_price: string | null;
+  min_price: string | null;
+  bot_ids: string[];
+  realized_pnl?: string;
+}
+
 /* ---- Helpers ---- */
 
 function formatDatetime(iso: string): string {
@@ -101,9 +135,8 @@ function formatDatetime(iso: string): string {
   }
 }
 
-function formatUptime(startedAt: string | null): string {
-  if (!startedAt) return 'Остановлен';
-  const diffMs = Date.now() - new Date(startedAt).getTime();
+function formatDuration(isoDate: string): string {
+  const diffMs = Date.now() - new Date(isoDate).getTime();
   if (diffMs < 0) return '0м';
   const days = Math.floor(diffMs / 86_400_000);
   const hours = Math.floor((diffMs % 86_400_000) / 3_600_000);
@@ -111,6 +144,11 @@ function formatUptime(startedAt: string | null): string {
   if (days > 0) return `${days}д ${hours}ч`;
   if (hours > 0) return `${hours}ч ${mins}м`;
   return `${mins}м`;
+}
+
+function formatUptime(startedAt: string | null): string {
+  if (!startedAt) return 'Остановлен';
+  return formatDuration(startedAt);
 }
 
 function formatPrice(value: number | string | null | undefined): string {
@@ -138,6 +176,14 @@ function formatPnl(value: number | string): string {
   const n = Number(value);
   const prefix = n >= 0 ? '+' : '';
   return `${prefix}$${n.toFixed(2)}`;
+}
+
+function formatPct(value: number | string | null | undefined): string {
+  if (value == null || value === '') return '—';
+  const n = Number(value);
+  if (isNaN(n)) return '—';
+  const prefix = n >= 0 ? '+' : '';
+  return `${prefix}${n.toFixed(2)}%`;
 }
 
 /* ---- Main Component ---- */
@@ -170,6 +216,12 @@ export function BotDetail() {
 
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // SSE state
+  const [sseStatus, setSseStatus] = useState<SseStatus>('disconnected');
+  const sseAbortRef = useRef<AbortController | null>(null);
+  const sseReconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ordersRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ---- Data fetching ---- */
 
@@ -288,18 +340,199 @@ export function BotDetail() {
     [fetchBot, fetchSignals, fetchOrders, fetchPositions, fetchLogs],
   );
 
+  /* ---- SSE Connection ---- */
+
+  function cleanupSse() {
+    if (sseAbortRef.current) {
+      sseAbortRef.current.abort();
+      sseAbortRef.current = null;
+    }
+    if (sseReconnectRef.current) {
+      clearTimeout(sseReconnectRef.current);
+      sseReconnectRef.current = null;
+    }
+    if (ordersRefreshTimerRef.current) {
+      clearTimeout(ordersRefreshTimerRef.current);
+      ordersRefreshTimerRef.current = null;
+    }
+  }
+
+  const connectSse = useCallback(() => {
+    if (!id) return;
+
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+
+    cleanupSse();
+
+    const abort = new AbortController();
+    sseAbortRef.current = abort;
+    setSseStatus('connecting');
+
+    const baseUrl = api.defaults.baseURL ?? '/api';
+    const url = `${baseUrl}/trading/bots/${id}/stream`;
+
+    (async () => {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'text/event-stream',
+          },
+          signal: abort.signal,
+        });
+
+        if (!response.ok || !response.body) {
+          setSseStatus('disconnected');
+          scheduleReconnect();
+          return;
+        }
+
+        setSseStatus('connected');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          // Keep the last potentially incomplete line in buffer
+          buffer = lines.pop() ?? '';
+
+          let currentEvent = '';
+          let currentData = '';
+
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              currentEvent = line.slice(7).trim();
+            } else if (line.startsWith('data: ')) {
+              currentData = line.slice(6);
+            } else if (line === '' && currentEvent && currentData) {
+              // End of event block — dispatch
+              handleSseEvent(currentEvent, currentData);
+              currentEvent = '';
+              currentData = '';
+            }
+            // heartbeat lines (": heartbeat") are ignored automatically
+          }
+        }
+
+        // Stream ended — reconnect
+        setSseStatus('disconnected');
+        scheduleReconnect();
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          // Intentional disconnect
+          return;
+        }
+        setSseStatus('disconnected');
+        scheduleReconnect();
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  function scheduleReconnect() {
+    if (sseReconnectRef.current) {
+      clearTimeout(sseReconnectRef.current);
+    }
+    sseReconnectRef.current = setTimeout(() => {
+      connectSse();
+    }, 5_000);
+  }
+
+  function handleSseEvent(eventType: string, rawData: string) {
+    try {
+      const data: unknown = JSON.parse(rawData);
+
+      switch (eventType) {
+        case 'position_update':
+          handlePositionUpdate(data as PositionUpdatePayload);
+          break;
+        case 'order_update':
+        case 'execution':
+          debouncedOrdersRefresh();
+          break;
+      }
+    } catch {
+      // Malformed JSON — skip
+    }
+  }
+
+  function handlePositionUpdate(payload: PositionUpdatePayload) {
+    setPositions((prev) =>
+      prev.map((p) => {
+        if (p.id !== payload.position_id) return p;
+
+        if (payload.closed) {
+          return {
+            ...p,
+            status: 'closed' as const,
+            unrealized_pnl: 0,
+            realized_pnl: payload.realized_pnl
+              ? Number(payload.realized_pnl)
+              : p.realized_pnl,
+            current_price: payload.mark_price
+              ? Number(payload.mark_price)
+              : p.current_price,
+          };
+        }
+
+        return {
+          ...p,
+          unrealized_pnl: Number(payload.unrealized_pnl),
+          current_price: payload.mark_price
+            ? Number(payload.mark_price)
+            : p.current_price,
+          quantity: Number(payload.quantity),
+          stop_loss: Number(payload.stop_loss),
+          take_profit: Number(payload.take_profit),
+          trailing_stop: payload.trailing_stop
+            ? Number(payload.trailing_stop)
+            : p.trailing_stop,
+          max_pnl: Number(payload.max_pnl),
+          min_pnl: Number(payload.min_pnl),
+          max_price: payload.max_price
+            ? Number(payload.max_price)
+            : p.max_price,
+          min_price: payload.min_price
+            ? Number(payload.min_price)
+            : p.min_price,
+        };
+      }),
+    );
+  }
+
+  /** Debounced orders refresh — avoids duplicate fetches when order_update
+   *  and execution events arrive in quick succession. */
+  function debouncedOrdersRefresh() {
+    if (ordersRefreshTimerRef.current) return;
+    ordersRefreshTimerRef.current = setTimeout(() => {
+      ordersRefreshTimerRef.current = null;
+      fetchOrders(true);
+    }, 500);
+  }
+
   /* ---- Effects ---- */
 
   useEffect(() => {
     refreshAll(false);
   }, [refreshAll]);
 
-  // Auto-refresh when bot is running — silent (no skeletons)
+  // Auto-refresh — reduce interval when SSE is active
   useEffect(() => {
     if (bot?.status === 'running') {
+      const interval =
+        sseStatus === 'connected'
+          ? REFRESH_INTERVAL_SSE_MS
+          : REFRESH_INTERVAL_MS;
       refreshTimerRef.current = setInterval(
         () => refreshAll(true),
-        REFRESH_INTERVAL_MS,
+        interval,
       );
     }
     return () => {
@@ -308,7 +541,18 @@ export function BotDetail() {
         refreshTimerRef.current = null;
       }
     };
-  }, [bot?.status, refreshAll]);
+  }, [bot?.status, sseStatus, refreshAll]);
+
+  // SSE connect/disconnect lifecycle
+  useEffect(() => {
+    if (bot?.status === 'running') {
+      connectSse();
+    } else {
+      cleanupSse();
+      setSseStatus('disconnected');
+    }
+    return () => cleanupSse();
+  }, [bot?.status, connectSse]);
 
   /* ---- Actions ---- */
 
@@ -320,7 +564,6 @@ export function BotDetail() {
       .post(`/trading/bots/${bot.id}/${action}`)
       .then(() => fetchBot())
       .catch(() => {
-        // Fallback: toggle locally
         setBot((prev) =>
           prev
             ? {
@@ -369,6 +612,11 @@ export function BotDetail() {
       ? `Бот ${bot.id.slice(0, 8)}`
       : 'Загрузка...';
 
+  const openPosition = useMemo(
+    () => positions.find((p) => p.status === 'open') ?? null,
+    [positions],
+  );
+
   /* ---- Loading state ---- */
 
   if (loading) {
@@ -381,11 +629,12 @@ export function BotDetail() {
             <Skeleton className="h-4 w-40" />
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-lg" />
           ))}
         </div>
+        <Skeleton className="h-40 rounded-lg" />
         <Skeleton className="h-96 rounded-lg" />
       </div>
     );
@@ -459,6 +708,10 @@ export function BotDetail() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {/* SSE Connection indicator */}
+          {bot.status === 'running' && (
+            <SseIndicator status={sseStatus} />
+          )}
           <span className="text-[10px] text-gray-600 mr-2 hidden sm:inline">
             Обновлено{' '}
             {lastRefresh.toLocaleTimeString('ru-RU', {
@@ -509,9 +762,9 @@ export function BotDetail() {
         </div>
       </div>
 
-      {/* ---- Stats Row ---- */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total P&L */}
+      {/* ---- Stats Grid (6 cards: 3 cols x 2 rows) ---- */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        {/* 1. Total P&L */}
         <Card className="border-white/5 bg-white/[0.02]">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -521,35 +774,68 @@ export function BotDetail() {
                 <TrendingDown className="h-4 w-4 text-brand-loss" />
               )}
               <p className="text-xs text-gray-400 uppercase tracking-wider">
-                Общий P&L
+                P&L
               </p>
             </div>
             <p
               className={`text-2xl font-bold font-mono ${
-                Number(bot.total_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'
+                Number(bot.total_pnl) >= 0
+                  ? 'text-brand-profit'
+                  : 'text-brand-loss'
               }`}
             >
               {formatPnl(bot.total_pnl)}
             </p>
-          </CardContent>
-        </Card>
-
-        {/* Total Trades */}
-        <Card className="border-white/5 bg-white/[0.02]">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Hash className="h-4 w-4 text-brand-accent" />
-              <p className="text-xs text-gray-400 uppercase tracking-wider">
-                Всего сделок
-              </p>
-            </div>
-            <p className="text-2xl font-bold font-mono text-white">
-              {bot.total_trades}
+            <p className="text-[10px] text-gray-600 font-mono mt-1">
+              пик: {formatPnl(bot.max_pnl)}
             </p>
           </CardContent>
         </Card>
 
-        {/* Win Rate */}
+        {/* 2. Unrealized P&L (from open position) */}
+        <Card className="border-white/5 bg-white/[0.02]">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Crosshair className="h-4 w-4 text-brand-accent" />
+              <p className="text-xs text-gray-400 uppercase tracking-wider">
+                Нереализ. P&L
+              </p>
+            </div>
+            {openPosition ? (
+              <>
+                <p
+                  className={`text-2xl font-bold font-mono ${
+                    Number(openPosition.unrealized_pnl) >= 0
+                      ? 'text-brand-profit'
+                      : 'text-brand-loss'
+                  }`}
+                >
+                  {formatPnl(openPosition.unrealized_pnl)}
+                </p>
+                <p className="text-[10px] text-gray-600 font-mono mt-1">
+                  <span className="text-brand-profit/60">
+                    max {formatPnl(openPosition.max_pnl)}
+                  </span>
+                  {' / '}
+                  <span className="text-brand-loss/60">
+                    min {formatPnl(openPosition.min_pnl)}
+                  </span>
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-2xl font-bold font-mono text-gray-600">
+                  —
+                </p>
+                <p className="text-[10px] text-gray-600 mt-1">
+                  нет открытых позиций
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 3. Win Rate */}
         <Card className="border-white/5 bg-white/[0.02]">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -559,18 +845,52 @@ export function BotDetail() {
               </p>
             </div>
             <p className="text-2xl font-bold font-mono text-white">
-              {(Number(bot.win_rate) * 100).toFixed(1)}%
+              {Number(bot.win_rate).toFixed(1)}%
             </p>
             <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
               <div
                 className="h-full rounded-full bg-brand-premium transition-all duration-500"
-                style={{ width: `${Math.min(Number(bot.win_rate) * 100, 100)}%` }}
+                style={{
+                  width: `${Math.min(Number(bot.win_rate), 100)}%`,
+                }}
               />
             </div>
           </CardContent>
         </Card>
 
-        {/* Uptime */}
+        {/* 4. Total Trades */}
+        <Card className="border-white/5 bg-white/[0.02]">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Hash className="h-4 w-4 text-brand-accent" />
+              <p className="text-xs text-gray-400 uppercase tracking-wider">
+                Сделки
+              </p>
+            </div>
+            <p className="text-2xl font-bold font-mono text-white">
+              {bot.total_trades}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* 5. Max Drawdown */}
+        <Card className="border-white/5 bg-white/[0.02]">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <ArrowDownRight className="h-4 w-4 text-brand-loss" />
+              <p className="text-xs text-gray-400 uppercase tracking-wider">
+                Макс. просадка
+              </p>
+            </div>
+            <p className="text-2xl font-bold font-mono text-brand-loss">
+              {Number(bot.max_drawdown) !== 0
+                ? formatPnl(bot.max_drawdown)
+                : '$0.00'}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* 6. Uptime */}
         <Card className="border-white/5 bg-white/[0.02]">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -587,6 +907,11 @@ export function BotDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ---- Live Position Card ---- */}
+      {openPosition && (
+        <LivePositionCard position={openPosition} />
+      )}
 
       {/* ---- Tabs ---- */}
       <Tabs defaultValue="signals">
@@ -923,6 +1248,277 @@ export function BotDetail() {
 }
 
 /* ---- Sub-components ---- */
+
+/** SSE connection status indicator */
+function SseIndicator({ status }: { status: SseStatus }) {
+  const config: Record<
+    SseStatus,
+    { color: string; pulse: boolean; label: string; Icon: typeof Wifi }
+  > = {
+    connected: {
+      color: 'text-brand-profit',
+      pulse: false,
+      label: 'Live',
+      Icon: Wifi,
+    },
+    connecting: {
+      color: 'text-yellow-400',
+      pulse: true,
+      label: 'Подключение...',
+      Icon: Wifi,
+    },
+    disconnected: {
+      color: 'text-gray-600',
+      pulse: false,
+      label: 'Отключено',
+      Icon: WifiOff,
+    },
+  };
+
+  const c = config[status];
+  const IconComponent = c.Icon;
+
+  return (
+    <div
+      className={`flex items-center gap-1.5 mr-2 ${c.color}`}
+      title={c.label}
+    >
+      <span
+        className={`h-1.5 w-1.5 rounded-full bg-current ${
+          c.pulse ? 'animate-pulse' : ''
+        }`}
+      />
+      <IconComponent className="h-3.5 w-3.5" />
+      <span className="text-[10px] font-medium hidden sm:inline">
+        {c.label}
+      </span>
+    </div>
+  );
+}
+
+/** Live position card — prominent display of the open position */
+function LivePositionCard({ position }: { position: PositionResponse }) {
+  const entryPrice = Number(position.entry_price);
+  const currentPrice = Number(position.current_price ?? entryPrice);
+  const stopLoss = Number(position.stop_loss);
+  const takeProfit = Number(position.take_profit);
+  const unrealizedPnl = Number(position.unrealized_pnl);
+  const maxPnl = Number(position.max_pnl);
+  const minPnl = Number(position.min_pnl);
+  const quantity = Number(position.quantity);
+  const originalQty = Number(position.original_quantity ?? position.quantity);
+  const trailingStop = position.trailing_stop
+    ? Number(position.trailing_stop)
+    : null;
+
+  // Change percentage
+  const changePct =
+    entryPrice !== 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : 0;
+  // For shorts, invert the percentage for ROI display
+  const roiPct = position.side === 'short' ? -changePct : changePct;
+
+  // Visual SL — Entry — TP bar calculation
+  // Map the range [SL, TP] to [0%, 100%]
+  const rangeTotal = takeProfit - stopLoss;
+  const entryPct =
+    rangeTotal !== 0
+      ? ((entryPrice - stopLoss) / rangeTotal) * 100
+      : 50;
+  const currentPct =
+    rangeTotal !== 0
+      ? ((currentPrice - stopLoss) / rangeTotal) * 100
+      : 50;
+
+  // Clamp for visual display
+  const clamp = (v: number, min: number, max: number) =>
+    Math.max(min, Math.min(max, v));
+  const entryPctClamped = clamp(entryPct, 2, 98);
+  const currentPctClamped = clamp(currentPct, 0, 100);
+
+  const isProfit = unrealizedPnl >= 0;
+
+  return (
+    <Card className="border-white/5 bg-white/[0.02] overflow-hidden">
+      <CardContent className="p-0">
+        {/* Top accent line */}
+        <div
+          className={`h-0.5 ${
+            isProfit ? 'bg-brand-profit' : 'bg-brand-loss'
+          }`}
+        />
+
+        <div className="p-5 space-y-4">
+          {/* Row 1: Symbol + Side + Duration */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Target className="h-5 w-5 text-brand-accent" />
+              <span className="text-lg font-bold font-mono text-white">
+                {position.symbol}
+              </span>
+              <Badge variant={position.side === 'long' ? 'profit' : 'loss'}>
+                {position.side === 'long' ? 'LONG' : 'SHORT'}
+              </Badge>
+            </div>
+            <span className="text-xs text-gray-500">
+              Открыта {formatDuration(position.opened_at)}
+            </span>
+          </div>
+
+          {/* Row 2: Prices */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                Вход
+              </p>
+              <p className="text-sm font-mono text-white font-medium">
+                {formatPrice(entryPrice)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                Текущая
+              </p>
+              <p
+                className={`text-sm font-mono font-medium ${
+                  isProfit ? 'text-brand-profit' : 'text-brand-loss'
+                }`}
+              >
+                {formatPrice(currentPrice)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                Изменение
+              </p>
+              <p
+                className={`text-sm font-mono font-medium ${
+                  isProfit ? 'text-brand-profit' : 'text-brand-loss'
+                }`}
+              >
+                {formatPct(changePct)}
+              </p>
+            </div>
+          </div>
+
+          {/* Row 3: SL — Entry — TP visual bar */}
+          <div className="space-y-2">
+            <div className="relative h-8 rounded-md bg-white/[0.03] border border-white/5 overflow-hidden">
+              {/* Loss zone (SL to Entry) */}
+              <div
+                className="absolute top-0 bottom-0 bg-brand-loss/8 border-r border-brand-loss/20"
+                style={{
+                  left: '0%',
+                  width: `${entryPctClamped}%`,
+                }}
+              />
+              {/* Profit zone (Entry to TP) */}
+              <div
+                className="absolute top-0 bottom-0 bg-brand-profit/8"
+                style={{
+                  left: `${entryPctClamped}%`,
+                  width: `${100 - entryPctClamped}%`,
+                }}
+              />
+
+              {/* Current price marker */}
+              <div
+                className="absolute top-0 bottom-0 w-0.5 z-10 transition-all duration-300"
+                style={{
+                  left: `${currentPctClamped}%`,
+                  backgroundColor: isProfit ? '#00E676' : '#FF1744',
+                }}
+              >
+                <div
+                  className={`absolute -top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full ${
+                    isProfit ? 'bg-brand-profit' : 'bg-brand-loss'
+                  }`}
+                />
+              </div>
+
+              {/* Entry marker */}
+              <div
+                className="absolute top-0 bottom-0 w-px bg-white/30 z-[5]"
+                style={{ left: `${entryPctClamped}%` }}
+              />
+
+              {/* Labels on the bar */}
+              <div className="absolute inset-0 flex items-center justify-between px-3">
+                <span className="text-[9px] font-mono text-brand-loss/70 z-[1]">
+                  SL {formatPrice(stopLoss)}
+                </span>
+                <span className="text-[9px] font-mono text-white/40 z-[1]">
+                  {formatPrice(entryPrice)}
+                </span>
+                <span className="text-[9px] font-mono text-brand-profit/70 z-[1]">
+                  TP {formatPrice(takeProfit)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 4: P&L details + position info */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                Нереализ. P&L
+              </p>
+              <p
+                className={`text-sm font-mono font-bold ${
+                  isProfit ? 'text-brand-profit' : 'text-brand-loss'
+                }`}
+              >
+                {formatPnl(unrealizedPnl)}
+              </p>
+              <p className="text-[10px] text-gray-600 font-mono mt-0.5">
+                <span className="text-brand-profit/50">
+                  пик {formatPnl(maxPnl)}
+                </span>
+                {' / '}
+                <span className="text-brand-loss/50">
+                  дно {formatPnl(minPnl)}
+                </span>
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                Размер
+              </p>
+              <p className="text-sm font-mono text-white">
+                {formatQty(quantity)}
+                {originalQty !== quantity && (
+                  <span className="text-gray-500">
+                    {' / '}
+                    {formatQty(originalQty)}
+                  </span>
+                )}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                Trail
+              </p>
+              <p className="text-sm font-mono text-white">
+                {trailingStop !== null ? formatPrice(trailingStop) : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                ROI
+              </p>
+              <p
+                className={`text-sm font-mono font-bold ${
+                  roiPct >= 0 ? 'text-brand-profit' : 'text-brand-loss'
+                }`}
+              >
+                {formatPct(roiPct)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function OrderStatusBadge({
   status,

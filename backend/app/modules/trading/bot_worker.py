@@ -377,9 +377,13 @@ async def _place_order(
             bot_id=bot.id, symbol=symbol,
             side=PositionSide.LONG if signal.direction == "long" else PositionSide.SHORT,
             entry_price=ticker.last_price, quantity=qty,
+            original_quantity=qty,
             stop_loss=signal.stop_loss, take_profit=signal.take_profit,
             trailing_stop=signal.trailing_atr,
             unrealized_pnl=0, status=PositionStatus.OPEN,
+            current_price=ticker.last_price,
+            max_price=ticker.last_price,
+            min_price=ticker.last_price,
         )
         db.add(position)
 

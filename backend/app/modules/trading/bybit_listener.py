@@ -220,10 +220,10 @@ async def _handle_position_event(
 ) -> None:
     """Обработать обновление позиции от Bybit WS.
 
-    - Обновляет unrealized_pnl
+    - Обновляет unrealized_pnl, current/max/min price, max/min pnl
+    - Синхронизирует SL/TP/trailing с биржей
     - Если size == 0: позиция закрыта → realized_pnl, обновить bot stats
-    - Записывает BotLog
-    - Публикует в Redis
+    - Публикует полное состояние в Redis для SSE
     """
     from sqlalchemy import select
 
@@ -234,23 +234,39 @@ async def _handle_position_event(
     size = pos_data.get("size", "0")
     unrealized_pnl = pos_data.get("unrealized_pnl", "0")
     side = pos_data.get("side", "")
+    mark_price = pos_data.get("mark_price", "") or pos_data.get("markPrice", "")
+    stop_loss_ex = pos_data.get("stop_loss", "") or pos_data.get("stopLoss", "")
+    take_profit_ex = pos_data.get("take_profit", "") or pos_data.get("takeProfit", "")
+    trailing_stop_ex = pos_data.get("trailing_stop", "") or pos_data.get("trailingStop", "")
 
     bot_ids = _find_bots_for_event(symbol, exchange_account_id)
     if not bot_ids:
-        logger.debug("Нет ботов для позиции %s account=%s", symbol, exchange_account_id)
         return
 
     logger.info(
-        "Position event: %s side=%s size=%s pnl=%s bots=%d",
-        symbol, side, size, unrealized_pnl, len(bot_ids),
+        "Position event: %s side=%s size=%s pnl=%s mark=%s bots=%d",
+        symbol, side, size, unrealized_pnl, mark_price, len(bot_ids),
     )
 
     position_closed = float(size) == 0
+    now = datetime.now(timezone.utc)
+    upnl = Decimal(unrealized_pnl)
+    mp = Decimal(mark_price) if mark_price else None
+
+    # Данные для Redis-события (обогащаем по ходу)
+    event_data: dict[str, Any] = {
+        "symbol": symbol,
+        "side": side,
+        "size": size,
+        "unrealized_pnl": unrealized_pnl,
+        "mark_price": mark_price,
+        "closed": position_closed,
+        "bot_ids": [str(b) for b in bot_ids],
+    }
 
     try:
         async with async_session() as db:
             for bot_id in bot_ids:
-                # Найти открытую позицию для этого бота
                 stmt = select(Position).where(
                     Position.bot_id == bot_id,
                     Position.symbol == symbol,
@@ -263,27 +279,30 @@ async def _handle_position_event(
                     continue
 
                 if position_closed:
-                    # Позиция закрыта на бирже
+                    # === Позиция закрыта ===
                     position.status = PositionStatus.CLOSED
-                    position.closed_at = datetime.now(timezone.utc)
+                    position.closed_at = now
+                    position.updated_at = now
                     position.unrealized_pnl = Decimal("0")
-
-                    # Рассчитать realized_pnl из данных позиции
-                    # Bybit не отправляет realized_pnl в position stream напрямую,
-                    # используем unrealized_pnl последнего обновления перед закрытием
                     if position.realized_pnl is None:
-                        position.realized_pnl = Decimal(unrealized_pnl)
+                        position.realized_pnl = upnl
 
                     # Обновить статистику бота
-                    bot_result = await db.execute(
-                        select(Bot).where(Bot.id == bot_id)
-                    )
+                    bot_result = await db.execute(select(Bot).where(Bot.id == bot_id))
                     bot = bot_result.scalar_one_or_none()
                     if bot:
                         pnl_value = position.realized_pnl or Decimal("0")
                         bot.total_pnl = (bot.total_pnl or Decimal("0")) + pnl_value
+                        bot.updated_at = now
 
-                        # Пересчитать win_rate
+                        # Трекинг пиков бота
+                        if bot.total_pnl > bot.max_pnl:
+                            bot.max_pnl = bot.total_pnl
+                        current_dd = bot.max_pnl - bot.total_pnl
+                        if current_dd > bot.max_drawdown:
+                            bot.max_drawdown = current_dd
+
+                        # Win rate
                         total_positions_result = await db.execute(
                             select(Position).where(
                                 Position.bot_id == bot_id,
@@ -304,23 +323,73 @@ async def _handle_position_event(
                         f"Позиция закрыта: {position.side.value.upper()} {symbol} PnL: {position.realized_pnl}",
                         {"realized_pnl": str(position.realized_pnl), "side": position.side.value},
                     )
+
+                    event_data["realized_pnl"] = str(position.realized_pnl)
                 else:
-                    # Обновить unrealized PnL
-                    position.unrealized_pnl = Decimal(unrealized_pnl)
+                    # === Позиция обновляется ===
+                    position.unrealized_pnl = upnl
+                    position.updated_at = now
+
+                    # Трекинг пиков PnL
+                    if upnl > position.max_pnl:
+                        position.max_pnl = upnl
+                    if upnl < position.min_pnl:
+                        position.min_pnl = upnl
+
+                    # Трекинг цен
+                    if mp:
+                        position.current_price = mp
+                        if position.max_price is None or mp > position.max_price:
+                            position.max_price = mp
+                        if position.min_price is None or mp < position.min_price:
+                            position.min_price = mp
+
+                    # Синхронизировать SL/TP/trailing с биржей
+                    if stop_loss_ex and float(stop_loss_ex) > 0:
+                        position.stop_loss = Decimal(stop_loss_ex)
+                    if take_profit_ex and float(take_profit_ex) > 0:
+                        position.take_profit = Decimal(take_profit_ex)
+                    if trailing_stop_ex and float(trailing_stop_ex) > 0:
+                        position.trailing_stop = Decimal(trailing_stop_ex)
+
+                    # Обновить размер при частичном закрытии
+                    exchange_size = Decimal(size)
+                    if exchange_size < position.quantity * Decimal("0.95"):
+                        if position.original_quantity is None:
+                            position.original_quantity = position.quantity
+                        position.quantity = exchange_size
+                        await _write_bot_log(
+                            bot_id, "info",
+                            f"Частичное закрытие: {symbol} новый размер {size}",
+                        )
+
+                    # Обновить пики бота
+                    bot_result = await db.execute(select(Bot).where(Bot.id == bot_id))
+                    bot = bot_result.scalar_one_or_none()
+                    if bot:
+                        bot.updated_at = now
+
+                    # Обогатить событие данными позиции
+                    event_data.update({
+                        "bot_id": str(bot_id),
+                        "position_id": str(position.id),
+                        "entry_price": str(position.entry_price),
+                        "quantity": str(position.quantity),
+                        "stop_loss": str(position.stop_loss),
+                        "take_profit": str(position.take_profit),
+                        "trailing_stop": str(position.trailing_stop) if position.trailing_stop else None,
+                        "max_pnl": str(position.max_pnl),
+                        "min_pnl": str(position.min_pnl),
+                        "max_price": str(position.max_price) if position.max_price else None,
+                        "min_price": str(position.min_price) if position.min_price else None,
+                    })
 
                 await db.commit()
 
-            # Публикация в Redis
+            # Публикация в Redis для SSE
             user_id = _account_user_map.get(exchange_account_id)
             if user_id:
-                await _publish_event(user_id, "position_update", {
-                    "symbol": symbol,
-                    "side": side,
-                    "size": size,
-                    "unrealized_pnl": unrealized_pnl,
-                    "closed": position_closed,
-                    "bot_ids": [str(b) for b in bot_ids],
-                })
+                await _publish_event(user_id, "position_update", event_data)
 
     except Exception:
         logger.exception("Ошибка обработки position event: %s", symbol)

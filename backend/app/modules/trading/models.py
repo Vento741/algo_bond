@@ -108,10 +108,15 @@ class Bot(Base):
     total_pnl: Mapped[Decimal] = mapped_column(Numeric, default=Decimal("0"))
     total_trades: Mapped[int] = mapped_column(Integer, default=0)
     win_rate: Mapped[Decimal] = mapped_column(Numeric, default=Decimal("0"))
+    max_pnl: Mapped[Decimal] = mapped_column(Numeric, default=Decimal("0"))
+    max_drawdown: Mapped[Decimal] = mapped_column(Numeric, default=Decimal("0"))
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     stopped_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -194,11 +199,17 @@ class Position(Base):
     )
     entry_price: Mapped[Decimal] = mapped_column(Numeric)
     quantity: Mapped[Decimal] = mapped_column(Numeric)
+    original_quantity: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
     stop_loss: Mapped[Decimal] = mapped_column(Numeric)
     take_profit: Mapped[Decimal] = mapped_column(Numeric)
     trailing_stop: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
     unrealized_pnl: Mapped[Decimal] = mapped_column(Numeric, default=Decimal("0"))
     realized_pnl: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
+    max_pnl: Mapped[Decimal] = mapped_column(Numeric, default=Decimal("0"))
+    min_pnl: Mapped[Decimal] = mapped_column(Numeric, default=Decimal("0"))
+    current_price: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
+    max_price: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
+    min_price: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
     status: Mapped[PositionStatus] = mapped_column(
         Enum(PositionStatus, name="position_status"), default=PositionStatus.OPEN
     )
@@ -206,6 +217,9 @@ class Position(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     closed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 

@@ -42,8 +42,11 @@ class BotResponse(BaseModel):
     total_pnl: Decimal
     total_trades: int
     win_rate: Decimal
+    max_pnl: Decimal
+    max_drawdown: Decimal
     started_at: datetime | None
     stopped_at: datetime | None
+    updated_at: datetime | None
     created_at: datetime
 
 
@@ -92,14 +95,21 @@ class PositionResponse(BaseModel):
     side: PositionSide
     entry_price: Decimal
     quantity: Decimal
+    original_quantity: Decimal | None
     stop_loss: Decimal
     take_profit: Decimal
     trailing_stop: Decimal | None
     unrealized_pnl: Decimal
     realized_pnl: Decimal | None
+    max_pnl: Decimal
+    min_pnl: Decimal
+    current_price: Decimal | None
+    max_price: Decimal | None
+    min_price: Decimal | None
     status: PositionStatus
     opened_at: datetime
     closed_at: datetime | None
+    updated_at: datetime | None
 
 
 # === TradeSignal ===
