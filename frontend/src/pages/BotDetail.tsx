@@ -609,14 +609,14 @@ export function BotDetail() {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono">
-                        {s.signal_strength.toFixed(2)}
+                        {Number(s.signal_strength).toFixed(2)}
                       </TableCell>
                       <TableCell className="font-mono">
                         {s.knn_class}
                       </TableCell>
                       <TableCell>
                         <span className="font-mono">
-                          {(s.knn_confidence * 100).toFixed(1)}%
+                          {(Number(s.knn_confidence) * 100).toFixed(1)}%
                         </span>
                       </TableCell>
                       <TableCell>
@@ -625,12 +625,12 @@ export function BotDetail() {
                             <div
                               className="h-full rounded-full bg-brand-accent transition-all"
                               style={{
-                                width: `${Math.min(Math.abs(s.signal_strength) * 100, 100)}%`,
+                                width: `${Math.min(Math.abs(Number(s.signal_strength)) * 100, 100)}%`,
                               }}
                             />
                           </div>
                           <span className="font-mono text-xs">
-                            {s.signal_strength.toFixed(2)}
+                            {Number(s.signal_strength).toFixed(2)}
                           </span>
                         </div>
                       </TableCell>
