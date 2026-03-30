@@ -54,10 +54,10 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Poiret One', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
-        heading: ['WDXL Lubrifont TC', 'system-ui', 'sans-serif'],
-        body: ['WDXL Lubrifont JP N', 'system-ui', 'sans-serif'],
+        heading: ['Poiret One', 'system-ui', 'sans-serif'],
+        body: ['Poiret One', 'system-ui', 'sans-serif'],
         data: ['JetBrains Mono', 'monospace'],
       },
       keyframes: {

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/poiret-one": "^5.2.8",
     "@fontsource/wdxl-lubrifont-jp-n": "^5.2.3",
     "@fontsource/wdxl-lubrifont-tc": "^5.2.5",
     "@radix-ui/react-avatar": "^1.1.11",
