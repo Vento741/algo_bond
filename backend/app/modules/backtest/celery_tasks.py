@@ -147,6 +147,9 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
                 commission_pct=backtest_config.get("commission", 0.05),
                 order_size_pct=backtest_config.get("order_size", 75),
                 min_bars_trailing=risk_config.get("min_bars_trailing", 0),
+                use_multi_tp=risk_config.get("use_multi_tp", False),
+                tp_levels=risk_config.get("tp_levels"),
+                use_breakeven=risk_config.get("use_breakeven", False),
             )
 
             # 7. Сохранить результат

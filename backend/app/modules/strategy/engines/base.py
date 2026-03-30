@@ -40,6 +40,7 @@ class Signal:
     trailing_atr: float | None = None
     confluence_score: float = 0.0
     signal_type: str = ""  # "trend", "breakout", "mean_reversion"
+    tp_levels: list[dict] | None = None  # [{"atr_mult": 5, "close_pct": 50}, ...]
 
 
 @dataclass

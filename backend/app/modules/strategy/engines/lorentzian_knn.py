@@ -199,6 +199,9 @@ class LorentzianKNNStrategy(BaseStrategy):
         trailing_atr_mult = risk_cfg.get("trailing_atr_mult", 10.0)
         min_bars_trailing = risk_cfg.get("min_bars_trailing", 5)
         cooldown_bars = risk_cfg.get("cooldown_bars", 10)
+        use_multi_tp = risk_cfg.get("use_multi_tp", False)
+        tp_levels_cfg = risk_cfg.get("tp_levels", [])
+        use_breakeven = risk_cfg.get("use_breakeven", False)
 
         filters_cfg = cfg.get("filters", {})
         adx_period = filters_cfg.get("adx_period", 15)
@@ -484,6 +487,13 @@ class LorentzianKNNStrategy(BaseStrategy):
                 sl = float(data.close[i] - atr_vals[i] * stop_atr_mult)
                 tp = float(data.close[i] + atr_vals[i] * tp_atr_mult)
                 trail = float(atr_vals[i] * trailing_atr_mult) if use_trailing else None
+                # Multi-TP: расстояния в абсолютных единицах (ATR * mult)
+                sig_tp_levels = None
+                if use_multi_tp and tp_levels_cfg:
+                    sig_tp_levels = [
+                        {"atr_mult": float(atr_vals[i] * lvl["atr_mult"]), "close_pct": lvl["close_pct"]}
+                        for lvl in tp_levels_cfg
+                    ]
                 signals.append(Signal(
                     bar_index=i,
                     direction="long",
@@ -493,6 +503,7 @@ class LorentzianKNNStrategy(BaseStrategy):
                     trailing_atr=trail,
                     confluence_score=float(score_long[i]),
                     signal_type=sig_type,
+                    tp_levels=sig_tp_levels,
                 ))
                 in_position = True
                 position_side = "long"
@@ -508,6 +519,12 @@ class LorentzianKNNStrategy(BaseStrategy):
                 sl = float(data.close[i] + atr_vals[i] * stop_atr_mult)
                 tp = float(data.close[i] - atr_vals[i] * tp_atr_mult)
                 trail = float(atr_vals[i] * trailing_atr_mult) if use_trailing else None
+                sig_tp_levels = None
+                if use_multi_tp and tp_levels_cfg:
+                    sig_tp_levels = [
+                        {"atr_mult": float(atr_vals[i] * lvl["atr_mult"]), "close_pct": lvl["close_pct"]}
+                        for lvl in tp_levels_cfg
+                    ]
                 signals.append(Signal(
                     bar_index=i,
                     direction="short",
@@ -517,6 +534,7 @@ class LorentzianKNNStrategy(BaseStrategy):
                     trailing_atr=trail,
                     confluence_score=float(score_short[i]),
                     signal_type=sig_type,
+                    tp_levels=sig_tp_levels,
                 ))
                 in_position = True
                 position_side = "short"

@@ -10,7 +10,7 @@ from app.modules.strategy.engines.base import OHLCV, Signal
 
 @dataclass
 class Trade:
-    """Одна завершённая сделка."""
+    """Одна завершённая сделка (или частичное закрытие)."""
     entry_bar: int
     exit_bar: int
     direction: str  # "long" or "short"
@@ -19,7 +19,7 @@ class Trade:
     quantity: float
     pnl: float
     pnl_pct: float
-    exit_reason: str  # "signal", "stop_loss", "take_profit", "trailing_stop", "end_of_data"
+    exit_reason: str  # "signal", "stop_loss", "take_profit", "take_profit_1", "take_profit_2", "trailing_stop", "breakeven", "end_of_data"
 
 
 @dataclass
@@ -45,15 +45,19 @@ def run_backtest(
     commission_pct: float = 0.05,
     order_size_pct: float = 75.0,
     min_bars_trailing: int = 0,
+    use_multi_tp: bool = False,
+    tp_levels: list[dict] | None = None,
+    use_breakeven: bool = False,
 ) -> BacktestMetrics:
     """Запустить бэктест.
 
     Логика:
     1. Для каждого сигнала — открыть позицию по close текущего бара
     2. На каждом баре проверить: пробило ли SL, TP, или trailing stop
-    3. Закрыть позицию при: SL/TP hit, opposing signal, or end of data
-    4. Учесть комиссию (commission_pct от notional)
-    5. Вычислить метрики
+    3. Multi-TP: частичное закрытие на каждом уровне, breakeven при TP1
+    4. Закрыть позицию при: SL/TP hit, opposing signal, or end of data
+    5. Учесть комиссию (commission_pct от notional)
+    6. Вычислить метрики
     """
     n = len(ohlcv)
     if n == 0:
@@ -66,33 +70,37 @@ def run_backtest(
     equity_points: list[dict] = []
     returns: list[float] = []
 
-    # Сортируем сигналы по bar_index
     sorted_signals = sorted(signals, key=lambda s: s.bar_index)
 
     # Текущая позиция
     in_position = False
     position_direction = ""
     position_entry_price = 0.0
-    position_qty = 0.0
+    position_qty = 0.0        # текущий остаток qty
+    position_orig_qty = 0.0   # исходный qty при открытии
     position_sl = 0.0
-    position_tp = 0.0
+    position_tp = 0.0         # single-TP price (fallback)
     position_trailing = 0.0
-    position_trailing_active = 0.0  # trailing stop activation price
+    position_trailing_active = 0.0
     position_entry_bar = 0
     signal_idx = 0
 
-    def _close_position(
-        exit_price: float, exit_bar: int, exit_reason: str,
+    # Multi-TP state
+    position_tp_levels: list[dict] = []  # [{"price": float, "close_pct": int, "hit": bool}]
+    breakeven_active = False
+
+    def _record_trade(
+        exit_price: float, exit_bar: int, exit_reason: str, qty: float,
     ) -> None:
-        """Закрыть текущую позицию и обновить equity."""
-        nonlocal equity, in_position
+        """Записать сделку (полную или частичную) и обновить equity."""
+        nonlocal equity
 
         if position_direction == "long":
-            pnl_raw = (exit_price - position_entry_price) * position_qty
+            pnl_raw = (exit_price - position_entry_price) * qty
         else:
-            pnl_raw = (position_entry_price - exit_price) * position_qty
+            pnl_raw = (position_entry_price - exit_price) * qty
 
-        commission = abs(exit_price * position_qty) * commission_pct / 100
+        commission = abs(exit_price * qty) * commission_pct / 100
         pnl = pnl_raw - commission
         pnl_pct = pnl / equity * 100 if equity > 0 else 0
 
@@ -100,58 +108,122 @@ def run_backtest(
             entry_bar=position_entry_bar, exit_bar=exit_bar,
             direction=position_direction,
             entry_price=position_entry_price, exit_price=exit_price,
-            quantity=position_qty, pnl=pnl, pnl_pct=pnl_pct,
+            quantity=qty, pnl=pnl, pnl_pct=pnl_pct,
             exit_reason=exit_reason,
         ))
 
         equity += pnl
         returns.append(pnl_pct / 100)
+
+    def _close_full(exit_price: float, exit_bar: int, exit_reason: str) -> None:
+        """Закрыть весь остаток позиции."""
+        nonlocal in_position, position_qty
+        if position_qty <= 0:
+            in_position = False
+            return
+        _record_trade(exit_price, exit_bar, exit_reason, position_qty)
+        position_qty = 0.0
         in_position = False
+
+    def _close_partial(exit_price: float, exit_bar: int, exit_reason: str, close_pct: int) -> None:
+        """Частичное закрытие позиции (close_pct % от ИСХОДНОГО qty)."""
+        nonlocal position_qty, position_sl, breakeven_active
+        qty_to_close = position_orig_qty * close_pct / 100
+        qty_to_close = min(qty_to_close, position_qty)
+        if qty_to_close <= 0:
+            return
+        _record_trade(exit_price, exit_bar, exit_reason, qty_to_close)
+        position_qty -= qty_to_close
 
     for i in range(n):
         bar_high = float(ohlcv.high[i])
         bar_low = float(ohlcv.low[i])
         bar_close = float(ohlcv.close[i])
 
-        # Проверить SL/TP на текущем баре
         if in_position:
-            exit_price = None
-            exit_reason = ""
-
             bars_in_trade = i - position_entry_bar
             trailing_ready = bars_in_trade >= min_bars_trailing
 
-            if position_direction == "long":
-                # Trailing stop update (только после min_bars_trailing баров)
-                if position_trailing > 0 and trailing_ready and bar_high > position_trailing_active:
-                    position_trailing_active = bar_high
-                    new_sl = bar_high - position_trailing
-                    if new_sl > position_sl:
-                        position_sl = new_sl
+            # --- Multi-TP: проверить уровни частичного закрытия ---
+            if use_multi_tp and position_tp_levels:
+                for lvl_idx, lvl in enumerate(position_tp_levels):
+                    if lvl["hit"]:
+                        continue
+                    tp_price = lvl["price"]
+                    hit = False
+                    if position_direction == "long" and bar_high >= tp_price:
+                        hit = True
+                    elif position_direction == "short" and bar_low <= tp_price:
+                        hit = True
 
-                if position_sl > 0 and bar_low <= position_sl:
-                    exit_price = position_sl
-                    exit_reason = "trailing_stop" if position_trailing > 0 and trailing_ready else "stop_loss"
-                elif position_tp > 0 and bar_high >= position_tp:
-                    exit_price = position_tp
-                    exit_reason = "take_profit"
+                    if hit:
+                        lvl["hit"] = True
+                        reason = f"take_profit_{lvl_idx + 1}"
+                        _close_partial(tp_price, i, reason, lvl["close_pct"])
 
-            elif position_direction == "short":
-                if position_trailing > 0 and trailing_ready and bar_low < position_trailing_active:
-                    position_trailing_active = bar_low
-                    new_sl = bar_low + position_trailing
-                    if new_sl < position_sl:
-                        position_sl = new_sl
+                        # Breakeven при первом TP
+                        if lvl_idx == 0 and use_breakeven:
+                            position_sl = position_entry_price
+                            breakeven_active = True
 
-                if position_sl > 0 and bar_high >= position_sl:
-                    exit_price = position_sl
-                    exit_reason = "trailing_stop" if position_trailing > 0 and trailing_ready else "stop_loss"
-                elif position_tp > 0 and bar_low <= position_tp:
-                    exit_price = position_tp
-                    exit_reason = "take_profit"
+                        # Если весь объём закрыт → позиция закрыта
+                        if position_qty <= 0:
+                            in_position = False
+                            break
 
-            if exit_price is not None:
-                _close_position(exit_price, i, exit_reason)
+                if not in_position:
+                    # Все TP сработали, позиция полностью закрыта
+                    pass
+                    # Переходим к проверке нового сигнала ниже
+                else:
+                    # Есть остаток — проверяем SL/trailing для него
+                    pass
+
+            # --- SL / Trailing для оставшегося объёма ---
+            if in_position:
+                exit_price = None
+                exit_reason = ""
+
+                if position_direction == "long":
+                    if position_trailing > 0 and trailing_ready and bar_high > position_trailing_active:
+                        position_trailing_active = bar_high
+                        new_sl = bar_high - position_trailing
+                        if new_sl > position_sl:
+                            position_sl = new_sl
+
+                    if position_sl > 0 and bar_low <= position_sl:
+                        exit_price = position_sl
+                        if breakeven_active and abs(position_sl - position_entry_price) < 0.0001 * position_entry_price:
+                            exit_reason = "breakeven"
+                        elif position_trailing > 0 and trailing_ready:
+                            exit_reason = "trailing_stop"
+                        else:
+                            exit_reason = "stop_loss"
+                    elif not use_multi_tp and position_tp > 0 and bar_high >= position_tp:
+                        exit_price = position_tp
+                        exit_reason = "take_profit"
+
+                elif position_direction == "short":
+                    if position_trailing > 0 and trailing_ready and bar_low < position_trailing_active:
+                        position_trailing_active = bar_low
+                        new_sl = bar_low + position_trailing
+                        if new_sl < position_sl:
+                            position_sl = new_sl
+
+                    if position_sl > 0 and bar_high >= position_sl:
+                        exit_price = position_sl
+                        if breakeven_active and abs(position_sl - position_entry_price) < 0.0001 * position_entry_price:
+                            exit_reason = "breakeven"
+                        elif position_trailing > 0 and trailing_ready:
+                            exit_reason = "trailing_stop"
+                        else:
+                            exit_reason = "stop_loss"
+                    elif not use_multi_tp and position_tp > 0 and bar_low <= position_tp:
+                        exit_price = position_tp
+                        exit_reason = "take_profit"
+
+                if exit_price is not None:
+                    _close_full(exit_price, i, exit_reason)
 
         # Проверить новый сигнал
         while signal_idx < len(sorted_signals) and sorted_signals[signal_idx].bar_index <= i:
@@ -159,11 +231,9 @@ def run_backtest(
             signal_idx += 1
 
             if sig.bar_index == i and not in_position:
-                # Открыть позицию
-                entry_price = bar_close  # входим по close текущего бара
+                entry_price = bar_close
                 position_value = equity * order_size_pct / 100
                 qty = position_value / entry_price if entry_price > 0 else 0
-
                 if qty <= 0:
                     continue
 
@@ -174,6 +244,7 @@ def run_backtest(
                 position_direction = sig.direction
                 position_entry_price = entry_price
                 position_qty = qty
+                position_orig_qty = qty
                 position_sl = sig.stop_loss
                 position_tp = sig.take_profit
                 position_trailing = sig.trailing_atr or 0.0
@@ -186,10 +257,27 @@ def run_backtest(
                 else:
                     position_trailing_active = 0.0
                 position_entry_bar = i
+                breakeven_active = False
+
+                # Инициализация multi-TP уровней
+                if use_multi_tp and sig.tp_levels:
+                    position_tp_levels = []
+                    for lvl in sig.tp_levels:
+                        atr_dist = lvl["atr_mult"]  # уже рассчитано как price distance
+                        if sig.direction == "long":
+                            tp_price = entry_price + atr_dist
+                        else:
+                            tp_price = entry_price - atr_dist
+                        position_tp_levels.append({
+                            "price": tp_price,
+                            "close_pct": lvl["close_pct"],
+                            "hit": False,
+                        })
+                else:
+                    position_tp_levels = []
 
             elif sig.bar_index == i and in_position and sig.direction != position_direction:
-                # Противоположный сигнал → закрыть текущую позицию
-                _close_position(bar_close, i, "signal")
+                _close_full(bar_close, i, "signal")
 
         # Записать точку equity
         unrealized = 0.0
@@ -210,7 +298,6 @@ def run_backtest(
             ),
         })
 
-        # Max drawdown
         if current_equity > peak_equity:
             peak_equity = current_equity
         dd = (peak_equity - current_equity) / peak_equity * 100 if peak_equity > 0 else 0
@@ -220,7 +307,7 @@ def run_backtest(
     # Закрыть открытую позицию в конце данных
     if in_position:
         exit_price = float(ohlcv.close[-1])
-        _close_position(exit_price, n - 1, "end_of_data")
+        _close_full(exit_price, n - 1, "end_of_data")
 
     # Вычислить метрики
     total_trades = len(trades)
@@ -239,7 +326,6 @@ def run_backtest(
     total_pnl = equity - initial_capital
     total_pnl_pct = total_pnl / initial_capital * 100 if initial_capital > 0 else 0
 
-    # Sharpe ratio (annualized, sqrt(N) scaling)
     sharpe = 0.0
     if len(returns) > 1:
         avg_return = float(np.mean(returns))
@@ -262,7 +348,6 @@ def run_backtest(
         for t in trades
     ]
 
-    # Downsample equity curve если слишком большой (max 500 точек)
     if len(equity_points) > 500:
         step = len(equity_points) // 500
         equity_points = equity_points[::step] + [equity_points[-1]]
