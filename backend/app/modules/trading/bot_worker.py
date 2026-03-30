@@ -316,7 +316,7 @@ async def _place_order(
 ) -> dict:
     """Разместить ордер с поддержкой multi-TP."""
     side = "Buy" if signal.direction == "long" else "Sell"
-    order_link_id = f"ab-{bot.id}-{uuid.uuid4().hex[:8]}"
+    order_link_id = f"ab{uuid.uuid4().hex[:12]}"
 
     risk_cfg = config.get("risk", {})
     use_multi_tp = risk_cfg.get("use_multi_tp", False)
