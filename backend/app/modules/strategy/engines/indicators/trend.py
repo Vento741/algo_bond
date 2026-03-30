@@ -250,3 +250,51 @@ def ma_ribbon(
     bullish = bullish_count >= (threshold - 1)
     bearish = bearish_count >= (threshold - 1)
     return bullish, bearish
+
+
+def supertrend(
+    high: NDArray, low: NDArray, close: NDArray,
+    period: int = 10, multiplier: float = 3.0,
+) -> tuple[NDArray, NDArray, NDArray]:
+    """SuperTrend indicator. Ref: TradingView built-in ta.supertrend().
+
+    ATR-based trailing stop that flips direction on close crossing the band.
+    Returns (direction, upper_band, lower_band).
+    direction: 1.0 = bullish (price above), -1.0 = bearish (price below).
+    """
+    n = len(close)
+    direction = np.full(n, np.nan, dtype=np.float64)
+    upper_band = np.full(n, np.nan, dtype=np.float64)
+    lower_band = np.full(n, np.nan, dtype=np.float64)
+
+    atr_vals = atr(high, low, close, period)
+    hl2 = (high + low) / 2.0
+
+    for i in range(period + 1, n):
+        if np.isnan(atr_vals[i]):
+            continue
+
+        basic_upper = hl2[i] + multiplier * atr_vals[i]
+        basic_lower = hl2[i] - multiplier * atr_vals[i]
+
+        # Clamp bands: upper can only go down, lower can only go up
+        if not np.isnan(upper_band[i - 1]):
+            upper_band[i] = min(basic_upper, upper_band[i - 1]) if close[i - 1] <= upper_band[i - 1] else basic_upper
+        else:
+            upper_band[i] = basic_upper
+
+        if not np.isnan(lower_band[i - 1]):
+            lower_band[i] = max(basic_lower, lower_band[i - 1]) if close[i - 1] >= lower_band[i - 1] else basic_lower
+        else:
+            lower_band[i] = basic_lower
+
+        # Direction logic
+        if not np.isnan(direction[i - 1]):
+            if direction[i - 1] == 1.0:
+                direction[i] = 1.0 if close[i] >= lower_band[i] else -1.0
+            else:
+                direction[i] = -1.0 if close[i] <= upper_band[i] else 1.0
+        else:
+            direction[i] = 1.0 if close[i] > upper_band[i] else -1.0
+
+    return direction, upper_band, lower_band
