@@ -245,12 +245,19 @@ class BybitClient:
         self, symbol: str, take_profit: float | None = None,
         stop_loss: float | None = None, trailing_stop: float | None = None,
         active_price: float | None = None, position_idx: int = 0,
+        tpsl_mode: str = "Full",
+        tp_size: float | None = None,
+        sl_size: float | None = None,
     ) -> None:
-        """Установить SL/TP/Trailing Stop для позиции."""
+        """Установить SL/TP/Trailing Stop для позиции.
+
+        tpsl_mode: "Full" (весь объём) или "Partial" (частичное закрытие).
+        tp_size/sl_size: объём для частичного TP/SL (только при Partial).
+        """
         try:
             kwargs: dict = {
                 "category": "linear", "symbol": symbol,
-                "tpslMode": "Full", "positionIdx": position_idx,
+                "tpslMode": tpsl_mode, "positionIdx": position_idx,
             }
             if take_profit is not None:
                 kwargs["takeProfit"] = str(take_profit)
@@ -260,8 +267,12 @@ class BybitClient:
                 kwargs["trailingStop"] = str(trailing_stop)
             if active_price is not None:
                 kwargs["activePrice"] = str(active_price)
+            if tp_size is not None:
+                kwargs["tpSize"] = str(tp_size)
+            if sl_size is not None:
+                kwargs["slSize"] = str(sl_size)
             self._session.set_trading_stop(**kwargs)
-            logger.info("Trading stop set: %s TP=%s SL=%s Trail=%s", symbol, take_profit, stop_loss, trailing_stop)
+            logger.info("Trading stop set: %s TP=%s SL=%s Trail=%s mode=%s", symbol, take_profit, stop_loss, trailing_stop, tpsl_mode)
         except InvalidRequestError as e:
             raise BybitAPIError(e.status_code, str(e.message)) from e
         except FailedRequestError as e:

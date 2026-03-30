@@ -107,6 +107,10 @@ STRATEGIES = [
                 "margin_long": 100,
                 "margin_short": 100,
             },
+            "live": {
+                "order_size": 30,
+                "leverage": 1,
+            },
         },
     },
 ]

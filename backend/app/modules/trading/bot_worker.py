@@ -1,30 +1,28 @@
 """Воркер торгового бота — Celery task.
 
 Цикл бота:
-1. Загрузить конфигурацию (стратегия, exchange account, символ)
-2. Получить свечи с Bybit
-3. Запустить стратегию → получить сигналы
-4. Если есть новый сигнал → разместить ордер
-5. Записать сигнал и ордер в БД
-6. Управлять SL/TP/trailing для открытых позиций
+1. Синхронизировать состояние позиций с биржей
+2. Управлять открытыми позициями (multi-TP, breakeven)
+3. Получить свечи → запустить стратегию → получить сигналы
+4. Если есть новый сигнал → разместить ордер с multi-TP
+5. Записать всё в БД
 """
 
 import logging
 import traceback
 import uuid
-from collections.abc import Callable
-from datetime import datetime, timezone
+from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
 from app.core.security import decrypt_value
-from app.database import async_session, create_standalone_session
+from app.database import create_standalone_session
 from app.modules.market.bybit_client import BybitAPIError, BybitClient
 from app.modules.strategy.engines import get_engine
 from app.modules.strategy.engines.base import OHLCV
-from app.modules.strategy.models import Strategy, StrategyConfig
+from app.modules.strategy.models import StrategyConfig
 from app.modules.trading.models import (
     Bot,
     BotLog,
@@ -44,107 +42,77 @@ from app.modules.trading.models import (
 
 logger = logging.getLogger(__name__)
 
-# Минимальное количество свечей для работы стратегии (KNN нужно 80+ баров)
 MIN_CANDLES = 200
 
 
 async def _log(
-    session: AsyncSession,
-    bot_id: uuid.UUID,
-    level: str,
-    message: str,
-    details: dict | None = None,
+    session: AsyncSession, bot_id: uuid.UUID,
+    level: str, message: str, details: dict | None = None,
 ) -> None:
-    """Записать лог бота в БД.
-
-    Безопасно обрабатывает ситуации, когда сессия уже закрыта или невалидна.
-    """
+    """Записать лог бота в БД."""
     try:
-        log_entry = BotLog(
-            bot_id=bot_id,
-            level=BotLogLevel(level),
-            message=message[:500],
-            details=details,
-        )
-        session.add(log_entry)
+        session.add(BotLog(
+            bot_id=bot_id, level=BotLogLevel(level),
+            message=message[:500], details=details,
+        ))
         await session.commit()
     except Exception:
-        logger.debug("Не удалось записать лог бота %s в БД", bot_id, exc_info=True)
+        logger.debug("Не удалось записать лог бота %s", bot_id, exc_info=True)
 
 
 async def run_bot_cycle(
     bot_id: uuid.UUID,
     session_factory: async_sessionmaker[AsyncSession] | None = None,
 ) -> dict:
-    """Один цикл работы бота.
-
-    Args:
-        bot_id: ID бота.
-        session_factory: Фабрика сессий (для тестов). По умолчанию — production async_session.
-
-    Returns:
-        dict с результатом: {"status": "ok"|"no_signal"|"error", ...}
-    """
+    """Один цикл работы бота."""
     factory = session_factory or create_standalone_session()
     async with factory() as db:
         try:
-            # 1. Загрузить бота с конфигом и exchange account
             bot = await _load_bot(db, bot_id)
             if not bot:
                 return {"status": "error", "message": "Bot not found"}
-
             if bot.status != BotStatus.RUNNING:
                 return {"status": "skipped", "message": f"Bot status: {bot.status.value}"}
 
             await _log(db, bot.id, "info", "Цикл бота запущен")
 
-            # 2. Создать Bybit клиент с ключами пользователя
             client = _create_client(bot)
-
-            # 3. Получить свечи
             strategy_config = bot.strategy_config
             symbol = strategy_config.symbol
             timeframe = strategy_config.timeframe
-            candles = client.get_klines(symbol, timeframe, MIN_CANDLES)
+            strategy = strategy_config.strategy
+            config = {**strategy.default_config, **strategy_config.config}
 
+            # --- 1. Синхронизация позиций с биржей ---
+            await _sync_positions(db, bot, client, symbol, config)
+
+            # --- 2. Управление открытыми позициями (multi-TP, breakeven) ---
+            open_position = await _get_open_position(db, bot.id, symbol)
+            if open_position:
+                await _manage_position(db, bot, client, open_position, config)
+                return {"status": "managing", "message": "Position open, managing"}
+
+            # --- 3. Получить свечи и запустить стратегию ---
+            candles = client.get_klines(symbol, timeframe, MIN_CANDLES)
             if len(candles) < MIN_CANDLES:
-                logger.warning(
-                    "Bot %s: not enough candles (%d/%d)",
-                    bot_id, len(candles), MIN_CANDLES,
-                )
                 await _log(db, bot.id, "warn", f"Недостаточно свечей: {len(candles)}/{MIN_CANDLES}")
                 return {"status": "error", "message": f"Not enough candles: {len(candles)}"}
 
-            await _log(db, bot.id, "info", f"Получено {len(candles)} свечей", {"symbol": symbol, "interval": timeframe})
-
-            # 4. Конвертировать в OHLCV и запустить стратегию
             arrays = client.klines_to_arrays(candles)
             ohlcv = OHLCV(
-                open=arrays["open"],
-                high=arrays["high"],
-                low=arrays["low"],
-                close=arrays["close"],
-                volume=arrays["volume"],
-                timestamps=arrays["timestamps"],
+                open=arrays["open"], high=arrays["high"],
+                low=arrays["low"], close=arrays["close"],
+                volume=arrays["volume"], timestamps=arrays["timestamps"],
             )
 
-            strategy = strategy_config.strategy
-            config = {**strategy.default_config, **strategy_config.config}
             engine = get_engine(strategy.engine_type, config)
             result = engine.generate_signals(ohlcv)
 
-            knn_score_val = None
-            if result.knn_scores is not None and len(result.knn_scores) > 0:
-                last_knn = result.knn_scores[-1]
-                if last_knn is not None:
-                    knn_score_val = float(last_knn)
-
             await _log(db, bot.id, "info", "Стратегия выполнена", {
                 "signals_count": len(result.signals),
-                "knn_score": knn_score_val,
             })
 
-            # 5. Проверить последний сигнал
+            # --- 4. Проверить последний сигнал ---
             if not result.signals:
                 await _log(db, bot.id, "debug", "Нет сигнала")
                 return {"status": "no_signal"}
@@ -152,242 +120,355 @@ async def run_bot_cycle(
             latest_signal = result.signals[-1]
             last_bar_idx = len(ohlcv) - 1
 
-            # Сигнал должен быть на последних 2 барах (свежий)
             if latest_signal.bar_index < last_bar_idx - 1:
-                await _log(db, bot.id, "debug", "Нет сигнала", {"reason": "signal_too_old", "bar_index": latest_signal.bar_index, "last_bar": last_bar_idx})
                 return {"status": "no_signal", "message": "Signal too old"}
 
-            # 6. Записать сигнал в БД
-            direction = (
-                SignalDirection.LONG
-                if latest_signal.direction == "long"
-                else SignalDirection.SHORT
-            )
-            knn_class = (
-                "BULL"
-                if result.knn_classes[-1] == 1
-                else "BEAR"
-                if result.knn_classes[-1] == -1
-                else "NEUTRAL"
-            )
+            # --- 5. Записать сигнал ---
+            direction = SignalDirection.LONG if latest_signal.direction == "long" else SignalDirection.SHORT
+            knn_class = "BULL" if result.knn_classes[-1] == 1 else "BEAR" if result.knn_classes[-1] == -1 else "NEUTRAL"
 
             trade_signal = TradeSignal(
-                bot_id=bot.id,
-                strategy_config_id=strategy_config.id,
-                symbol=symbol,
-                direction=direction,
+                bot_id=bot.id, strategy_config_id=strategy_config.id,
+                symbol=symbol, direction=direction,
                 signal_strength=latest_signal.confluence_score,
                 knn_class=knn_class,
-                knn_confidence=(
-                    float(result.knn_scores[-1]) * 100
-                    if result.knn_scores[-1]
-                    else 50.0
-                ),
+                knn_confidence=float(result.knn_scores[-1]) * 100 if result.knn_scores[-1] else 50.0,
                 indicators_snapshot={
                     "entry_price": latest_signal.entry_price,
                     "stop_loss": latest_signal.stop_loss,
                     "take_profit": latest_signal.take_profit,
                     "signal_type": latest_signal.signal_type,
-                    "confluence_long": float(result.confluence_scores_long[-1]),
-                    "confluence_short": float(result.confluence_scores_short[-1]),
                 },
                 was_executed=False,
             )
             db.add(trade_signal)
 
-            await _log(db, bot.id, "info", f"Сигнал: {direction.value}", {
-                "confluence": latest_signal.confluence_score,
-                "knn_class": knn_class,
-                "entry_price": latest_signal.entry_price,
-                "stop_loss": latest_signal.stop_loss,
-                "take_profit": latest_signal.take_profit,
-            })
-
-            # 7. Проверить нет ли уже открытой позиции
-            existing_position = await db.execute(
-                select(Position).where(
-                    Position.bot_id == bot.id,
-                    Position.symbol == symbol,
-                    Position.status == PositionStatus.OPEN,
-                )
-            )
-            if existing_position.scalar_one_or_none():
-                logger.info(
-                    "Bot %s: position already open for %s, skipping",
-                    bot_id, symbol,
-                )
-                await _log(db, bot.id, "info", f"Позиция уже открыта для {symbol}, пропуск")
-                await db.commit()
-                return {"status": "no_signal", "message": "Position already open"}
-
-            # 8. Разместить ордер на Bybit
-            side = "Buy" if latest_signal.direction == "long" else "Sell"
-            order_link_id = f"ab-{bot.id}-{uuid.uuid4().hex[:8]}"
-
-            try:
-                # Установить leverage (1x по умолчанию)
-                client.set_leverage(symbol, 1)
-
-                # Получить баланс и рассчитать размер позиции
-                balance = client.get_wallet_balance("USDT")
-                available = balance["available"]
-                symbol_info = client.get_symbol_info(symbol)
-                ticker = client.get_ticker(symbol)
-
-                # Размер позиции: order_size% от доступного баланса (из конфига)
-                backtest_cfg = config.get("backtest", {})
-                order_size_pct = backtest_cfg.get("order_size", 75) / 100
-                position_value = available * order_size_pct
-                qty = position_value / ticker.last_price
-
-                # Округлить до qty_step
-                qty = round(
-                    qty // symbol_info.qty_step * symbol_info.qty_step, 8
-                )
-                if qty < symbol_info.min_qty:
-                    logger.warning(
-                        "Bot %s: qty %s < min %s",
-                        bot_id, qty, symbol_info.min_qty,
-                    )
-                    await _log(db, bot.id, "warn", f"Объём слишком мал: {qty} < {symbol_info.min_qty}")
-                    await db.commit()
-                    return {"status": "error", "message": f"Qty too small: {qty}"}
-
-                bybit_result = client.place_order(
-                    symbol=symbol,
-                    side=side,
-                    order_type="Market",
-                    qty=qty,
-                    take_profit=latest_signal.take_profit,
-                    stop_loss=latest_signal.stop_loss,
-                    order_link_id=order_link_id,
-                )
-
-                # 9. Записать ордер в БД
-                order = Order(
-                    bot_id=bot.id,
-                    exchange_order_id=bybit_result.get("orderId", ""),
-                    symbol=symbol,
-                    side=OrderSide.BUY if side == "Buy" else OrderSide.SELL,
-                    type=OrderType.MARKET,
-                    quantity=qty,
-                    price=ticker.last_price,
-                    status=OrderStatus.OPEN,
-                )
-                db.add(order)
-
-                # 10. Записать позицию в БД
-                position = Position(
-                    bot_id=bot.id,
-                    symbol=symbol,
-                    side=(
-                        PositionSide.LONG
-                        if latest_signal.direction == "long"
-                        else PositionSide.SHORT
-                    ),
-                    entry_price=ticker.last_price,
-                    quantity=qty,
-                    stop_loss=latest_signal.stop_loss,
-                    take_profit=latest_signal.take_profit,
-                    trailing_stop=latest_signal.trailing_atr,
-                    unrealized_pnl=0,
-                    status=PositionStatus.OPEN,
-                )
-                db.add(position)
-
-                # 11. Установить trailing stop если есть
-                if latest_signal.trailing_atr:
-                    try:
-                        active_price = (
-                            latest_signal.entry_price + latest_signal.trailing_atr
-                            if latest_signal.direction == "long"
-                            else latest_signal.entry_price - latest_signal.trailing_atr
-                        )
-                        client.set_trading_stop(
-                            symbol=symbol,
-                            trailing_stop=latest_signal.trailing_atr,
-                            active_price=active_price,
-                        )
-                    except BybitAPIError as e:
-                        logger.warning(
-                            "Bot %s: trailing stop failed: %s",
-                            bot_id, e.message,
-                        )
-
-                # Обновить сигнал как исполненный
-                trade_signal.was_executed = True
-
-                # Обновить статистику бота
-                bot.total_trades = (bot.total_trades or 0) + 1
-
-                await db.commit()
-                logger.info(
-                    "Bot %s: %s %s %s qty=%s price=%s SL=%s TP=%s",
-                    bot_id, side, "Market", symbol, qty,
-                    ticker.last_price, latest_signal.stop_loss,
-                    latest_signal.take_profit,
-                )
-
-                await _log(db, bot.id, "info", f"Ордер размещён: {side} {qty} {symbol}", {
-                    "order_id": bybit_result.get("orderId"),
-                    "side": side,
-                    "qty": float(qty),
-                    "price": float(ticker.last_price),
-                    "stop_loss": float(latest_signal.stop_loss),
-                    "take_profit": float(latest_signal.take_profit),
-                })
-
-                return {
-                    "status": "ok",
-                    "signal": {
-                        "direction": latest_signal.direction,
-                        "confluence": latest_signal.confluence_score,
-                        "type": latest_signal.signal_type,
-                    },
-                    "order": {
-                        "order_id": bybit_result.get("orderId"),
-                        "side": side,
-                        "qty": qty,
-                        "symbol": symbol,
-                    },
-                }
-
-            except BybitAPIError as e:
-                logger.error("Bot %s: Bybit API error: %s", bot_id, e.message)
-                await _log(db, bot.id, "error", f"Ошибка Bybit API: {e.message}", {"error_code": getattr(e, "code", None)})
-                await db.commit()
-                return {"status": "error", "message": f"Bybit: {e.message}"}
+            # --- 6. Разместить ордер ---
+            return await _place_order(db, bot, client, latest_signal, config, trade_signal, symbol)
 
         except Exception as e:
             logger.exception("Bot %s: unexpected error", bot_id)
-            # Записать ошибку в лог бота
             await _log(db, bot_id, "error", f"Ошибка: {str(e)[:400]}", {"traceback": traceback.format_exc()[-1000:]})
-            # Попытка пометить бота как error
             try:
-                bot_result = await db.execute(
-                    select(Bot).where(Bot.id == bot_id)
-                )
-                bot_obj = bot_result.scalar_one_or_none()
-                if bot_obj:
-                    bot_obj.status = BotStatus.ERROR
-                    await db.commit()
+                await db.execute(update(Bot).where(Bot.id == bot_id).values(status=BotStatus.ERROR))
+                await db.commit()
             except Exception:
                 pass
             return {"status": "error", "message": str(e)}
 
 
-async def _load_bot(db: AsyncSession, bot_id: uuid.UUID) -> Bot | None:
-    """Загрузить бота с eager-загрузкой зависимостей.
+# === Position Sync ===
 
-    Загружает strategy_config → strategy и exchange_account
-    через selectinload для избежания lazy-load в async контексте.
+async def _sync_positions(
+    db: AsyncSession, bot: Bot, client: BybitClient, symbol: str, config: dict,
+) -> None:
+    """Синхронизировать позиции с биржей.
+
+    Если биржа показывает что позиция закрыта (size=0) а в БД открыта → закрыть в БД.
+    Если биржа показывает частичное закрытие → обновить qty.
     """
+    open_positions = await db.execute(
+        select(Position).where(
+            Position.bot_id == bot.id,
+            Position.symbol == symbol,
+            Position.status == PositionStatus.OPEN,
+        )
+    )
+    db_positions = open_positions.scalars().all()
+    if not db_positions:
+        return
+
+    try:
+        exchange_positions = client.get_positions(symbol)
+    except BybitAPIError as e:
+        logger.warning("Bot %s: failed to get positions: %s", bot.id, e.message)
+        return
+
+    exchange_size = 0.0
+    exchange_entry = 0.0
+    exchange_pnl = 0.0
+    for ep in exchange_positions:
+        exchange_size = float(ep.get("size", "0"))
+        exchange_entry = float(ep.get("avgPrice", "0"))
+        exchange_pnl = float(ep.get("unrealisedPnl", "0"))
+
+    for pos in db_positions:
+        db_qty = float(pos.quantity)
+
+        if exchange_size == 0:
+            # Позиция закрыта на бирже (SL/TP/trailing сработал)
+            pos.status = PositionStatus.CLOSED
+            pos.unrealized_pnl = Decimal("0")
+
+            # Обновить PnL бота
+            realized = float(ep.get("cumRealisedPnl", "0")) if exchange_positions else 0.0
+            bot.total_pnl = Decimal(str(float(bot.total_pnl or 0) + realized))
+
+            await _log(db, bot.id, "info", f"Позиция закрыта биржей", {
+                "symbol": symbol, "realized_pnl": realized,
+            })
+
+        elif exchange_size < db_qty * 0.95:
+            # Частичное закрытие (TP1 сработал)
+            pos.quantity = Decimal(str(exchange_size))
+            pos.unrealized_pnl = Decimal(str(exchange_pnl))
+
+            await _log(db, bot.id, "info", f"Частичное закрытие: {db_qty:.4f} → {exchange_size:.4f}", {
+                "symbol": symbol,
+            })
+        else:
+            # Позиция без изменений — обновить PnL
+            pos.unrealized_pnl = Decimal(str(exchange_pnl))
+
+    await db.commit()
+
+
+# === Position Management (Multi-TP + Breakeven) ===
+
+async def _manage_position(
+    db: AsyncSession, bot: Bot, client: BybitClient,
+    position: Position, config: dict,
+) -> None:
+    """Управление открытой позицией: multi-TP переключение + breakeven."""
+    risk_cfg = config.get("risk", {})
+    use_multi_tp = risk_cfg.get("use_multi_tp", False)
+    use_breakeven = risk_cfg.get("use_breakeven", False)
+    tp_levels = risk_cfg.get("tp_levels", [])
+
+    if not use_multi_tp or not tp_levels:
+        return  # Обычный режим — биржа управляет TP/SL
+
+    symbol = position.symbol
+    entry_price = float(position.entry_price)
+    current_qty = float(position.quantity)
+
+    # Получить текущее состояние с биржи
+    try:
+        exchange_positions = client.get_positions(symbol)
+    except BybitAPIError:
+        return
+
+    if not exchange_positions:
+        return
+
+    ep = exchange_positions[0]
+    exchange_qty = float(ep.get("size", "0"))
+
+    if exchange_qty == 0:
+        return  # Позиция уже закрыта — sync подберёт
+
+    # Проверить: если qty на бирже меньше чем в БД → TP1 сработал
+    # Нужно установить breakeven + TP2
+    original_qty = float(position.trailing_stop or 0)  # Сохраняем orig_qty в trailing_stop temp
+    # Используем metadata через JSONB если доступен, иначе определяем по qty
+
+    if exchange_qty < current_qty * 0.95 and use_breakeven:
+        # TP1 сработал → установить breakeven (SL = entry_price)
+        try:
+            client.set_trading_stop(
+                symbol=symbol,
+                stop_loss=entry_price,
+            )
+            await _log(db, bot.id, "info", f"Breakeven установлен: SL = {entry_price}", {
+                "symbol": symbol,
+            })
+        except BybitAPIError as e:
+            logger.warning("Bot %s: breakeven failed: %s", bot.id, e.message)
+
+        # Установить TP2 на оставшийся объём (если есть)
+        if len(tp_levels) >= 2:
+            # Получить ATR из последних свечей для расчёта TP2
+            try:
+                candles = client.get_klines(symbol, "15", 20)
+                if candles:
+                    highs = [c["high"] for c in candles[-14:]]
+                    lows = [c["low"] for c in candles[-14:]]
+                    closes = [c["close"] for c in candles[-14:]]
+                    tr_vals = [max(h - l, abs(h - closes[max(0, i-1)]), abs(l - closes[max(0, i-1)])) for i, (h, l) in enumerate(zip(highs, lows))]
+                    atr = sum(tr_vals) / len(tr_vals)
+
+                    tp2_mult = tp_levels[1]["atr_mult"]
+                    if position.side == PositionSide.LONG:
+                        tp2_price = entry_price + atr * tp2_mult
+                    else:
+                        tp2_price = entry_price - atr * tp2_mult
+
+                    client.set_trading_stop(
+                        symbol=symbol,
+                        take_profit=tp2_price,
+                    )
+                    await _log(db, bot.id, "info", f"TP2 установлен: {tp2_price:.4f}", {
+                        "symbol": symbol, "atr": atr,
+                    })
+            except Exception as e:
+                logger.warning("Bot %s: TP2 setup failed: %s", bot.id, e)
+
+        # Обновить qty в БД
+        position.quantity = Decimal(str(exchange_qty))
+        await db.commit()
+
+
+# === Order Placement ===
+
+async def _place_order(
+    db: AsyncSession, bot: Bot, client: BybitClient,
+    signal, config: dict, trade_signal: TradeSignal, symbol: str,
+) -> dict:
+    """Разместить ордер с поддержкой multi-TP."""
+    side = "Buy" if signal.direction == "long" else "Sell"
+    order_link_id = f"ab-{bot.id}-{uuid.uuid4().hex[:8]}"
+
+    risk_cfg = config.get("risk", {})
+    use_multi_tp = risk_cfg.get("use_multi_tp", False)
+    use_breakeven = risk_cfg.get("use_breakeven", False)
+    tp_levels = risk_cfg.get("tp_levels", [])
+
+    # Получить параметры для размера позиции
+    live_cfg = config.get("live", config.get("backtest", {}))
+    order_size_pct = live_cfg.get("order_size", 75) / 100
+    leverage = live_cfg.get("leverage", 1)
+
+    try:
+        client.set_leverage(symbol, leverage)
+
+        balance = client.get_wallet_balance("USDT")
+        available = balance["available"]
+        symbol_info = client.get_symbol_info(symbol)
+        ticker = client.get_ticker(symbol)
+
+        position_value = available * order_size_pct
+        qty = position_value / ticker.last_price
+        qty = round(qty // symbol_info.qty_step * symbol_info.qty_step, 8)
+
+        if qty < symbol_info.min_qty:
+            await _log(db, bot.id, "warn", f"Объём мал: {qty} < {symbol_info.min_qty}")
+            await db.commit()
+            return {"status": "error", "message": f"Qty too small: {qty}"}
+
+        # Определить TP для ордера
+        order_tp = None
+        order_sl = signal.stop_loss
+
+        if use_multi_tp and tp_levels and signal.tp_levels:
+            # Multi-TP: НЕ ставим TP на ордер, управляем через set_trading_stop
+            order_tp = None
+        else:
+            # Обычный режим: один TP
+            order_tp = signal.take_profit
+
+        bybit_result = client.place_order(
+            symbol=symbol, side=side, order_type="Market",
+            qty=qty, take_profit=order_tp, stop_loss=order_sl,
+            order_link_id=order_link_id,
+        )
+
+        # Записать ордер
+        order = Order(
+            bot_id=bot.id, exchange_order_id=bybit_result.get("orderId", ""),
+            symbol=symbol,
+            side=OrderSide.BUY if side == "Buy" else OrderSide.SELL,
+            type=OrderType.MARKET, quantity=qty,
+            price=ticker.last_price, status=OrderStatus.OPEN,
+        )
+        db.add(order)
+
+        # Записать позицию
+        position = Position(
+            bot_id=bot.id, symbol=symbol,
+            side=PositionSide.LONG if signal.direction == "long" else PositionSide.SHORT,
+            entry_price=ticker.last_price, quantity=qty,
+            stop_loss=signal.stop_loss, take_profit=signal.take_profit,
+            trailing_stop=signal.trailing_atr,
+            unrealized_pnl=0, status=PositionStatus.OPEN,
+        )
+        db.add(position)
+
+        # Установить trailing stop
+        if signal.trailing_atr:
+            try:
+                active_price = (
+                    signal.entry_price + signal.trailing_atr
+                    if signal.direction == "long"
+                    else signal.entry_price - signal.trailing_atr
+                )
+                client.set_trading_stop(
+                    symbol=symbol,
+                    trailing_stop=signal.trailing_atr,
+                    active_price=active_price,
+                )
+            except BybitAPIError as e:
+                logger.warning("Bot %s: trailing stop failed: %s", bot.id, e.message)
+
+        # Установить multi-TP (partial TP1)
+        if use_multi_tp and tp_levels and signal.tp_levels:
+            try:
+                tp1 = signal.tp_levels[0]
+                tp1_atr_dist = tp1["atr_mult"]
+                tp1_close_pct = tp1["close_pct"]
+                tp1_qty = round(qty * tp1_close_pct / 100, 8)
+                tp1_qty = round(tp1_qty // symbol_info.qty_step * symbol_info.qty_step, 8)
+
+                if signal.direction == "long":
+                    tp1_price = float(ticker.last_price) + tp1_atr_dist
+                else:
+                    tp1_price = float(ticker.last_price) - tp1_atr_dist
+
+                client.set_trading_stop(
+                    symbol=symbol,
+                    take_profit=tp1_price,
+                    tpsl_mode="Partial",
+                    tp_size=tp1_qty,
+                )
+                await _log(db, bot.id, "info", f"Multi-TP1: {tp1_price:.4f} qty={tp1_qty}", {
+                    "tp1_pct": tp1_close_pct,
+                })
+            except BybitAPIError as e:
+                logger.warning("Bot %s: multi-TP1 failed: %s", bot.id, e.message)
+
+        trade_signal.was_executed = True
+        bot.total_trades = (bot.total_trades or 0) + 1
+        await db.commit()
+
+        await _log(db, bot.id, "info", f"Ордер: {side} {qty} {symbol}", {
+            "order_id": bybit_result.get("orderId"),
+            "price": float(ticker.last_price),
+            "stop_loss": float(signal.stop_loss),
+            "multi_tp": use_multi_tp,
+        })
+
+        return {
+            "status": "ok",
+            "signal": {"direction": signal.direction, "confluence": signal.confluence_score},
+            "order": {"order_id": bybit_result.get("orderId"), "side": side, "qty": qty, "symbol": symbol},
+        }
+
+    except BybitAPIError as e:
+        logger.error("Bot %s: Bybit API error: %s", bot.id, e.message)
+        await _log(db, bot.id, "error", f"Ошибка Bybit: {e.message}")
+        await db.commit()
+        return {"status": "error", "message": f"Bybit: {e.message}"}
+
+
+# === Helpers ===
+
+async def _get_open_position(db: AsyncSession, bot_id: uuid.UUID, symbol: str) -> Position | None:
+    """Получить открытую позицию для символа."""
+    result = await db.execute(
+        select(Position).where(
+            Position.bot_id == bot_id,
+            Position.symbol == symbol,
+            Position.status == PositionStatus.OPEN,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def _load_bot(db: AsyncSession, bot_id: uuid.UUID) -> Bot | None:
+    """Загрузить бота с eager-загрузкой зависимостей."""
     result = await db.execute(
         select(Bot)
         .options(
-            selectinload(Bot.strategy_config).selectinload(
-                StrategyConfig.strategy
-            ),
+            selectinload(Bot.strategy_config).selectinload(StrategyConfig.strategy),
             selectinload(Bot.exchange_account),
         )
         .where(Bot.id == bot_id)
@@ -396,18 +477,9 @@ async def _load_bot(db: AsyncSession, bot_id: uuid.UUID) -> Bot | None:
 
 
 def _create_client(bot: Bot) -> BybitClient:
-    """Создать BybitClient с ключами пользователя.
-
-    is_testnet в БД означает demo mode (api-demo.bybit.com).
-    BotMode.DEMO также форсирует demo-режим.
-    """
+    """Создать BybitClient с ключами пользователя."""
     account = bot.exchange_account
     api_key = decrypt_value(account.api_key_encrypted)
     api_secret = decrypt_value(account.api_secret_encrypted)
     demo = account.is_testnet or bot.mode == BotMode.DEMO
-
-    return BybitClient(
-        api_key=api_key,
-        api_secret=api_secret,
-        demo=demo,
-    )
+    return BybitClient(api_key=api_key, api_secret=api_secret, demo=demo)

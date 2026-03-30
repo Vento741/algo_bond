@@ -83,17 +83,28 @@ interface RiskConfig {
   tp_atr_mult: number;
   use_trailing: boolean;
   trailing_atr_mult: number;
+  use_multi_tp: boolean;
+  tp_levels: { atr_mult: number; close_pct: number }[];
+  use_breakeven: boolean;
+  min_bars_trailing: number;
+  cooldown_bars: number;
 }
 
 interface FiltersConfig {
   adx_period: number;
   adx_threshold: number;
   volume_mult: number;
+  min_confluence: number;
 }
 
 interface BacktestConfig {
   order_size: number;
   commission: number;
+}
+
+interface LiveConfig {
+  order_size: number;
+  leverage: number;
 }
 
 interface FullStrategyConfig {
@@ -105,6 +116,7 @@ interface FullStrategyConfig {
   risk: RiskConfig;
   filters: FiltersConfig;
   backtest: BacktestConfig;
+  live: LiveConfig;
 }
 
 /* ================================================================
@@ -150,15 +162,28 @@ const DEFAULT_CONFIG: FullStrategyConfig = {
     tp_atr_mult: 30,
     use_trailing: true,
     trailing_atr_mult: 10,
+    use_multi_tp: false,
+    tp_levels: [
+      { atr_mult: 5, close_pct: 50 },
+      { atr_mult: 10, close_pct: 50 },
+    ],
+    use_breakeven: true,
+    min_bars_trailing: 5,
+    cooldown_bars: 10,
   },
   filters: {
     adx_period: 15,
     adx_threshold: 10,
     volume_mult: 1,
+    min_confluence: 3.0,
   },
   backtest: {
     order_size: 75,
     commission: 0.05,
+  },
+  live: {
+    order_size: 30,
+    leverage: 1,
   },
 };
 
@@ -167,6 +192,12 @@ const SYMBOLS = [
   { value: 'ETHUSDT', label: 'ETHUSDT' },
   { value: 'RIVERUSDT', label: 'RIVERUSDT' },
   { value: 'SOLUSDT', label: 'SOLUSDT' },
+  { value: 'DOGEUSDT', label: 'DOGEUSDT' },
+  { value: 'XRPUSDT', label: 'XRPUSDT' },
+  { value: 'SUIUSDT', label: 'SUIUSDT' },
+  { value: 'TRUMPUSDT', label: 'TRUMPUSDT' },
+  { value: 'WIFUSDT', label: 'WIFUSDT' },
+  { value: 'PEPEUSDT', label: 'PEPEUSDT' },
 ];
 
 const TIMEFRAMES = [
@@ -724,14 +755,81 @@ function ConfigEditorDialog({
               value={config.risk.use_trailing}
               onChange={(v) => updateSection('risk', { use_trailing: v })}
             />
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <NumberField
+                label="Min баров до trailing"
+                value={config.risk.min_bars_trailing}
+                onChange={(v) => updateSection('risk', { min_bars_trailing: v })}
+                min={0}
+                max={50}
+              />
+              <NumberField
+                label="Cooldown после стопа"
+                value={config.risk.cooldown_bars}
+                onChange={(v) => updateSection('risk', { cooldown_bars: v })}
+                min={0}
+                max={50}
+                suffix="баров"
+              />
+            </div>
           </CollapsibleSection>
 
-          {/* Секция 8: Filters */}
+          {/* Секция 8: Multi-TP + Breakeven */}
+          <CollapsibleSection
+            title="Multi-TP / Breakeven"
+            description="Частичное закрытие + безубыток"
+          >
+            <ToggleField
+              label="Multi-level TP (частичное закрытие)"
+              value={config.risk.use_multi_tp}
+              onChange={(v) => updateSection('risk', { use_multi_tp: v })}
+            />
+            {config.risk.use_multi_tp && (
+              <div className="space-y-2 mt-3">
+                {config.risk.tp_levels.map((lvl, idx) => (
+                  <div key={idx} className="grid grid-cols-2 gap-3">
+                    <NumberField
+                      label={`TP${idx + 1} расстояние`}
+                      value={lvl.atr_mult}
+                      onChange={(v) => {
+                        const levels = [...config.risk.tp_levels];
+                        levels[idx] = { ...levels[idx], atr_mult: v };
+                        updateSection('risk', { tp_levels: levels });
+                      }}
+                      min={1}
+                      suffix="× ATR"
+                    />
+                    <NumberField
+                      label={`TP${idx + 1} объём`}
+                      value={lvl.close_pct}
+                      onChange={(v) => {
+                        const levels = [...config.risk.tp_levels];
+                        levels[idx] = { ...levels[idx], close_pct: v };
+                        updateSection('risk', { tp_levels: levels });
+                      }}
+                      min={1}
+                      max={100}
+                      suffix="% позиции"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-3">
+              <ToggleField
+                label="Безубыток при TP1 (SL → цена входа)"
+                value={config.risk.use_breakeven}
+                onChange={(v) => updateSection('risk', { use_breakeven: v })}
+              />
+            </div>
+          </CollapsibleSection>
+
+          {/* Секция 9: Filters */}
           <CollapsibleSection
             title="Filters"
-            description="ADX и объёмные фильтры"
+            description="ADX, объём и confluence фильтры"
           >
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <NumberField
                 label="ADX период"
                 value={config.filters.adx_period}
@@ -751,12 +849,20 @@ function ConfigEditorDialog({
                 min={0}
                 step={0.1}
               />
+              <NumberField
+                label="Min confluence"
+                value={config.filters.min_confluence}
+                onChange={(v) => updateSection('filters', { min_confluence: v })}
+                min={0}
+                max={5.5}
+                step={0.5}
+              />
             </div>
           </CollapsibleSection>
 
-          {/* Секция 9: Backtest */}
+          {/* Секция 10: Backtest */}
           <CollapsibleSection
-            title="Backtest"
+            title="Бэктест"
             description="Параметры бэктестинга"
           >
             <div className="grid grid-cols-2 gap-3">
@@ -775,6 +881,31 @@ function ConfigEditorDialog({
                 min={0}
                 step={0.01}
                 suffix="%"
+              />
+            </div>
+          </CollapsibleSection>
+
+          {/* Секция 11: Live Trading */}
+          <CollapsibleSection
+            title="Live Trading"
+            description="Параметры для реальной/демо торговли"
+          >
+            <div className="grid grid-cols-2 gap-3">
+              <NumberField
+                label="Размер ордера"
+                value={config.live.order_size}
+                onChange={(v) => updateSection('live', { order_size: v })}
+                min={1}
+                max={100}
+                suffix="% от баланса"
+              />
+              <NumberField
+                label="Кредитное плечо"
+                value={config.live.leverage}
+                onChange={(v) => updateSection('live', { leverage: v })}
+                min={1}
+                max={100}
+                suffix="×"
               />
             </div>
           </CollapsibleSection>
