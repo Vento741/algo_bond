@@ -278,6 +278,27 @@ class BybitClient:
         except FailedRequestError as e:
             raise BybitAPIError(-1, f"Network error: {e.message}") from e
 
+    def get_all_instruments(self, category: str = "linear") -> list[dict]:
+        """Получить все инструменты для категории (без фильтра по symbol)."""
+        try:
+            all_instruments: list[dict] = []
+            cursor = ""
+            while True:
+                params: dict = {"category": category}
+                if cursor:
+                    params["cursor"] = cursor
+                result = self._session.get_instruments_info(**params)
+                items = result.get("result", {}).get("list", [])
+                all_instruments.extend(items)
+                next_cursor = result.get("result", {}).get("nextPageCursor", "")
+                if not next_cursor or not items:
+                    break
+                cursor = next_cursor
+            return all_instruments
+        except Exception as e:
+            logger.error("Ошибка получения списка инструментов: %s", e)
+            return []
+
     def get_wallet_balance(self, coin: str = "USDT") -> dict:
         """Получить баланс кошелька."""
         try:
