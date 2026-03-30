@@ -196,55 +196,64 @@ export function BotDetail() {
     }
   }, [id]);
 
-  const fetchSignals = useCallback(async () => {
-    if (!id) return;
-    setSignalsLoading(true);
-    try {
-      const { data } = await api.get<TradeSignalResponse[]>(
-        `/trading/bots/${id}/signals`,
-      );
-      setSignals(data);
-    } catch {
-      setSignals([]);
-    } finally {
-      setSignalsLoading(false);
-    }
-  }, [id]);
+  const fetchSignals = useCallback(
+    async (silent = false) => {
+      if (!id) return;
+      if (!silent) setSignalsLoading(true);
+      try {
+        const { data } = await api.get<TradeSignalResponse[]>(
+          `/trading/bots/${id}/signals`,
+        );
+        setSignals(data);
+      } catch {
+        if (!silent) setSignals([]);
+      } finally {
+        setSignalsLoading(false);
+      }
+    },
+    [id],
+  );
 
-  const fetchOrders = useCallback(async () => {
-    if (!id) return;
-    setOrdersLoading(true);
-    try {
-      const { data } = await api.get<OrderResponse[]>(
-        `/trading/bots/${id}/orders`,
-      );
-      setOrders(data);
-    } catch {
-      setOrders([]);
-    } finally {
-      setOrdersLoading(false);
-    }
-  }, [id]);
+  const fetchOrders = useCallback(
+    async (silent = false) => {
+      if (!id) return;
+      if (!silent) setOrdersLoading(true);
+      try {
+        const { data } = await api.get<OrderResponse[]>(
+          `/trading/bots/${id}/orders`,
+        );
+        setOrders(data);
+      } catch {
+        if (!silent) setOrders([]);
+      } finally {
+        setOrdersLoading(false);
+      }
+    },
+    [id],
+  );
 
-  const fetchPositions = useCallback(async () => {
-    if (!id) return;
-    setPositionsLoading(true);
-    try {
-      const { data } = await api.get<PositionResponse[]>(
-        `/trading/bots/${id}/positions`,
-      );
-      setPositions(data);
-    } catch {
-      setPositions([]);
-    } finally {
-      setPositionsLoading(false);
-    }
-  }, [id]);
+  const fetchPositions = useCallback(
+    async (silent = false) => {
+      if (!id) return;
+      if (!silent) setPositionsLoading(true);
+      try {
+        const { data } = await api.get<PositionResponse[]>(
+          `/trading/bots/${id}/positions`,
+        );
+        setPositions(data);
+      } catch {
+        if (!silent) setPositions([]);
+      } finally {
+        setPositionsLoading(false);
+      }
+    },
+    [id],
+  );
 
   const fetchLogs = useCallback(
-    async (page = 0, append = false) => {
+    async (page = 0, append = false, silent = false) => {
       if (!id) return;
-      setLogsLoading(true);
+      if (!silent) setLogsLoading(true);
       try {
         const { data } = await api.get<BotLogResponse[]>(
           `/trading/bots/${id}/logs`,
@@ -257,8 +266,7 @@ export function BotDetail() {
         }
         setLogHasMore(data.length === 50);
       } catch {
-        // Endpoint may not exist yet (404) — handle gracefully
-        if (!append) setLogs([]);
+        if (!append && !silent) setLogs([]);
         setLogHasMore(false);
       } finally {
         setLogsLoading(false);
@@ -267,26 +275,32 @@ export function BotDetail() {
     [id],
   );
 
-  const refreshAll = useCallback(() => {
-    fetchBot();
-    fetchSignals();
-    fetchOrders();
-    fetchPositions();
-    fetchLogs(0);
-    setLogPage(0);
-    setLastRefresh(new Date());
-  }, [fetchBot, fetchSignals, fetchOrders, fetchPositions, fetchLogs]);
+  const refreshAll = useCallback(
+    (silent = false) => {
+      fetchBot();
+      fetchSignals(silent);
+      fetchOrders(silent);
+      fetchPositions(silent);
+      fetchLogs(0, false, silent);
+      setLogPage(0);
+      setLastRefresh(new Date());
+    },
+    [fetchBot, fetchSignals, fetchOrders, fetchPositions, fetchLogs],
+  );
 
   /* ---- Effects ---- */
 
   useEffect(() => {
-    refreshAll();
+    refreshAll(false);
   }, [refreshAll]);
 
-  // Auto-refresh when bot is running
+  // Auto-refresh when bot is running — silent (no skeletons)
   useEffect(() => {
     if (bot?.status === 'running') {
-      refreshTimerRef.current = setInterval(refreshAll, REFRESH_INTERVAL_MS);
+      refreshTimerRef.current = setInterval(
+        () => refreshAll(true),
+        REFRESH_INTERVAL_MS,
+      );
     }
     return () => {
       if (refreshTimerRef.current) {
@@ -455,7 +469,7 @@ export function BotDetail() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={refreshAll}
+            onClick={() => refreshAll(true)}
             className="text-gray-400 hover:text-white"
             title="Обновить"
           >
