@@ -33,10 +33,14 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'WDXL Lubrifont JP N', system-ui, sans-serif;
     margin: 0;
     min-height: 100vh;
   }
+}
+
+.font-heading {
+  font-family: 'WDXL Lubrifont TC', system-ui, sans-serif;
 }
 
 .font-data {

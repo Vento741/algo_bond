@@ -1,48 +1,62 @@
 import { Link } from 'react-router-dom';
 import { Brain, Zap, FlaskConical, ArrowRight, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+
+/* ------------------------------------------------------------------ */
+/*  Data                                                               */
+/* ------------------------------------------------------------------ */
 
 const features = [
   {
     icon: Brain,
     title: 'ML Стратегии',
     description:
-      'Lorentzian KNN и другие алгоритмы машинного обучения для поиска точек входа с высокой вероятностью.',
+      'Lorentzian KNN анализирует 4 фичи на каждом баре. Не угадывает\u00A0\u2014 вычисляет.',
   },
   {
     icon: Zap,
     title: 'Live Торговля',
     description:
-      'Автоматическое исполнение сделок на Bybit. Боты работают 24/7 без вашего участия.',
+      'Бот получает сигнал через WebSocket, выставляет TP/SL и следит за позицией. Вы\u00A0\u2014 наблюдаете.',
   },
   {
     icon: FlaskConical,
     title: 'Бэктестинг',
     description:
-      'Проверьте стратегию на исторических данных перед запуском. Детальная статистика и метрики.',
+      'Прогоните стратегию по истории. Увидите каждую сделку, просадку и equity\u00A0curve.',
   },
 ];
 
 const stats = [
-  { value: '+710%', label: 'Результат RIVERUSDT', sublabel: 'Lorentzian KNN v1' },
-  { value: '24/7', label: 'Автоторговля', sublabel: 'Без простоев' },
-  { value: '0.05%', label: 'Комиссия', sublabel: 'Минимальная на рынке' },
+  { value: '+710%', label: 'Результат на RIVER', sublabel: 'Lorentzian KNN, 15m TF' },
+  { value: '24/7', label: 'Роботы не спят', sublabel: 'Полная автоматизация' },
+  { value: '< 1 сек', label: 'Реакция на сигнал', sublabel: 'WebSocket триггер' },
 ];
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
 
 export function Landing() {
   return (
     <div className="min-h-screen bg-brand-bg text-white overflow-hidden">
-      {/* Nav */}
-      <nav className="relative z-10 flex items-center justify-between px-6 lg:px-16 py-5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-brand-premium/10">
-            <TrendingUp className="h-5 w-5 text-brand-premium" />
-          </div>
-          <span className="text-xl font-bold tracking-tight">AlgoBond</span>
-        </div>
+      {/* -------- Nav -------- */}
+      <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-5 lg:px-16 py-4 bg-brand-bg/70 backdrop-blur-lg border-b border-white/5">
+        <Link to="/" className="flex items-center gap-2.5" aria-label="AlgoBond - Главная">
+          <img
+            src="/logo.webp"
+            alt=""
+            className="w-9 h-9 rounded-lg"
+            width={36}
+            height={36}
+          />
+          <span className="font-heading text-xl font-bold tracking-tight">AlgoBond</span>
+        </Link>
+
         <div className="flex items-center gap-3">
           <Link to="/login">
-            <Button variant="ghost" size="sm" className="text-gray-300">
+            <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white">
               Войти
             </Button>
           </Link>
@@ -54,65 +68,84 @@ export function Landing() {
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative flex flex-col items-center justify-center px-6 pt-20 pb-32 lg:pt-32 lg:pb-40">
-        {/* Background effects */}
-        <div className="absolute inset-0 overflow-hidden">
-          {/* Grid pattern */}
-          <div
-            className="absolute inset-0 opacity-[0.03]"
-            style={{
-              backgroundImage:
-                'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
-              backgroundSize: '60px 60px',
-            }}
+      {/* -------- Hero -------- */}
+      <section className="relative flex flex-col items-center justify-center min-h-[100svh] px-5 pt-24 pb-20 lg:pt-0 lg:pb-0">
+        {/* Background image — responsive picture */}
+        <picture className="absolute inset-0 w-full h-full">
+          <source media="(min-width: 768px)" srcSet="/hero-desktop.webp" />
+          <img
+            src="/hero-mobile.webp"
+            alt=""
+            className="w-full h-full object-cover"
+            loading="eager"
+            fetchPriority="high"
           />
-          {/* Gradient orbs */}
-          <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full bg-brand-premium/5 blur-[150px]" />
-          <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[120px]" />
-        </div>
+        </picture>
 
+        {/* Dark overlay for text readability */}
+        <div className="absolute inset-0 bg-brand-bg/55" />
+        {/* Bottom gradient fade into bg */}
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-brand-bg to-transparent" />
+
+        {/* Content */}
         <div className="relative z-10 max-w-4xl mx-auto text-center">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-8 rounded-full border border-brand-premium/20 bg-brand-premium/5 text-brand-premium text-sm font-medium">
-            <Zap className="h-3.5 w-3.5" />
-            Lorentzian KNN — +710% на RIVERUSDT
+          <div
+            className="animate-fade-up"
+            style={{ animationDelay: '0.1s' }}
+          >
+            <Badge
+              variant="premium"
+              className="inline-flex items-center gap-2 px-4 py-1.5 mb-8 rounded-full text-sm"
+            >
+              <TrendingUp className="h-3.5 w-3.5" />
+              +710% RIVERUSDT — проверено на истории
+            </Badge>
           </div>
 
           {/* Title */}
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-tight mb-6">
-            <span className="bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
-              Алгоритмическая
+          <h1
+            className="font-heading text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] mb-6 animate-fade-up"
+            style={{ animationDelay: '0.25s' }}
+          >
+            <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
+              Пока рынок спит
             </span>
             <br />
             <span className="bg-gradient-to-r from-brand-premium via-yellow-300 to-brand-premium bg-clip-text text-transparent">
-              торговля
+              твои алгоритмы
             </span>{' '}
-            <span className="bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
-              нового поколения
+            <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
+              работают
             </span>
           </h1>
 
           {/* Subtitle */}
-          <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Торгуйте криптофьючерсами на Bybit с помощью ML-стратегий.
-            Автоматические боты, бэктестинг, и полный контроль рисков.
+          <p
+            className="text-base sm:text-lg lg:text-xl text-gray-300 max-w-2xl mx-auto mb-10 leading-relaxed animate-fade-up"
+            style={{ animationDelay: '0.4s' }}
+          >
+            ML-стратегии, бэктестинг на истории, автоматические боты на&nbsp;Bybit.
+            Никаких иллюзий&nbsp;&mdash; только данные, код и&nbsp;дисциплина.
           </p>
 
           {/* CTA */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up"
+            style={{ animationDelay: '0.55s' }}
+          >
             <Link to="/register">
               <Button
                 variant="premium"
                 size="xl"
-                className="group"
+                className="group animate-glow-pulse"
               >
                 Начать бесплатно
                 <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
             <Link to="/login">
-              <Button variant="outline" size="xl" className="border-gray-700 text-gray-300">
+              <Button variant="outline" size="xl" className="border-white/10 text-gray-200 hover:bg-white/5">
                 Войти в аккаунт
               </Button>
             </Link>
@@ -120,15 +153,16 @@ export function Landing() {
         </div>
       </section>
 
-      {/* Stats */}
-      <section className="relative z-10 px-6 lg:px-16 -mt-10">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-          {stats.map((stat) => (
+      {/* -------- Stats -------- */}
+      <section className="relative z-10 px-5 lg:px-16 -mt-12 sm:-mt-16">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+          {stats.map((stat, i) => (
             <div
               key={stat.label}
-              className="relative rounded-xl border border-white/5 bg-white/[0.02] backdrop-blur-sm p-6 text-center"
+              className="relative rounded-2xl border border-white/[0.06] bg-brand-card/60 backdrop-blur-xl p-6 text-center transition-all hover:border-brand-premium/20 hover:bg-brand-card/80 animate-fade-up"
+              style={{ animationDelay: `${0.7 + i * 0.12}s` }}
             >
-              <div className="font-mono text-4xl font-bold text-brand-premium mb-1">
+              <div className="font-data text-4xl font-bold text-brand-premium mb-1">
                 {stat.value}
               </div>
               <div className="text-sm text-white font-medium">{stat.label}</div>
@@ -138,28 +172,32 @@ export function Landing() {
         </div>
       </section>
 
-      {/* Features */}
-      <section className="relative z-10 px-6 lg:px-16 py-28">
+      {/* -------- Features -------- */}
+      <section className="relative z-10 px-5 lg:px-16 py-24 lg:py-32">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Все инструменты в одной платформе
+          <div
+            className="text-center mb-14 animate-fade-up"
+            style={{ animationDelay: '0.15s' }}
+          >
+            <h2 className="font-heading text-3xl sm:text-4xl font-bold mb-4">
+              Все инструменты&nbsp;&mdash; одна платформа
             </h2>
             <p className="text-gray-400 max-w-xl mx-auto">
               От исследования стратегий до реальной торговли на бирже
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {features.map((feature) => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {features.map((feature, i) => (
               <div
                 key={feature.title}
-                className="group relative rounded-xl border border-white/5 bg-white/[0.02] backdrop-blur-sm p-8 transition-all hover:border-brand-premium/20 hover:bg-white/[0.04]"
+                className="group relative rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-8 transition-all duration-300 hover:border-brand-premium/25 hover:bg-white/[0.05] hover:shadow-[0_0_40px_-12px_rgba(255,215,0,0.12)] animate-fade-up"
+                style={{ animationDelay: `${0.25 + i * 0.15}s` }}
               >
-                <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-brand-premium/10 mb-5 transition-colors group-hover:bg-brand-premium/20">
+                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-brand-premium/10 mb-6 transition-colors duration-300 group-hover:bg-brand-premium/20">
                   <feature.icon className="h-6 w-6 text-brand-premium" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
+                <h3 className="font-heading text-lg font-semibold mb-2">{feature.title}</h3>
                 <p className="text-sm text-gray-400 leading-relaxed">
                   {feature.description}
                 </p>
@@ -169,16 +207,22 @@ export function Landing() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/5 px-6 lg:px-16 py-8">
+      {/* -------- Footer -------- */}
+      <footer className="relative z-10 border-t border-white/5 px-5 lg:px-16 py-8">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-gray-500 text-sm">
-            <TrendingUp className="h-4 w-4" />
+            <img
+              src="/logo.webp"
+              alt=""
+              className="w-4 h-4 rounded-sm"
+              width={16}
+              height={16}
+            />
             <span>AlgoBond</span>
           </div>
-          <div className="text-xs text-gray-600">
-            Торговля криптовалютами связана с рисками. Прошлые результаты не гарантируют будущую доходность.
-          </div>
+          <p className="text-xs text-gray-600 text-center sm:text-right max-w-lg">
+            Торговля криптофьючерсами&nbsp;&mdash; это риск. Прошлые результаты&nbsp;&ne; гарантия будущих. Мы даём инструменты, решения&nbsp;&mdash; ваши.
+          </p>
         </div>
       </footer>
     </div>

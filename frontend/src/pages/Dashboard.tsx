@@ -82,11 +82,11 @@ export function Dashboard() {
     <div className="space-y-6">
       {/* Welcome */}
       <div>
-        <h1 className="text-2xl font-bold text-white">
-          Добро пожаловать, {user?.username || 'трейдер'}
+        <h1 className="text-2xl font-bold text-white font-heading tracking-tight">
+          Панель управления
         </h1>
         <p className="text-gray-400 text-sm mt-1">
-          Обзор вашей торговой активности
+          {user?.username ? `${user.username} — ` : ''}обзор торговой активности
         </p>
       </div>
 
@@ -103,7 +103,7 @@ export function Dashboard() {
                   <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">
                     {stat.title}
                   </p>
-                  <p className="text-2xl font-bold font-mono text-white mt-1">
+                  <p className="text-2xl font-bold font-data text-white mt-1">
                     {stat.value}
                   </p>
                 </div>
@@ -223,7 +223,7 @@ export function Dashboard() {
             <CardContent className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Email</span>
-                <span className="text-gray-300 font-mono text-xs">
+                <span className="text-gray-300 font-data text-xs">
                   {user?.email}
                 </span>
               </div>

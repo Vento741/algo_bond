@@ -56,6 +56,9 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
+        heading: ['WDXL Lubrifont TC', 'system-ui', 'sans-serif'],
+        body: ['WDXL Lubrifont JP N', 'system-ui', 'sans-serif'],
+        data: ['JetBrains Mono', 'monospace'],
       },
       keyframes: {
         'accordion-down': {
@@ -66,10 +69,20 @@ export default {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
+        'fade-up': {
+          '0%': { opacity: '0', transform: 'translateY(24px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'glow-pulse': {
+          '0%, 100%': { boxShadow: '0 0 20px 0 rgba(255, 215, 0, 0.25)' },
+          '50%': { boxShadow: '0 0 32px 6px rgba(255, 215, 0, 0.40)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'fade-up': 'fade-up 0.7s ease-out both',
+        'glow-pulse': 'glow-pulse 2.5s ease-in-out infinite',
       },
     },
   },

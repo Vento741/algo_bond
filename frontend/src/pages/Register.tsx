@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { TrendingUp, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,36 +28,34 @@ export function Register() {
 
   return (
     <div className="min-h-screen bg-brand-bg flex items-center justify-center px-4 relative overflow-hidden">
-      {/* Background effects */}
+      {/* Background image + overlay */}
       <div className="absolute inset-0">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full bg-brand-premium/3 blur-[150px]" />
-        <div
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
-            backgroundSize: '50px 50px',
-          }}
+        <img
+          src="/hero-mobile.webp"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
         />
+        <div className="absolute inset-0 bg-brand-bg/85 backdrop-blur-sm" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full bg-brand-premium/5 blur-[150px]" />
       </div>
 
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center justify-center gap-2.5 mb-8">
           <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-brand-premium/10 transition-colors group-hover:bg-brand-premium/20">
-              <TrendingUp className="h-5 w-5 text-brand-premium" />
-            </div>
-            <span className="text-2xl font-bold text-white">AlgoBond</span>
+            <img src="/logo.webp" alt="AlgoBond" className="w-10 h-10 rounded-lg transition-opacity group-hover:opacity-80" />
+            <span className="text-2xl font-bold text-white font-heading">AlgoBond</span>
           </Link>
         </div>
 
         {/* Card */}
-        <Card className="border-white/5 bg-white/[0.03] backdrop-blur-xl shadow-2xl">
+        <Card className="border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-2xl shadow-black/50">
           <CardHeader className="text-center">
-            <CardTitle className="text-xl text-white">Регистрация</CardTitle>
-            <CardDescription>
-              Создайте аккаунт для доступа к торговой платформе
+            <CardTitle className="text-2xl text-white font-heading tracking-tight">
+              Готов торговать?
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              Пара минут — и рынок ваш.
             </CardDescription>
           </CardHeader>
           <CardContent>
