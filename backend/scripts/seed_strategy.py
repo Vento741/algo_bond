@@ -1,4 +1,4 @@
-"""Скрипт инициализации стратегии Lorentzian KNN."""
+"""Скрипт инициализации стратегий (Lorentzian KNN, SuperTrend Squeeze)."""
 
 import asyncio
 import sys
@@ -100,6 +100,69 @@ STRATEGIES = [
                 "initial_capital": 100,
                 "currency": "USDT",
                 "order_size": 75,
+                "order_size_type": "percent_equity",
+                "pyramiding": 0,
+                "commission": 0.05,
+                "slippage": 0,
+                "margin_long": 100,
+                "margin_short": 100,
+            },
+            "live": {
+                "order_size": 30,
+                "leverage": 1,
+            },
+        },
+    },
+    {
+        "name": "SuperTrend Squeeze Momentum",
+        "slug": "supertrend-squeeze",
+        "engine_type": "supertrend_squeeze",
+        "description": (
+            "Triple SuperTrend + Squeeze Momentum — мульти-пара стратегия. "
+            "Trend following (2/3 SuperTrend + EMA200 + ADX + RSI) и volatility breakout "
+            "(Squeeze release + momentum). Работает на BTC, ETH, альтах. PF 2.1, WR 65%."
+        ),
+        "is_public": True,
+        "version": "1.0.0",
+        "default_config": {
+            "supertrend": {
+                "st1_period": 10, "st1_mult": 1.0,
+                "st2_period": 11, "st2_mult": 3.0,
+                "st3_period": 10, "st3_mult": 7.0,
+                "min_agree": 2,
+            },
+            "squeeze": {
+                "use": True,
+                "bb_period": 20, "bb_mult": 2.0,
+                "kc_period": 20, "kc_mult": 1.5,
+                "mom_period": 20,
+            },
+            "trend_filter": {
+                "ema_period": 200,
+                "use_adx": True,
+                "adx_period": 14,
+                "adx_threshold": 25,
+            },
+            "entry": {
+                "rsi_period": 14,
+                "rsi_long_max": 40,
+                "rsi_short_min": 60,
+                "use_volume": True,
+                "volume_mult": 1.0,
+            },
+            "risk": {
+                "atr_period": 14,
+                "stop_atr_mult": 3.0,
+                "tp_atr_mult": 10.0,
+                "use_trailing": True,
+                "trailing_atr_mult": 6.0,
+                "min_bars_trailing": 5,
+                "cooldown_bars": 10,
+            },
+            "backtest": {
+                "initial_capital": 100,
+                "currency": "USDT",
+                "order_size": 40,
                 "order_size_type": "percent_equity",
                 "pyramiding": 0,
                 "commission": 0.05,

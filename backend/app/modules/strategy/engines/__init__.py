@@ -2,10 +2,12 @@
 
 from app.modules.strategy.engines.base import BaseStrategy
 from app.modules.strategy.engines.lorentzian_knn import LorentzianKNNStrategy
+from app.modules.strategy.engines.supertrend_squeeze import SuperTrendSqueezeStrategy
 
 # Реестр доступных движков: engine_type → class
 ENGINE_REGISTRY: dict[str, type[BaseStrategy]] = {
     "lorentzian_knn": LorentzianKNNStrategy,
+    "supertrend_squeeze": SuperTrendSqueezeStrategy,
 }
 
 
