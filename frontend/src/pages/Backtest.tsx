@@ -30,6 +30,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { SymbolSearch } from '@/components/ui/symbol-search';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
@@ -407,15 +408,9 @@ export function Backtest() {
             </div>
             <div>
               <label className="text-xs text-gray-400 block mb-1.5">Символ</label>
-              <Select
+              <SymbolSearch
                 value={symbol}
                 onChange={setSymbol}
-                options={[
-                  { value: 'BTCUSDT', label: 'BTC/USDT' },
-                  { value: 'ETHUSDT', label: 'ETH/USDT' },
-                  { value: 'RIVERUSDT', label: 'RIVER/USDT' },
-                  { value: 'SOLUSDT', label: 'SOL/USDT' },
-                ]}
                 className="w-full"
               />
             </div>

@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { SymbolSearch } from '@/components/ui/symbol-search';
 import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
@@ -32,13 +33,6 @@ import api from '@/lib/api';
 import type { ExchangeAccount, ExchangeAccountCreate, UserSettings } from '@/types/api';
 
 /* ---- Константы ---- */
-
-const SYMBOL_OPTIONS = [
-  { value: 'BTCUSDT', label: 'BTC/USDT' },
-  { value: 'ETHUSDT', label: 'ETH/USDT' },
-  { value: 'SOLUSDT', label: 'SOL/USDT' },
-  { value: 'RIVERUSDT', label: 'RIVER/USDT' },
-];
 
 const TIMEFRAME_OPTIONS = [
   { value: '1m', label: '1 минута' },
@@ -307,10 +301,9 @@ export function Settings() {
                     <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1.5">
                       Символ по умолчанию
                     </label>
-                    <Select
+                    <SymbolSearch
                       value={defaultSymbol}
                       onChange={setDefaultSymbol}
-                      options={SYMBOL_OPTIONS}
                       className="w-full"
                     />
                   </div>

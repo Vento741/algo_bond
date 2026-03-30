@@ -239,3 +239,19 @@ export interface BotLogResponse {
   details: Record<string, unknown> | null;
   created_at: string;
 }
+
+/* ---- Market: Trading Pairs ---- */
+
+export interface TradingPair {
+  symbol: string;
+  base_currency: string;
+  quote_currency: string;
+  tick_size: number;
+  qty_step: number;
+  min_qty: number;
+  max_qty: number;
+  min_notional: number;
+  max_leverage: number;
+  is_active: boolean;
+  status: string;
+}

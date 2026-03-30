@@ -11,21 +11,11 @@ import {
 } from 'lucide-react';
 import { TradingChart, type KlineData } from '@/components/charts/TradingChart';
 import { useMarketStream } from '@/hooks/useMarketStream';
-import { Select } from '@/components/ui/select';
+import { SymbolSearch } from '@/components/ui/symbol-search';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
-
-/** Доступные символы */
-const SYMBOLS = [
-  { value: 'BTCUSDT', label: 'BTC/USDT' },
-  { value: 'ETHUSDT', label: 'ETH/USDT' },
-  { value: 'RIVERUSDT', label: 'RIVER/USDT' },
-  { value: 'SOLUSDT', label: 'SOL/USDT' },
-  { value: 'BNBUSDT', label: 'BNB/USDT' },
-  { value: 'XRPUSDT', label: 'XRP/USDT' },
-];
 
 /** Доступные интервалы */
 const INTERVALS = [
@@ -107,11 +97,10 @@ export function Chart() {
     <div className={isFullscreen ? 'fixed inset-0 z-50 bg-brand-bg p-2' : 'space-y-4'}>
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
-        <Select
-          options={SYMBOLS}
+        <SymbolSearch
           value={symbol}
           onChange={handleSymbolChange}
-          className="w-40"
+          className="w-48"
         />
         <div className="flex items-center rounded-lg bg-white/5 p-0.5">
           {INTERVALS.map((iv) => (

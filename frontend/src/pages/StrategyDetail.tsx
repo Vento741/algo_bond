@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { SymbolSearch } from '@/components/ui/symbol-search';
 import {
   Dialog,
   DialogContent,
@@ -187,18 +188,6 @@ const DEFAULT_CONFIG: FullStrategyConfig = {
   },
 };
 
-const SYMBOLS = [
-  { value: 'BTCUSDT', label: 'BTCUSDT' },
-  { value: 'ETHUSDT', label: 'ETHUSDT' },
-  { value: 'RIVERUSDT', label: 'RIVERUSDT' },
-  { value: 'SOLUSDT', label: 'SOLUSDT' },
-  { value: 'DOGEUSDT', label: 'DOGEUSDT' },
-  { value: 'XRPUSDT', label: 'XRPUSDT' },
-  { value: 'SUIUSDT', label: 'SUIUSDT' },
-  { value: 'TRUMPUSDT', label: 'TRUMPUSDT' },
-  { value: 'WIFUSDT', label: 'WIFUSDT' },
-  { value: 'PEPEUSDT', label: 'PEPEUSDT' },
-];
 
 const TIMEFRAMES = [
   { value: '1', label: '1m' },
@@ -517,8 +506,7 @@ function ConfigEditorDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs text-gray-400">Символ</Label>
-                <Select
-                  options={SYMBOLS}
+                <SymbolSearch
                   value={symbol}
                   onChange={setSymbol}
                 />
