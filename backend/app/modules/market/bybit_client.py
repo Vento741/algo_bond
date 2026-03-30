@@ -285,12 +285,16 @@ class BybitClient:
             coins = result["result"]["list"][0]["coin"]
             for c in coins:
                 if c["coin"] == coin:
+                    # availableToWithdraw может быть пустым на demo — fallback на walletBalance
+                    available = float(c.get("availableToWithdraw") or 0)
+                    if available == 0:
+                        available = float(c.get("totalAvailableBalance") or c.get("walletBalance") or 0)
                     return {
                         "coin": coin,
-                        "wallet_balance": float(c["walletBalance"] or 0),
-                        "available": float(c["availableToWithdraw"] or 0),
-                        "equity": float(c["equity"] or 0),
-                        "unrealized_pnl": float(c["unrealisedPnl"] or 0),
+                        "wallet_balance": float(c.get("walletBalance") or 0),
+                        "available": available,
+                        "equity": float(c.get("equity") or 0),
+                        "unrealized_pnl": float(c.get("unrealisedPnl") or 0),
                     }
             return {"coin": coin, "wallet_balance": 0, "available": 0, "equity": 0, "unrealized_pnl": 0}
         except InvalidRequestError as e:
