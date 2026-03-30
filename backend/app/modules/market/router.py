@@ -13,7 +13,8 @@ from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import ExchangeAccount, User
 from app.modules.market.bybit_client import BybitClient
 from app.modules.market.schemas import (
-    CandleResponse, SymbolInfoResponse, TickerResponse, WalletBalanceResponse,
+    CandleResponse, SymbolInfoResponse, TickerResponse, TradingPairResponse,
+    WalletBalanceResponse,
 )
 from app.modules.market.service import MarketService
 
@@ -23,6 +24,17 @@ router = APIRouter(prefix="/api/market", tags=["market"])
 def get_market_service() -> MarketService:
     """Dependency: MarketService (без API-ключей, для публичных данных)."""
     return MarketService()
+
+
+@router.get("/pairs", response_model=list[TradingPairResponse])
+async def get_trading_pairs(
+    search: str | None = Query(None, description="Поиск по символу"),
+    include_inactive: bool = Query(False),
+    db: AsyncSession = Depends(get_db),
+) -> list[TradingPairResponse]:
+    """Получить список торговых пар."""
+    service = MarketService()
+    return await service.get_active_pairs(db, search=search, include_inactive=include_inactive)
 
 
 @router.get("/klines/{symbol}", response_model=list[CandleResponse])

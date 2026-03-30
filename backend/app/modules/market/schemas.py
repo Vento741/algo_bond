@@ -45,3 +45,20 @@ class WalletBalanceResponse(BaseModel):
     available: float
     equity: float
     unrealized_pnl: float
+
+
+class TradingPairResponse(BaseModel):
+    """Ответ — торговая пара."""
+    model_config = ConfigDict(from_attributes=True)
+
+    symbol: str
+    base_currency: str
+    quote_currency: str
+    tick_size: float
+    qty_step: float
+    min_qty: float
+    max_qty: float
+    min_notional: float
+    max_leverage: float
+    is_active: bool
+    status: str

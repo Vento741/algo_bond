@@ -26,6 +26,10 @@ celery.conf.beat_schedule = {
         "task": "trading.run_active_bots",
         "schedule": 300.0,  # каждые 5 минут
     },
+    "sync-trading-pairs": {
+        "task": "market.sync_trading_pairs",
+        "schedule": 21600.0,  # every 6 hours
+    },
 }
 
 celery.autodiscover_tasks([

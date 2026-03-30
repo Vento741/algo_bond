@@ -22,9 +22,24 @@ from app.modules.market.ws_info_router import router as ws_info_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Инициализация и завершение приложения."""
+    import logging
     # Startup
+    _logger = logging.getLogger(__name__)
+
     from app.modules.trading.ws_bridge import start_ws_bridge
     start_ws_bridge()
+
+    # Sync trading pairs on startup
+    try:
+        from app.database import async_session
+        from app.modules.market.service import MarketService
+        async with async_session() as db:
+            service = MarketService()
+            count = await service.sync_pairs(db)
+            _logger.info("Startup: synced %d trading pairs", count)
+    except Exception as e:
+        _logger.warning("Startup: failed to sync trading pairs: %s", e)
+
     yield
     # Shutdown
     from app.modules.trading.ws_bridge import stop_ws_bridge
