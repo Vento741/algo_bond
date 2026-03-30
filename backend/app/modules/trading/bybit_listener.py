@@ -46,6 +46,13 @@ _symbol_timeframes: dict[str, str] = {}
 # Маппинг: (symbol, exchange_account_id) → list[bot_id]
 _symbol_bot_map: dict[tuple[str, uuid.UUID], list[uuid.UUID]] = {}
 
+# Публичные WS для тикеров (real-time цены): symbol → BybitWebSocketPublic
+_ticker_connections: dict[str, Any] = {}
+
+# Throttle: symbol → last update timestamp (для ограничения частоты DB-записи)
+_ticker_last_update: dict[str, float] = {}
+TICKER_UPDATE_INTERVAL = 5.0  # секунды между DB-обновлениями
+
 # Маппинг: exchange_account_id → user_id (для broadcast)
 _account_user_map: dict[uuid.UUID, uuid.UUID] = {}
 
@@ -699,6 +706,156 @@ def _setup_kline_triggers(
             logger.info("Kline trigger отключён: %s", symbol)
 
 
+async def _handle_ticker_event(symbol: str, ticker_data: dict) -> None:
+    """Обработать тикер — обновить current_price, peaks и unrealized PnL для открытых позиций.
+
+    Throttle: обновляет DB + Redis не чаще TICKER_UPDATE_INTERVAL секунд.
+    """
+    import time
+
+    from sqlalchemy import select
+
+    from app.database import async_session
+    from app.modules.trading.models import Position, PositionSide, PositionStatus
+
+    mark_price = ticker_data.get("mark_price", 0)
+    if not mark_price or mark_price == 0:
+        return
+
+    # Throttle — не чаще раза в N секунд на символ
+    now_ts = time.monotonic()
+    last = _ticker_last_update.get(symbol, 0)
+    if now_ts - last < TICKER_UPDATE_INTERVAL:
+        return
+    _ticker_last_update[symbol] = now_ts
+
+    mp = Decimal(str(mark_price))
+    now = datetime.now(timezone.utc)
+
+    try:
+        async with async_session() as db:
+            stmt = select(Position).where(
+                Position.symbol == symbol,
+                Position.status == PositionStatus.OPEN,
+            )
+            result = await db.execute(stmt)
+            positions = result.scalars().all()
+
+            if not positions:
+                return
+
+            for position in positions:
+                position.current_price = mp
+                position.updated_at = now
+
+                # Пики цены
+                if position.max_price is None or mp > position.max_price:
+                    position.max_price = mp
+                if position.min_price is None or mp < position.min_price:
+                    position.min_price = mp
+
+                # Расчёт unrealized PnL
+                qty = float(position.quantity)
+                entry = float(position.entry_price)
+                if position.side == PositionSide.LONG:
+                    upnl = (float(mp) - entry) * qty
+                else:
+                    upnl = (entry - float(mp)) * qty
+                upnl_d = Decimal(str(round(upnl, 6)))
+                position.unrealized_pnl = upnl_d
+
+                # Пики PnL
+                if upnl_d > position.max_pnl:
+                    position.max_pnl = upnl_d
+                if upnl_d < position.min_pnl:
+                    position.min_pnl = upnl_d
+
+            await db.commit()
+
+            # Публикация в Redis для каждого бота
+            for position in positions:
+                user_id = None
+                # Найти user_id через bot → account маппинг
+                for (sym, acc_id), bot_ids in _symbol_bot_map.items():
+                    if sym == symbol and position.bot_id in bot_ids:
+                        user_id = _account_user_map.get(acc_id)
+                        break
+
+                if user_id:
+                    await _publish_event(user_id, "position_update", {
+                        "symbol": symbol,
+                        "side": position.side.value,
+                        "size": str(position.quantity),
+                        "unrealized_pnl": str(position.unrealized_pnl),
+                        "mark_price": str(mp),
+                        "closed": False,
+                        "bot_id": str(position.bot_id),
+                        "bot_ids": [str(position.bot_id)],
+                        "position_id": str(position.id),
+                        "entry_price": str(position.entry_price),
+                        "quantity": str(position.quantity),
+                        "stop_loss": str(position.stop_loss),
+                        "take_profit": str(position.take_profit),
+                        "trailing_stop": str(position.trailing_stop) if position.trailing_stop else None,
+                        "max_pnl": str(position.max_pnl),
+                        "min_pnl": str(position.min_pnl),
+                        "max_price": str(position.max_price) if position.max_price else None,
+                        "min_price": str(position.min_price) if position.min_price else None,
+                    })
+
+    except Exception:
+        logger.debug("Ошибка обработки тикера %s", symbol, exc_info=True)
+
+
+def _setup_ticker_streams(
+    grouped_bots: dict[uuid.UUID, list[dict]],
+    loop: asyncio.AbstractEventLoop,
+) -> None:
+    """Подписаться на публичные тикеры для символов с открытыми позициями.
+
+    Тикеры приходят ~каждую секунду → real-time цены + PnL.
+    """
+    global _ticker_connections
+
+    from app.modules.market.bybit_ws import BybitWebSocketPublic
+
+    # Собрать уникальные символы из всех ботов
+    needed_symbols: set[str] = set()
+    for _acc_id, bots in grouped_bots.items():
+        for bot_info in bots:
+            needed_symbols.add(bot_info["symbol"])
+
+    active_symbols = set(_ticker_connections.keys())
+
+    # Подключить новые
+    for symbol in needed_symbols - active_symbols:
+        try:
+            ws = BybitWebSocketPublic()
+
+            def _make_ticker_handler(sym: str):
+                def handler(data: dict) -> None:
+                    asyncio.run_coroutine_threadsafe(
+                        _handle_ticker_event(sym, data), loop,
+                    )
+                return handler
+
+            ws.subscribe_ticker(symbol, _make_ticker_handler(symbol))
+            _ticker_connections[symbol] = ws
+            logger.info("Ticker stream подключён: %s", symbol)
+        except Exception:
+            logger.exception("Ошибка подписки ticker для %s", symbol)
+
+    # Отключить ненужные
+    for symbol in active_symbols - needed_symbols:
+        ws = _ticker_connections.pop(symbol, None)
+        if ws:
+            try:
+                ws.close()
+            except Exception:
+                pass
+            logger.info("Ticker stream отключён: %s", symbol)
+
+
 async def _refresh_cycle(loop: asyncio.AbstractEventLoop) -> None:
     """Один цикл обновления: загрузить ботов, подключить/отключить WS."""
     # Импорт моделей для ORM resolution
@@ -735,10 +892,14 @@ async def _refresh_cycle(loop: asyncio.AbstractEventLoop) -> None:
     # Настроить kline triggers (Public WS)
     _setup_kline_triggers(grouped_bots, loop)
 
+    # Настроить ticker streams (real-time цены)
+    _setup_ticker_streams(grouped_bots, loop)
+
     total_bots = sum(len(bots) for bots in grouped_bots.values())
     logger.info(
-        "Статус: %d аккаунтов, %d ботов, %d private WS, %d kline triggers",
-        len(needed_accounts), total_bots, len(_active_connections), len(_kline_connections),
+        "Статус: %d аккаунтов, %d ботов, %d private WS, %d kline, %d tickers",
+        len(needed_accounts), total_bots, len(_active_connections),
+        len(_kline_connections), len(_ticker_connections),
     )
 
 
@@ -806,7 +967,14 @@ async def run_listener() -> None:
         except Exception:
             pass
     _kline_connections.clear()
-    logger.info("Bybit Listener остановлен (private + kline triggers)")
+    # Закрыть ticker WS
+    for sym, ws in list(_ticker_connections.items()):
+        try:
+            ws.close()
+        except Exception:
+            pass
+    _ticker_connections.clear()
+    logger.info("Bybit Listener остановлен (private + kline + tickers)")
 
 
 def main() -> None:
