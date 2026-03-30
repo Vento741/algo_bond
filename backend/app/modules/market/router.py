@@ -30,10 +30,19 @@ async def get_klines(
     symbol: str,
     interval: str = Query("5", description="1,5,15,60,240,D"),
     limit: int = Query(200, ge=1, le=1000),
+    start: int | None = Query(None, description="Start timestamp ms"),
+    end: int | None = Query(None, description="End timestamp ms"),
     service: MarketService = Depends(get_market_service),
 ) -> list[CandleResponse]:
-    """Получить OHLCV свечи для символа."""
-    candles = await service.get_klines(symbol, interval, limit)
+    """Получить OHLCV свечи для символа.
+
+    Если указаны start/end — загружает ВСЕ свечи за период с пагинацией (max 20000).
+    Без start/end — возвращает последние limit свечей.
+    """
+    if start is not None and end is not None:
+        candles = await service.get_klines_range(symbol, interval, start, end)
+    else:
+        candles = await service.get_klines(symbol, interval, limit)
     return [CandleResponse(**c) for c in candles]
 
 

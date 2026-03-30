@@ -805,8 +805,11 @@ function TradesChart({
 
     try {
       // Fetch candle data for the chart
+      // Загружаем свечи за ВЕСЬ период бэктеста (с пагинацией на сервере)
+      const startMs = new Date(_startDate).getTime();
+      const endMs = new Date(_endDate).getTime();
       const { data: klines } = await api.get(`/market/klines/${symbol}`, {
-        params: { interval: activeTimeframe, limit: 1000 },
+        params: { interval: activeTimeframe, start: startMs, end: endMs },
       });
 
       const candles = (klines as Record<string, unknown>[]).map((d) => {

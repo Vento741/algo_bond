@@ -35,6 +35,37 @@ class MarketService:
             logger.warning("Redis cache write failed for %s", cache_key)
         return candles
 
+    async def get_klines_range(
+        self, symbol: str, interval: str, start_ms: int, end_ms: int, max_candles: int = 20000,
+    ) -> list[dict]:
+        """Загрузить все свечи за период с пагинацией Bybit API (limit=1000 per call)."""
+        all_candles: list[dict] = []
+        current_end = end_ms
+
+        while current_end > start_ms and len(all_candles) < max_candles:
+            batch = await asyncio.to_thread(
+                self.client.get_klines, symbol, interval, 1000,
+                start=start_ms, end=current_end,
+            )
+            if not batch:
+                break
+            all_candles = batch + all_candles
+            first_ts = batch[0]["timestamp"]
+            if first_ts <= start_ms:
+                break
+            current_end = first_ts - 1
+
+        # Дедупликация и сортировка
+        seen: set[int] = set()
+        unique: list[dict] = []
+        for c in all_candles:
+            ts = c["timestamp"]
+            if ts not in seen:
+                seen.add(ts)
+                unique.append(c)
+        unique.sort(key=lambda c: c["timestamp"])
+        return unique[:max_candles]
+
     async def get_ticker(self, symbol: str) -> dict:
         """Получить тикер с кэшированием."""
         cache_key = f"market:ticker:{symbol}"
