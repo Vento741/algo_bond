@@ -34,6 +34,15 @@ _shutdown_event: asyncio.Event | None = None
 # Активные WS соединения: exchange_account_id → BybitWebSocketPrivate
 _active_connections: dict[uuid.UUID, Any] = {}
 
+# Публичные WS для kline trigger: symbol → BybitWebSocketPublic
+_kline_connections: dict[str, Any] = {}
+
+# Маппинг: symbol → list[bot_id] (для kline trigger)
+_symbol_bots: dict[str, list[uuid.UUID]] = {}
+
+# Маппинг: symbol → timeframe (для kline trigger)
+_symbol_timeframes: dict[str, str] = {}
+
 # Маппинг: (symbol, exchange_account_id) → list[bot_id]
 _symbol_bot_map: dict[tuple[str, uuid.UUID], list[uuid.UUID]] = {}
 
@@ -45,6 +54,9 @@ REFRESH_INTERVAL = 60
 
 # Максимальный backoff при ошибках подключения (секунды)
 MAX_BACKOFF = 300
+
+# TTL для дедупликации kline trigger (секунды)
+KLINE_DEDUP_TTL = 60
 
 
 async def _get_redis() -> Any:
@@ -399,6 +411,7 @@ async def _load_running_bots() -> dict[uuid.UUID, list[dict]]:
             result[account_id].append({
                 "bot_id": bot.id,
                 "symbol": bot.strategy_config.symbol if bot.strategy_config else "",
+                "timeframe": bot.strategy_config.timeframe if bot.strategy_config else "15",
                 "user_id": bot.user_id,
                 "account": account,
             })
@@ -519,6 +532,104 @@ def _disconnect_all() -> None:
     logger.info("Все WS соединения закрыты (%d)", len(account_ids))
 
 
+async def _trigger_bot_cycle(bot_id: uuid.UUID, symbol: str, timeframe: str) -> None:
+    """Триггер цикла бота через Celery при закрытии свечи.
+
+    Дедупликация: Redis ключ bot:{bot_id}:last_trigger с TTL предотвращает
+    повторный запуск в течение KLINE_DEDUP_TTL секунд.
+    """
+    try:
+        redis = await _get_redis()
+        dedup_key = f"bot:{bot_id}:last_trigger"
+
+        # Проверить дедупликацию
+        if await redis.get(dedup_key):
+            await redis.aclose()
+            return  # Уже триггерили недавно
+
+        # Установить ключ с TTL
+        await redis.set(dedup_key, "1", ex=KLINE_DEDUP_TTL)
+        await redis.aclose()
+
+        # Диспатчить через Celery
+        from app.modules.trading.celery_tasks import run_bot_cycle_task
+        run_bot_cycle_task.delay(str(bot_id))
+
+        logger.info(
+            "Kline trigger: bot=%s symbol=%s tf=%s",
+            str(bot_id)[:8], symbol, timeframe,
+        )
+    except Exception:
+        logger.exception("Ошибка kline trigger для bot %s", bot_id)
+
+
+def _setup_kline_triggers(
+    grouped_bots: dict[uuid.UUID, list[dict]],
+    loop: asyncio.AbstractEventLoop,
+) -> None:
+    """Подписаться на публичные kline streams для символов активных ботов.
+
+    При confirm=True (свеча закрылась) → trigger run_bot_cycle.
+    """
+    global _kline_connections, _symbol_bots, _symbol_timeframes
+
+    from app.modules.market.bybit_ws import BybitWebSocketPublic
+
+    # Собрать уникальные (symbol, timeframe) пары
+    new_symbol_bots: dict[str, list[uuid.UUID]] = {}
+    new_symbol_tfs: dict[str, str] = {}
+
+    for _account_id, bots in grouped_bots.items():
+        for bot_info in bots:
+            symbol = bot_info["symbol"]
+            bot_id = bot_info["bot_id"]
+            # Timeframe из strategy_config
+            tf = bot_info.get("timeframe", "15")
+            if symbol not in new_symbol_bots:
+                new_symbol_bots[symbol] = []
+                new_symbol_tfs[symbol] = tf
+            new_symbol_bots[symbol].append(bot_id)
+
+    _symbol_bots = new_symbol_bots
+    _symbol_timeframes = new_symbol_tfs
+
+    needed_symbols = set(new_symbol_bots.keys())
+    active_symbols = set(_kline_connections.keys())
+
+    # Подключить новые символы
+    for symbol in needed_symbols - active_symbols:
+        tf = new_symbol_tfs.get(symbol, "15")
+        try:
+            ws = BybitWebSocketPublic()
+
+            def _make_kline_handler(sym: str, timeframe: str):
+                def handler(data: dict) -> None:
+                    if data.get("confirm"):
+                        # Свеча закрылась — триггерим все боты для этого символа
+                        bot_ids = _symbol_bots.get(sym, [])
+                        for bid in bot_ids:
+                            asyncio.run_coroutine_threadsafe(
+                                _trigger_bot_cycle(bid, sym, timeframe), loop,
+                            )
+                return handler
+
+            ws.subscribe_kline(symbol, int(tf), _make_kline_handler(symbol, tf))
+            _kline_connections[symbol] = ws
+            logger.info("Kline trigger подключён: %s %sm", symbol, tf)
+        except Exception:
+            logger.exception("Ошибка подписки kline для %s", symbol)
+
+    # Отключить ненужные
+    for symbol in active_symbols - needed_symbols:
+        ws = _kline_connections.pop(symbol, None)
+        if ws:
+            try:
+                ws.close()
+            except Exception:
+                pass
+            logger.info("Kline trigger отключён: %s", symbol)
+
+
 async def _refresh_cycle(loop: asyncio.AbstractEventLoop) -> None:
     """Один цикл обновления: загрузить ботов, подключить/отключить WS."""
     # Импорт моделей для ORM resolution
@@ -552,10 +663,13 @@ async def _refresh_cycle(loop: asyncio.AbstractEventLoop) -> None:
         logger.info("Отключение account %s: нет активных ботов", account_id)
         _disconnect_account(account_id)
 
+    # Настроить kline triggers (Public WS)
+    _setup_kline_triggers(grouped_bots, loop)
+
     total_bots = sum(len(bots) for bots in grouped_bots.values())
     logger.info(
-        "Статус: %d аккаунтов, %d ботов, %d WS соединений",
-        len(needed_accounts), total_bots, len(_active_connections),
+        "Статус: %d аккаунтов, %d ботов, %d private WS, %d kline triggers",
+        len(needed_accounts), total_bots, len(_active_connections), len(_kline_connections),
     )
 
 
@@ -616,7 +730,14 @@ async def run_listener() -> None:
     # Graceful shutdown
     logger.info("Завершение: закрытие всех WS соединений...")
     _disconnect_all()
-    logger.info("Bybit Private WS Listener остановлен")
+    # Закрыть kline WS
+    for sym, ws in list(_kline_connections.items()):
+        try:
+            ws.close()
+        except Exception:
+            pass
+    _kline_connections.clear()
+    logger.info("Bybit Listener остановлен (private + kline triggers)")
 
 
 def main() -> None:
