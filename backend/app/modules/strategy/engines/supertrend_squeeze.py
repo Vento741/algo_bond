@@ -98,14 +98,11 @@ class SuperTrendSqueezeStrategy(BaseStrategy):
         st_bullish = st_bull_count >= min_agree
         st_bearish = st_bear_count >= min_agree
 
-        # EMA trend filter
+        # EMA trend filter (vectorized)
         ema_line = ema(data.close, ema_period)
-        ema_bull = np.zeros(n, dtype=bool)
-        ema_bear = np.zeros(n, dtype=bool)
-        for i in range(n):
-            if not np.isnan(ema_line[i]):
-                ema_bull[i] = data.close[i] > ema_line[i]
-                ema_bear[i] = data.close[i] < ema_line[i]
+        valid_ema = ~np.isnan(ema_line)
+        ema_bull = valid_ema & (data.close > ema_line)
+        ema_bear = valid_ema & (data.close < ema_line)
 
         # ADX filter
         _, _, adx_vals = dmi(data.high, data.low, data.close, adx_period)
@@ -138,9 +135,8 @@ class SuperTrendSqueezeStrategy(BaseStrategy):
                 data.high, data.low, data.close,
                 sq_bb_period, sq_bb_mult, sq_kc_period, sq_kc_mult, sq_mom_period,
             )
-            # Squeeze release: was ON, now OFF
-            for i in range(1, n):
-                squeeze_release[i] = bool(squeeze_on[i - 1]) and not bool(squeeze_on[i])
+            # Squeeze release: was ON, now OFF (vectorized)
+            squeeze_release[1:] = squeeze_on[:-1] & ~squeeze_on[1:]
 
         # --- Confluence Scoring ---
         score_long = (
@@ -158,9 +154,8 @@ class SuperTrendSqueezeStrategy(BaseStrategy):
             + volume_ok.astype(float)
         )
 
-        # --- Entry Conditions ---
-        trend_long = st_bullish & ema_bull & adx_ok & (rsi_safe < rsi_long_max) & volume_ok
-        trend_short = st_bearish & ema_bear & adx_ok & (rsi_safe > rsi_short_min) & volume_ok
+        # --- Entry Conditions (use score threshold instead of duplicating AND logic) ---
+        min_score = 5.0  # all 5 filters must agree for trend entry
 
         squeeze_long = np.zeros(n, dtype=bool)
         squeeze_short = np.zeros(n, dtype=bool)
@@ -169,22 +164,51 @@ class SuperTrendSqueezeStrategy(BaseStrategy):
             squeeze_long = squeeze_release & (mom_safe > 0) & st_bullish
             squeeze_short = squeeze_release & (mom_safe < 0) & st_bearish
 
-        long_condition = trend_long | squeeze_long
-        short_condition = trend_short | squeeze_short
+        long_condition = (score_long >= min_score) | squeeze_long
+        short_condition = (score_short >= min_score) | squeeze_short
 
-        # --- Generate Signals ---
+        # --- Generate Signals with exit tracking ---
         signals: list[Signal] = []
         in_position = False
-        last_exit_bar = -999
+        position_side: str = ""
+        position_sl: float = 0.0
+        position_tp: float = 0.0
+        position_trailing: float = 0.0
+        position_highest: float = 0.0
+        position_lowest: float = float("inf")
+        position_entry_bar: int = 0
+        last_exit_bar: int = -999
+        min_bars_trailing: int = risk_cfg.get("min_bars_trailing", 5)
 
         for i in range(n):
             if np.isnan(atr_vals[i]):
                 continue
 
-            if i - last_exit_bar < cooldown_bars:
+            # --- Exit tracking (SL/TP/trailing) ---
+            if in_position:
+                bars_held = i - position_entry_bar
+                if position_side == "long":
+                    position_highest = max(position_highest, float(data.high[i]))
+                    # Trailing stop update
+                    if use_trailing and bars_held >= min_bars_trailing:
+                        new_trail = position_highest - trailing_atr_mult * float(atr_vals[i])
+                        position_sl = max(position_sl, new_trail)
+                    # Check exits
+                    if float(data.low[i]) <= position_sl or float(data.high[i]) >= position_tp:
+                        in_position = False
+                        last_exit_bar = i
+                else:  # short
+                    position_lowest = min(position_lowest, float(data.low[i]))
+                    if use_trailing and bars_held >= min_bars_trailing:
+                        new_trail = position_lowest + trailing_atr_mult * float(atr_vals[i])
+                        position_sl = min(position_sl, new_trail)
+                    if float(data.high[i]) >= position_sl or float(data.low[i]) <= position_tp:
+                        in_position = False
+                        last_exit_bar = i
                 continue
 
-            if in_position:
+            # Cooldown after exit
+            if i - last_exit_bar < cooldown_bars:
                 continue
 
             atr_val = float(atr_vals[i])
@@ -207,6 +231,12 @@ class SuperTrendSqueezeStrategy(BaseStrategy):
                     signal_type=signal_type,
                 ))
                 in_position = True
+                position_side = "long"
+                position_sl = sl
+                position_tp = tp
+                position_trailing = trailing_atr_mult * atr_val
+                position_highest = price
+                position_entry_bar = i
 
             elif short_condition[i]:
                 sl = price + stop_atr_mult * atr_val
@@ -225,6 +255,12 @@ class SuperTrendSqueezeStrategy(BaseStrategy):
                     signal_type=signal_type,
                 ))
                 in_position = True
+                position_side = "short"
+                position_sl = sl
+                position_tp = tp
+                position_trailing = trailing_atr_mult * atr_val
+                position_lowest = price
+                position_entry_bar = i
 
         return StrategyResult(
             signals=signals,
