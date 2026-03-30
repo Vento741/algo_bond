@@ -113,12 +113,25 @@ function formatUptime(startedAt: string | null): string {
   return `${mins}м`;
 }
 
-function formatPrice(value: number | null | undefined): string {
-  if (value == null) return '—';
-  return value.toLocaleString('en-US', {
+function formatPrice(value: number | string | null | undefined): string {
+  if (value == null || value === '') return '—';
+  const n = Number(value);
+  if (isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  const maxFrac = abs >= 1000 ? 2 : abs >= 1 ? 4 : 6;
+  return n.toLocaleString('en-US', {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 6,
+    maximumFractionDigits: maxFrac,
   });
+}
+
+function formatQty(value: number | string | null | undefined): string {
+  if (value == null || value === '') return '—';
+  const n = Number(value);
+  if (isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  const maxFrac = abs >= 100 ? 2 : abs >= 1 ? 4 : abs >= 0.01 ? 6 : 8;
+  return n.toLocaleString('en-US', { maximumFractionDigits: maxFrac });
 }
 
 function formatPnl(value: number | string): string {
@@ -616,7 +629,7 @@ export function BotDetail() {
                       </TableCell>
                       <TableCell>
                         <span className="font-mono">
-                          {(Number(s.knn_confidence) * 100).toFixed(1)}%
+                          {Number(s.knn_confidence).toFixed(1)}%
                         </span>
                       </TableCell>
                       <TableCell>
@@ -625,7 +638,7 @@ export function BotDetail() {
                             <div
                               className="h-full rounded-full bg-brand-accent transition-all"
                               style={{
-                                width: `${Math.min(Math.abs(Number(s.signal_strength)) * 100, 100)}%`,
+                                width: `${Math.min((Math.abs(Number(s.signal_strength)) / 5.5) * 100, 100)}%`,
                               }}
                             />
                           </div>
@@ -690,7 +703,7 @@ export function BotDetail() {
                         {o.type}
                       </TableCell>
                       <TableCell className="font-mono">
-                        {formatPrice(o.quantity)}
+                        {formatQty(o.quantity)}
                       </TableCell>
                       <TableCell className="font-mono">
                         {formatPrice(o.price)}
@@ -747,7 +760,7 @@ export function BotDetail() {
                         {formatPrice(p.entry_price)}
                       </TableCell>
                       <TableCell className="font-mono">
-                        {formatPrice(p.quantity)}
+                        {formatQty(p.quantity)}
                       </TableCell>
                       <TableCell className="font-mono text-xs">
                         <span className="text-brand-loss">
@@ -761,7 +774,7 @@ export function BotDetail() {
                       <TableCell>
                         <span
                           className={`font-mono font-medium ${
-                            p.unrealized_pnl >= 0
+                            Number(p.unrealized_pnl) >= 0
                               ? 'text-brand-profit'
                               : 'text-brand-loss'
                           }`}
