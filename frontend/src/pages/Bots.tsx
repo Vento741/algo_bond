@@ -94,7 +94,7 @@ export function Bots() {
     const botsReq = api
       .get<BotResponse[]>('/trading/bots')
       .then(({ data }) => data)
-      .catch(() => getDemoBots());
+      .catch(() => [] as BotResponse[]);
 
     const configsReq = api
       .get<StrategyConfig[]>('/strategies/configs/my')
