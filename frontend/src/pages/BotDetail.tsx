@@ -884,7 +884,7 @@ export function BotDetail() {
             </div>
             <p className="text-2xl font-bold font-mono text-brand-loss">
               {Number(bot.max_drawdown) !== 0
-                ? formatPnl(bot.max_drawdown)
+                ? `-$${Math.abs(Number(bot.max_drawdown)).toFixed(2)}`
                 : '$0.00'}
             </p>
           </CardContent>
@@ -1077,13 +1077,19 @@ export function BotDetail() {
                     <TableHead>Цена входа</TableHead>
                     <TableHead>Количество</TableHead>
                     <TableHead>SL / TP</TableHead>
-                    <TableHead>Нереализ. P&L</TableHead>
+                    <TableHead>P&L</TableHead>
                     <TableHead>Статус</TableHead>
                     <TableHead>Открыта</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {positions.map((p) => (
+                  {positions.map((p) => {
+                    const isClosed = p.status === 'closed';
+                    const pnlValue = isClosed
+                      ? Number(p.realized_pnl ?? 0)
+                      : Number(p.unrealized_pnl ?? 0);
+                    const pnlLabel = isClosed ? 'Реализ.' : 'Нереализ.';
+                    return (
                     <TableRow key={p.id}>
                       <TableCell className="font-mono text-white font-medium">
                         {p.symbol}
@@ -1111,15 +1117,18 @@ export function BotDetail() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span
-                          className={`font-mono font-medium ${
-                            Number(p.unrealized_pnl) >= 0
-                              ? 'text-brand-profit'
-                              : 'text-brand-loss'
-                          }`}
-                        >
-                          {formatPnl(p.unrealized_pnl)}
-                        </span>
+                        <div className="flex flex-col">
+                          <span
+                            className={`font-mono font-medium ${
+                              pnlValue >= 0
+                                ? 'text-brand-profit'
+                                : 'text-brand-loss'
+                            }`}
+                          >
+                            {formatPnl(pnlValue)}
+                          </span>
+                          <span className="text-[10px] text-gray-500">{pnlLabel}</span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {p.status === 'open' ? (
@@ -1132,7 +1141,8 @@ export function BotDetail() {
                         {formatDatetime(p.opened_at)}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </Card>
