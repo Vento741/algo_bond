@@ -261,7 +261,7 @@ export function Bots() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Win Rate</span>
                     <span className="text-xs text-white font-mono">
-                      {(Number(bot.win_rate) * 100).toFixed(1)}%
+                      {Number(bot.win_rate).toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
