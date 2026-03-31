@@ -290,9 +290,25 @@ async def _handle_position_event(
                     position.status = PositionStatus.CLOSED
                     position.closed_at = now
                     position.updated_at = now
-                    position.unrealized_pnl = Decimal("0")
-                    if position.realized_pnl is None:
+
+                    # Bybit demo отдаёт pnl=0 в финальном event (size=0).
+                    # Используем последний сохранённый unrealized_pnl как realized,
+                    # или рассчитываем из entry/mark price.
+                    if upnl != Decimal("0"):
                         position.realized_pnl = upnl
+                    elif position.unrealized_pnl and position.unrealized_pnl != Decimal("0"):
+                        # Берём последний известный unrealized PnL
+                        position.realized_pnl = position.unrealized_pnl
+                    elif mp and position.entry_price:
+                        # Рассчитываем из цен
+                        if position.side.value == "long":
+                            position.realized_pnl = (mp - position.entry_price) * position.quantity
+                        else:
+                            position.realized_pnl = (position.entry_price - mp) * position.quantity
+                    else:
+                        position.realized_pnl = Decimal("0")
+
+                    position.unrealized_pnl = Decimal("0")
 
                     # Обновить статистику бота
                     bot_result = await db.execute(select(Bot).where(Bot.id == bot_id))
