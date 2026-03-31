@@ -1068,84 +1068,11 @@ export function BotDetail() {
           ) : positions.length === 0 ? (
             <EmptyState message="Нет позиций" />
           ) : (
-            <Card className="border-white/5 bg-white/[0.02] overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Символ</TableHead>
-                    <TableHead>Сторона</TableHead>
-                    <TableHead>Цена входа</TableHead>
-                    <TableHead>Количество</TableHead>
-                    <TableHead>SL / TP</TableHead>
-                    <TableHead>P&L</TableHead>
-                    <TableHead>Статус</TableHead>
-                    <TableHead>Открыта</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {positions.map((p) => {
-                    const isClosed = p.status === 'closed';
-                    const pnlValue = isClosed
-                      ? Number(p.realized_pnl ?? 0)
-                      : Number(p.unrealized_pnl ?? 0);
-                    const pnlLabel = isClosed ? 'Реализ.' : 'Нереализ.';
-                    return (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-mono text-white font-medium">
-                        {p.symbol}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={p.side === 'long' ? 'profit' : 'loss'}
-                        >
-                          {p.side === 'long' ? 'LONG' : 'SHORT'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono">
-                        {formatPrice(p.entry_price)}
-                      </TableCell>
-                      <TableCell className="font-mono">
-                        {formatQty(p.quantity)}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        <span className="text-brand-loss">
-                          {formatPrice(p.stop_loss)}
-                        </span>
-                        {' / '}
-                        <span className="text-brand-profit">
-                          {formatPrice(p.take_profit)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span
-                            className={`font-mono font-medium ${
-                              pnlValue >= 0
-                                ? 'text-brand-profit'
-                                : 'text-brand-loss'
-                            }`}
-                          >
-                            {formatPnl(pnlValue)}
-                          </span>
-                          <span className="text-[10px] text-gray-500">{pnlLabel}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {p.status === 'open' ? (
-                          <Badge variant="profit">Открыта</Badge>
-                        ) : (
-                          <Badge variant="default">Закрыта</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs whitespace-nowrap">
-                        {formatDatetime(p.opened_at)}
-                      </TableCell>
-                    </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </Card>
+            <div className="space-y-2">
+              {positions.map((p) => (
+                <PositionExpandableCard key={p.id} position={p} />
+              ))}
+            </div>
           )}
         </TabsContent>
 
@@ -1303,6 +1230,158 @@ function SseIndicator({ status }: { status: SseStatus }) {
         {c.label}
       </span>
     </div>
+  );
+}
+
+/** Expandable position card — click to see all details */
+function PositionExpandableCard({ position: p }: { position: PositionResponse }) {
+  const [expanded, setExpanded] = useState(false);
+  const isClosed = p.status === 'closed';
+  const pnlValue = isClosed ? Number(p.realized_pnl ?? 0) : Number(p.unrealized_pnl ?? 0);
+  const pnlColor = pnlValue >= 0 ? 'text-brand-profit' : 'text-brand-loss';
+  const duration = p.opened_at && p.closed_at
+    ? (() => {
+        const ms = new Date(p.closed_at).getTime() - new Date(p.opened_at).getTime();
+        const h = Math.floor(ms / 3600000);
+        const m = Math.floor((ms % 3600000) / 60000);
+        return h > 0 ? `${h}ч ${m}м` : `${m}м`;
+      })()
+    : null;
+
+  return (
+    <Card
+      className={`border-white/5 bg-white/[0.02] overflow-hidden cursor-pointer transition-all hover:border-white/10 ${
+        expanded ? 'ring-1 ring-brand-premium/20' : ''
+      }`}
+      onClick={() => setExpanded(!expanded)}
+    >
+      {/* Summary row */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Badge variant={p.side === 'long' ? 'profit' : 'loss'}>
+            {p.side === 'long' ? 'LONG' : 'SHORT'}
+          </Badge>
+          <span className="font-mono text-white font-medium">{p.symbol}</span>
+          <span className="text-xs text-gray-500">qty {formatQty(p.quantity)}</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className={`font-mono font-bold ${pnlColor}`}>{formatPnl(pnlValue)}</span>
+          {isClosed ? (
+            <Badge variant="default">Закрыта</Badge>
+          ) : (
+            <Badge variant="profit">Открыта</Badge>
+          )}
+          <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </div>
+      </div>
+
+      {/* Expanded details */}
+      {expanded && (
+        <div className="border-t border-white/5 px-4 py-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Entry */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Цена входа</p>
+              <p className="font-mono text-white">{formatPrice(p.entry_price)}</p>
+            </div>
+            {/* Exit / Current */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">
+                {isClosed ? 'Цена закрытия' : 'Текущая цена'}
+              </p>
+              <p className="font-mono text-white">
+                {p.current_price ? formatPrice(p.current_price) : '—'}
+              </p>
+            </div>
+            {/* SL */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Stop Loss</p>
+              <p className="font-mono text-brand-loss">{formatPrice(p.stop_loss)}</p>
+            </div>
+            {/* TP */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Take Profit</p>
+              <p className="font-mono text-brand-profit">{formatPrice(p.take_profit)}</p>
+            </div>
+            {/* Trailing */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Trailing Stop</p>
+              <p className="font-mono text-white">
+                {p.trailing_stop ? formatPrice(p.trailing_stop) : '—'}
+              </p>
+            </div>
+            {/* Qty */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Количество</p>
+              <p className="font-mono text-white">{formatQty(p.quantity)}</p>
+              {p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) && (
+                <p className="text-[10px] text-gray-500">
+                  Изначально: {formatQty(p.original_quantity)}
+                </p>
+              )}
+            </div>
+            {/* Realized PnL */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Реализ. P&L</p>
+              <p className={`font-mono font-bold ${pnlValue >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+                {p.realized_pnl != null ? formatPnl(p.realized_pnl) : '—'}
+              </p>
+            </div>
+            {/* Unrealized PnL */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Нереализ. P&L</p>
+              <p className={`font-mono ${Number(p.unrealized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+                {formatPnl(p.unrealized_pnl)}
+              </p>
+            </div>
+          </div>
+
+          {/* Second row: peaks and times */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/5">
+            {/* Max PnL */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Пик P&L</p>
+              <p className="font-mono text-brand-profit">{formatPnl(p.max_pnl)}</p>
+            </div>
+            {/* Min PnL */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Мин P&L</p>
+              <p className="font-mono text-brand-loss">{formatPnl(p.min_pnl)}</p>
+            </div>
+            {/* Max Price */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Макс. цена</p>
+              <p className="font-mono text-white">{p.max_price ? formatPrice(p.max_price) : '—'}</p>
+            </div>
+            {/* Min Price */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Мин. цена</p>
+              <p className="font-mono text-white">{p.min_price ? formatPrice(p.min_price) : '—'}</p>
+            </div>
+            {/* Opened */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Открыта</p>
+              <p className="text-xs text-white">{formatDatetime(p.opened_at)}</p>
+            </div>
+            {/* Closed */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Закрыта</p>
+              <p className="text-xs text-white">{p.closed_at ? formatDatetime(p.closed_at) : '—'}</p>
+            </div>
+            {/* Duration */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">Длительность</p>
+              <p className="text-xs text-white font-mono">{duration ?? '—'}</p>
+            </div>
+            {/* Position ID */}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">ID</p>
+              <p className="text-[10px] text-gray-500 font-mono">{p.id.slice(0, 8)}</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 
