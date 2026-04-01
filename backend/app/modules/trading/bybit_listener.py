@@ -309,6 +309,8 @@ async def _handle_position_event(
                         position.realized_pnl = Decimal("0")
 
                     position.unrealized_pnl = Decimal("0")
+                    if mp:
+                        position.current_price = mp
 
                     # Обновить статистику бота
                     bot_result = await db.execute(select(Bot).where(Bot.id == bot_id))
@@ -340,6 +342,22 @@ async def _handle_position_event(
                                 if (p.realized_pnl or Decimal("0")) > 0
                             )
                             bot.win_rate = Decimal(str(round(wins / total_closed * 100, 2)))
+
+                    # Обновить связанный ордер на FILLED
+                    from app.modules.trading.models import Order, OrderStatus
+                    order_result = await db.execute(
+                        select(Order).where(
+                            Order.bot_id == bot_id,
+                            Order.symbol == symbol,
+                            Order.status == OrderStatus.OPEN,
+                        )
+                    )
+                    open_order = order_result.scalar_one_or_none()
+                    if open_order:
+                        open_order.status = OrderStatus.FILLED
+                        if mp:
+                            open_order.filled_price = mp
+                        open_order.filled_at = now
 
                     await _write_bot_log(
                         bot_id, "info",
