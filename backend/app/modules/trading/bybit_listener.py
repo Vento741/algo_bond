@@ -16,6 +16,7 @@ import json
 import logging
 import signal
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -55,6 +56,16 @@ TICKER_UPDATE_INTERVAL = 5.0  # секунды между DB-обновлени�
 
 # Маппинг: exchange_account_id → user_id (для broadcast)
 _account_user_map: dict[uuid.UUID, uuid.UUID] = {}
+
+# REST клиенты: exchange_account_id → BybitClient (для breakeven/TP2)
+_account_clients: dict[uuid.UUID, Any] = {}
+
+# Risk конфиги ботов: bot_id → {"risk": {...}, "strategy_config": {...}}
+_bot_configs: dict[uuid.UUID, dict] = {}
+
+# Дедупликация position events: (symbol, exchange_account_id) → (last_size, last_time)
+_position_dedup: dict[tuple[str, uuid.UUID], tuple[str, float]] = {}
+POSITION_DEDUP_INTERVAL = 2.0  # секунды — игнорировать одинаковые events
 
 # Интервал проверки новых ботов (секунды)
 REFRESH_INTERVAL = 60
@@ -168,7 +179,7 @@ async def _handle_order_event(
             order = result.scalar_one_or_none()
 
             # Если не нашли по exchange_order_id, ищем по order_link_id
-            if not order and order_link_id and order_link_id.startswith("ab-"):
+            if not order and order_link_id and order_link_id.startswith("ab"):
                 stmt = select(Order).where(
                     Order.exchange_order_id == order_link_id
                 )
@@ -249,6 +260,14 @@ async def _handle_position_event(
     bot_ids = _find_bots_for_event(symbol, exchange_account_id)
     if not bot_ids:
         return
+
+    # Дедупликация: пропускать одинаковые events (same size) чаще чем раз в 2 сек
+    dedup_key = (symbol, exchange_account_id)
+    now_ts = time.monotonic()
+    prev = _position_dedup.get(dedup_key)
+    if prev and prev[0] == size and (now_ts - prev[1]) < POSITION_DEDUP_INTERVAL:
+        return  # Дупликат, пропускаем
+    _position_dedup[dedup_key] = (size, now_ts)
 
     logger.info(
         "Position event: %s side=%s size=%s pnl=%s mark=%s bots=%d",
@@ -388,8 +407,13 @@ async def _handle_position_event(
                     # Синхронизировать SL/TP/trailing с биржей
                     if stop_loss_ex and float(stop_loss_ex) > 0:
                         position.stop_loss = Decimal(stop_loss_ex)
-                    if take_profit_ex and float(take_profit_ex) > 0:
-                        position.take_profit = Decimal(take_profit_ex)
+                    if take_profit_ex:
+                        tp_val = float(take_profit_ex)
+                        if tp_val > 0:
+                            position.take_profit = Decimal(take_profit_ex)
+                        else:
+                            # TP=0 означает TP снят (partial TP сработал)
+                            position.take_profit = Decimal("0")
                     if trailing_stop_ex and float(trailing_stop_ex) > 0:
                         position.trailing_stop = Decimal(trailing_stop_ex)
 
@@ -401,7 +425,13 @@ async def _handle_position_event(
                         position.quantity = exchange_size
                         await _write_bot_log(
                             bot_id, "info",
-                            f"Частичное закрытие: {symbol} новый размер {size}",
+                            f"Частичное закрытие: {symbol} {position.original_quantity} → {size}",
+                        )
+
+                        # === Breakeven + TP2: немедленная реакция на TP1 ===
+                        await _handle_tp1_hit(
+                            exchange_account_id, bot_id,
+                            position, symbol,
                         )
 
                     # Обновить пики бота
@@ -434,6 +464,90 @@ async def _handle_position_event(
 
     except Exception:
         logger.exception("Ошибка обработки position event: %s", symbol)
+
+
+async def _handle_tp1_hit(
+    exchange_account_id: uuid.UUID,
+    bot_id: uuid.UUID,
+    position: Any,
+    symbol: str,
+) -> None:
+    """Обработать срабатывание TP1: установить breakeven (SL=entry) и TP2.
+
+    Вызывается из _handle_position_event при обнаружении частичного закрытия.
+    Использует кэшированный REST BybitClient для вызовов API.
+    """
+    from app.modules.market.bybit_client import BybitAPIError
+
+    client = _account_clients.get(exchange_account_id)
+    if not client:
+        logger.warning("Нет REST клиента для account %s, breakeven/TP2 не установлены", exchange_account_id)
+        return
+
+    risk_cfg = _bot_configs.get(bot_id, {}).get("risk", {})
+    use_breakeven = risk_cfg.get("use_breakeven", False)
+    tp_levels = risk_cfg.get("tp_levels", [])
+    entry_price = float(position.entry_price)
+
+    # 1. Breakeven: SL = entry_price
+    if use_breakeven:
+        try:
+            await asyncio.to_thread(
+                client.set_trading_stop,
+                symbol=symbol,
+                stop_loss=entry_price,
+            )
+            position.stop_loss = position.entry_price
+            logger.info("Breakeven установлен: %s SL=%s", symbol, entry_price)
+            await _write_bot_log(
+                bot_id, "info",
+                f"Breakeven: SL → {entry_price:.4f}",
+                {"symbol": symbol},
+            )
+        except BybitAPIError as e:
+            logger.warning("Breakeven failed %s: %s", symbol, e.message)
+        except Exception:
+            logger.exception("Breakeven failed %s", symbol)
+
+    # 2. TP2: рассчитать из ATR и установить на оставшийся объём
+    if len(tp_levels) >= 2:
+        try:
+            candles = await asyncio.to_thread(
+                client.get_klines, symbol, "15", 20,
+            )
+            if candles and len(candles) >= 14:
+                highs = [c["high"] for c in candles[-14:]]
+                lows = [c["low"] for c in candles[-14:]]
+                closes = [c["close"] for c in candles[-14:]]
+                tr_vals = [
+                    max(h - l, abs(h - closes[max(0, i - 1)]), abs(l - closes[max(0, i - 1)]))
+                    for i, (h, l) in enumerate(zip(highs, lows))
+                ]
+                atr = sum(tr_vals) / len(tr_vals)
+
+                tp2_mult = tp_levels[1]["atr_mult"]
+                side_val = position.side.value if hasattr(position.side, "value") else str(position.side)
+                if side_val == "long":
+                    tp2_price = entry_price + atr * tp2_mult
+                else:
+                    tp2_price = entry_price - atr * tp2_mult
+
+                await asyncio.to_thread(
+                    client.set_trading_stop,
+                    symbol=symbol,
+                    take_profit=tp2_price,
+                )
+                position.take_profit = Decimal(str(round(tp2_price, 6)))
+                logger.info("TP2 установлен: %s TP=%s (ATR=%.4f)", symbol, tp2_price, atr)
+                await _write_bot_log(
+                    bot_id, "info",
+                    f"TP2: {tp2_price:.4f} (ATR={atr:.4f}, mult={tp2_mult})",
+                    {"symbol": symbol, "atr": atr, "tp2": tp2_price},
+                )
+        except BybitAPIError as e:
+            logger.warning("TP2 failed %s: %s", symbol, e.message)
+        except Exception:
+            logger.exception("TP2 failed %s", symbol)
 
 
 async def _handle_execution_event(
@@ -501,7 +615,7 @@ async def _load_running_bots() -> dict[uuid.UUID, list[dict]]:
         stmt = (
             select(Bot)
             .options(
-                selectinload(Bot.strategy_config),
+                selectinload(Bot.strategy_config).selectinload(StrategyConfig.strategy),
                 selectinload(Bot.exchange_account),
             )
             .where(Bot.status == BotStatus.RUNNING)
@@ -517,6 +631,14 @@ async def _load_running_bots() -> dict[uuid.UUID, list[dict]]:
             account_id = account.id
             if account_id not in result:
                 result[account_id] = []
+
+            # Собрать risk config для breakeven/TP2
+            bot_config = {}
+            if bot.strategy_config and bot.strategy_config.config:
+                bot_config = bot.strategy_config.config
+                if bot.strategy_config.strategy and bot.strategy_config.strategy.default_config:
+                    bot_config = {**bot.strategy_config.strategy.default_config, **bot_config}
+            _bot_configs[bot.id] = bot_config
 
             result[account_id].append({
                 "bot_id": bot.id,
@@ -565,6 +687,7 @@ def _connect_account(
     pybit WS работает в отдельном потоке, callbacks вызываются оттуда.
     """
     from app.core.security import decrypt_value
+    from app.modules.market.bybit_client import BybitClient
     from app.modules.market.bybit_ws import BybitWebSocketPrivate
 
     try:
@@ -578,6 +701,11 @@ def _connect_account(
         return False
 
     try:
+        # REST клиент для breakeven/TP2 управления
+        _account_clients[account_id] = BybitClient(
+            api_key=api_key, api_secret=api_secret, demo=account.is_testnet,
+        )
+
         # is_testnet в БД означает demo mode (api-demo.bybit.com)
         ws = BybitWebSocketPrivate(
             api_key=api_key,
@@ -624,7 +752,7 @@ def _connect_account(
 
 
 def _disconnect_account(account_id: uuid.UUID) -> None:
-    """Закрыть WS соединение для exchange account."""
+    """Закрыть WS соединение и REST клиент для exchange account."""
     ws = _active_connections.pop(account_id, None)
     if ws is not None:
         try:
@@ -632,6 +760,7 @@ def _disconnect_account(account_id: uuid.UUID) -> None:
         except Exception:
             logger.exception("Ошибка закрытия WS для account %s", account_id)
         logger.info("Bybit Private WS отключён: account=%s", account_id)
+    _account_clients.pop(account_id, None)
 
 
 def _disconnect_all() -> None:

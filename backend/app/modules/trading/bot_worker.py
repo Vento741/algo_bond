@@ -11,6 +11,7 @@
 import logging
 import traceback
 import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import select, update
@@ -229,7 +230,11 @@ async def _manage_position(
     db: AsyncSession, bot: Bot, client: BybitClient,
     position: Position, config: dict,
 ) -> None:
-    """Управление открытой позицией: multi-TP переключение + breakeven."""
+    """Управление открытой позицией: multi-TP переключение + breakeven.
+
+    Breakeven/TP2 устанавливаются listener'ом мгновенно при TP1.
+    Здесь — подстраховка: если listener не успел или упал.
+    """
     risk_cfg = config.get("risk", {})
     use_multi_tp = risk_cfg.get("use_multi_tp", False)
     use_breakeven = risk_cfg.get("use_breakeven", False)
@@ -240,72 +245,59 @@ async def _manage_position(
 
     symbol = position.symbol
     entry_price = float(position.entry_price)
-    current_qty = float(position.quantity)
 
-    # Получить текущее состояние с биржи
-    try:
-        exchange_positions = client.get_positions(symbol)
-    except BybitAPIError:
-        return
+    # Определить: был ли TP1 (listener ставит original_quantity при partial close)
+    if not position.original_quantity:
+        return  # TP1 ещё не сработал
+    if float(position.quantity) >= float(position.original_quantity) * 0.95:
+        return  # Нет реального уменьшения
 
-    if not exchange_positions:
-        return
+    # TP1 сработал. Проверить, установлен ли уже breakeven (SL ≈ entry_price)
+    current_sl = float(position.stop_loss or 0)
+    breakeven_set = abs(current_sl - entry_price) < entry_price * 0.005  # ~0.5% tolerance
 
-    ep = exchange_positions[0]
-    exchange_qty = float(ep.get("size", "0"))
-
-    if exchange_qty == 0:
-        return  # Позиция уже закрыта — sync подберёт
-
-    # Проверить: если qty на бирже меньше чем в БД → TP1 сработал
-    # Нужно установить breakeven + TP2
-    original_qty = float(position.trailing_stop or 0)  # Сохраняем orig_qty в trailing_stop temp
-    # Используем metadata через JSONB если доступен, иначе определяем по qty
-
-    if exchange_qty < current_qty * 0.95 and use_breakeven:
-        # TP1 сработал → установить breakeven (SL = entry_price)
+    if use_breakeven and not breakeven_set:
+        # Listener не успел → установить breakeven
         try:
-            client.set_trading_stop(
-                symbol=symbol,
-                stop_loss=entry_price,
-            )
-            await _log(db, bot.id, "info", f"Breakeven установлен: SL = {entry_price}", {
+            client.set_trading_stop(symbol=symbol, stop_loss=entry_price)
+            position.stop_loss = Decimal(str(entry_price))
+            await _log(db, bot.id, "info", f"Breakeven (backup): SL = {entry_price}", {
                 "symbol": symbol,
             })
         except BybitAPIError as e:
             logger.warning("Bot %s: breakeven failed: %s", bot.id, e.message)
 
-        # Установить TP2 на оставшийся объём (если есть)
-        if len(tp_levels) >= 2:
-            # Получить ATR из последних свечей для расчёта TP2
-            try:
-                candles = client.get_klines(symbol, "15", 20)
-                if candles:
-                    highs = [c["high"] for c in candles[-14:]]
-                    lows = [c["low"] for c in candles[-14:]]
-                    closes = [c["close"] for c in candles[-14:]]
-                    tr_vals = [max(h - l, abs(h - closes[max(0, i-1)]), abs(l - closes[max(0, i-1)])) for i, (h, l) in enumerate(zip(highs, lows))]
-                    atr = sum(tr_vals) / len(tr_vals)
+    # Проверить, установлен ли TP2 (take_profit > 0 и отличается от оригинала)
+    current_tp = float(position.take_profit or 0)
+    if current_tp <= 0 and len(tp_levels) >= 2:
+        # TP2 не выставлен → установить
+        try:
+            candles = client.get_klines(symbol, "15", 20)
+            if candles and len(candles) >= 14:
+                highs = [c["high"] for c in candles[-14:]]
+                lows = [c["low"] for c in candles[-14:]]
+                closes = [c["close"] for c in candles[-14:]]
+                tr_vals = [
+                    max(h - l, abs(h - closes[max(0, i - 1)]), abs(l - closes[max(0, i - 1)]))
+                    for i, (h, l) in enumerate(zip(highs, lows))
+                ]
+                atr = sum(tr_vals) / len(tr_vals)
 
-                    tp2_mult = tp_levels[1]["atr_mult"]
-                    if position.side == PositionSide.LONG:
-                        tp2_price = entry_price + atr * tp2_mult
-                    else:
-                        tp2_price = entry_price - atr * tp2_mult
+                tp2_mult = tp_levels[1]["atr_mult"]
+                if position.side == PositionSide.LONG:
+                    tp2_price = entry_price + atr * tp2_mult
+                else:
+                    tp2_price = entry_price - atr * tp2_mult
 
-                    client.set_trading_stop(
-                        symbol=symbol,
-                        take_profit=tp2_price,
-                    )
-                    await _log(db, bot.id, "info", f"TP2 установлен: {tp2_price:.4f}", {
-                        "symbol": symbol, "atr": atr,
-                    })
-            except Exception as e:
-                logger.warning("Bot %s: TP2 setup failed: %s", bot.id, e)
+                client.set_trading_stop(symbol=symbol, take_profit=tp2_price)
+                position.take_profit = Decimal(str(round(tp2_price, 6)))
+                await _log(db, bot.id, "info", f"TP2 (backup): {tp2_price:.4f}", {
+                    "symbol": symbol, "atr": atr,
+                })
+        except Exception as e:
+            logger.warning("Bot %s: TP2 setup failed: %s", bot.id, e)
 
-        # Обновить qty в БД
-        position.quantity = Decimal(str(exchange_qty))
-        await db.commit()
+    await db.commit()
 
 
 # === Order Placement ===
@@ -362,13 +354,15 @@ async def _place_order(
             order_link_id=order_link_id,
         )
 
-        # Записать ордер
+        # Записать ордер (market order исполняется мгновенно)
         order = Order(
             bot_id=bot.id, exchange_order_id=bybit_result.get("orderId", ""),
             symbol=symbol,
             side=OrderSide.BUY if side == "Buy" else OrderSide.SELL,
             type=OrderType.MARKET, quantity=qty,
-            price=ticker.last_price, status=OrderStatus.OPEN,
+            price=ticker.last_price, status=OrderStatus.FILLED,
+            filled_price=ticker.last_price,
+            filled_at=datetime.now(timezone.utc),
         )
         db.add(order)
 

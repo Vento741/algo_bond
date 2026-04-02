@@ -725,3 +725,159 @@ async def test_refresh_cycle_connects_new_and_disconnects_old(
 
     # Cleanup
     bybit_listener._active_connections.clear()
+
+
+# === Tests: partial close + breakeven/TP2 ===
+
+
+@pytest.mark.asyncio
+async def test_handle_position_partial_close_updates_qty(
+    db_session: AsyncSession,
+    listener_bot: Bot,
+    listener_position: Position,
+) -> None:
+    """_handle_position_event обновляет qty при частичном закрытии (TP1 hit)."""
+    from app.modules.trading import bybit_listener
+    from app.modules.trading.bybit_listener import _handle_position_event
+
+    account_id = listener_bot.exchange_account_id
+    bybit_listener._symbol_bot_map = {
+        ("BTCUSDT", account_id): [listener_bot.id],
+    }
+    bybit_listener._account_user_map = {account_id: listener_bot.user_id}
+    bybit_listener._position_dedup.clear()
+
+    # Позиция была 0.001, теперь 0.0005 (50% closed)
+    pos_data = {
+        "symbol": "BTCUSDT",
+        "side": "Buy",
+        "size": "0.0005",
+        "unrealized_pnl": "0.5",
+        "mark_price": "51000",
+        "take_profit": "0",
+        "stop_loss": "49000",
+        "trailing_stop": "0",
+    }
+
+    with (
+        patch("app.database.async_session", test_session),
+        patch(
+            "app.modules.trading.bybit_listener._publish_event",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "app.modules.trading.bybit_listener._write_bot_log",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "app.modules.trading.bybit_listener._handle_tp1_hit",
+            new_callable=AsyncMock,
+        ) as mock_tp1,
+    ):
+        await _handle_position_event(account_id, pos_data)
+
+    await db_session.refresh(listener_position)
+    assert listener_position.quantity == Decimal("0.0005")
+    assert listener_position.original_quantity == Decimal("0.001")
+    # TP=0 от биржи должен обнулить TP в БД
+    assert listener_position.take_profit == Decimal("0")
+    # _handle_tp1_hit должен быть вызван
+    mock_tp1.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_position_dedup_skips_duplicates(
+    db_session: AsyncSession,
+    listener_bot: Bot,
+    listener_position: Position,
+) -> None:
+    """_handle_position_event пропускает дупликаты одинакового size."""
+    from app.modules.trading import bybit_listener
+    from app.modules.trading.bybit_listener import _handle_position_event
+
+    account_id = listener_bot.exchange_account_id
+    bybit_listener._symbol_bot_map = {
+        ("BTCUSDT", account_id): [listener_bot.id],
+    }
+    bybit_listener._account_user_map = {account_id: listener_bot.user_id}
+    bybit_listener._position_dedup.clear()
+
+    pos_data = {
+        "symbol": "BTCUSDT",
+        "side": "Buy",
+        "size": "0.001",
+        "unrealized_pnl": "1.0",
+    }
+
+    with (
+        patch("app.database.async_session", test_session),
+        patch(
+            "app.modules.trading.bybit_listener._publish_event",
+            new_callable=AsyncMock,
+        ) as mock_publish,
+        patch(
+            "app.modules.trading.bybit_listener._write_bot_log",
+            new_callable=AsyncMock,
+        ),
+    ):
+        # Первый вызов — обработается
+        await _handle_position_event(account_id, pos_data)
+        # Второй вызов с тем же size — должен быть пропущен (dedup)
+        await _handle_position_event(account_id, pos_data)
+
+    # Только 1 publish (дупликат пропущен)
+    assert mock_publish.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_handle_tp1_hit_sets_breakeven_and_tp2(
+    db_session: AsyncSession,
+    listener_bot: Bot,
+    listener_position: Position,
+) -> None:
+    """_handle_tp1_hit устанавливает breakeven (SL=entry) и TP2."""
+    from app.modules.trading import bybit_listener
+    from app.modules.trading.bybit_listener import _handle_tp1_hit
+
+    account_id = listener_bot.exchange_account_id
+
+    # Настроить risk config с multi-TP
+    bybit_listener._bot_configs[listener_bot.id] = {
+        "risk": {
+            "use_multi_tp": True,
+            "use_breakeven": True,
+            "tp_levels": [
+                {"atr_mult": 6, "close_pct": 50},
+                {"atr_mult": 12, "close_pct": 50},
+            ],
+        },
+    }
+
+    # Мокировать REST клиент
+    mock_client = MagicMock()
+    mock_client.get_klines.return_value = [
+        {"high": 51000, "low": 49000, "close": 50500}
+        for _ in range(20)
+    ]
+    mock_client.set_trading_stop.return_value = None
+    bybit_listener._account_clients[account_id] = mock_client
+
+    with patch(
+        "app.modules.trading.bybit_listener._write_bot_log",
+        new_callable=AsyncMock,
+    ):
+        await _handle_tp1_hit(
+            account_id, listener_bot.id,
+            listener_position, "BTCUSDT",
+        )
+
+    # Breakeven: SL = entry_price (50000)
+    assert listener_position.stop_loss == listener_position.entry_price
+    # TP2 установлен (> 0)
+    assert listener_position.take_profit > 0
+    # set_trading_stop вызван 2 раза (breakeven + TP2)
+    assert mock_client.set_trading_stop.call_count == 2
+
+    # Cleanup
+    bybit_listener._bot_configs.clear()
+    bybit_listener._account_clients.clear()
