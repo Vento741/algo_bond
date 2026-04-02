@@ -411,6 +411,24 @@ async def _place_order(
                 else:
                     tp1_price = float(ticker.last_price) - tp1_atr_dist
 
+                # Рассчитать TP2 для сохранения (если есть)
+                tp2_price = None
+                if len(tp_levels) >= 2:
+                    tp2_atr_dist = tp_levels[1]["atr_mult"]
+                    if hasattr(signal, "tp_levels") and signal.tp_levels and len(signal.tp_levels) >= 2:
+                        tp2_atr_dist = signal.tp_levels[1]["atr_mult"]
+                    if signal.direction == "long":
+                        tp2_price = float(ticker.last_price) + tp2_atr_dist
+                    else:
+                        tp2_price = float(ticker.last_price) - tp2_atr_dist
+
+                # Сохранить TP1/TP2 цены в сигнал для фронтенда
+                trade_signal.indicators_snapshot["tp1_price"] = round(tp1_price, 6)
+                trade_signal.indicators_snapshot["tp1_qty"] = tp1_qty
+                trade_signal.indicators_snapshot["tp1_pct"] = tp1_close_pct
+                if tp2_price:
+                    trade_signal.indicators_snapshot["tp2_price"] = round(tp2_price, 6)
+
                 client.set_trading_stop(
                     symbol=symbol,
                     take_profit=tp1_price,

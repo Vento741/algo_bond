@@ -110,6 +110,10 @@ class PositionResponse(BaseModel):
     opened_at: datetime
     closed_at: datetime | None
     updated_at: datetime | None
+    # Multi-TP info (обогащается из сигнала)
+    tp1_price: Decimal | None = None
+    tp1_hit: bool = False
+    tp2_price: Decimal | None = None
 
 
 # === TradeSignal ===

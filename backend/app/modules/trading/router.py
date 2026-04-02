@@ -121,9 +121,32 @@ async def get_bot_positions(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[PositionResponse]:
-    """Позиции бота."""
+    """Позиции бота с обогащением TP1/TP2 из сигналов."""
     service = TradingService(db)
-    return await service.get_bot_positions(bot_id, user.id, limit=limit, offset=offset)
+    positions = await service.get_bot_positions(bot_id, user.id, limit=limit, offset=offset)
+    signals = await service.get_bot_signals(bot_id, user.id, limit=100, offset=0)
+
+    # Индекс сигналов: symbol+direction+was_executed → signal (ближайший к позиции)
+    signal_map: dict[str, dict] = {}
+    for sig in signals:
+        if sig.was_executed and sig.indicators_snapshot:
+            key = f"{sig.symbol}:{sig.direction.value}"
+            if key not in signal_map:
+                signal_map[key] = sig.indicators_snapshot
+
+    result = []
+    for pos in positions:
+        resp = PositionResponse.model_validate(pos)
+        # Найти сигнал для позиции
+        key = f"{pos.symbol}:{pos.side.value}"
+        snap = signal_map.get(key, {})
+        if snap.get("tp1_price"):
+            resp.tp1_price = snap["tp1_price"]
+            resp.tp2_price = snap.get("tp2_price")
+            # TP1 hit если original_quantity установлен (partial close произошёл)
+            resp.tp1_hit = pos.original_quantity is not None and pos.quantity < pos.original_quantity
+        result.append(resp)
+    return result
 
 
 # === Signals ===

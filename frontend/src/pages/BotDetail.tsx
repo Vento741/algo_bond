@@ -1300,8 +1300,15 @@ function PositionExpandableCard({ position: p }: { position: PositionResponse })
             </div>
             {/* TP */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Take Profit</p>
+              <p className="text-[10px] text-gray-500 uppercase mb-1">
+                {p.tp1_price ? (p.tp1_hit ? 'TP2 (активен)' : 'TP1') : 'Take Profit'}
+              </p>
               <p className="font-mono text-brand-profit">{formatPrice(p.take_profit)}</p>
+              {p.tp1_price && (
+                <p className={`text-[10px] mt-0.5 ${p.tp1_hit ? 'text-brand-profit/50 line-through' : 'text-gray-500'}`}>
+                  TP1: {formatPrice(p.tp1_price)} {p.tp1_hit ? '(исполнен)' : ''}
+                </p>
+              )}
             </div>
             {/* Trailing */}
             <div>
@@ -1323,9 +1330,14 @@ function PositionExpandableCard({ position: p }: { position: PositionResponse })
             {/* Realized PnL */}
             <div>
               <p className="text-[10px] text-gray-500 uppercase mb-1">Реализ. P&L</p>
-              <p className={`font-mono font-bold ${pnlValue >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
-                {p.realized_pnl != null ? formatPnl(p.realized_pnl) : '—'}
+              <p className={`font-mono font-bold ${(Number(p.realized_pnl ?? 0)) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+                {p.realized_pnl != null && Number(p.realized_pnl) !== 0
+                  ? formatPnl(p.realized_pnl)
+                  : isClosed ? formatPnl(0) : '—'}
               </p>
+              {!isClosed && p.tp1_hit && p.realized_pnl != null && Number(p.realized_pnl) !== 0 && (
+                <p className="text-[10px] text-brand-profit/50">от TP1</p>
+              )}
             </div>
             {/* Unrealized PnL */}
             <div>
@@ -1539,14 +1551,14 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
                   {formatPrice(entryPrice)}
                 </span>
                 <span className="text-[9px] font-mono text-brand-profit/70 z-[1]">
-                  TP {formatPrice(takeProfit)}
+                  {position.tp1_price ? 'TP2' : 'TP'} {formatPrice(takeProfit)}
                 </span>
               </div>
             </div>
           </div>
 
           {/* Row 4: P&L details + position info */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <div>
               <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
                 Нереализ. P&L
@@ -1568,6 +1580,23 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
                 </span>
               </p>
             </div>
+            {position.realized_pnl != null && Number(position.realized_pnl) !== 0 && (
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                  Реализ. P&L
+                </p>
+                <p
+                  className={`text-sm font-mono font-bold ${
+                    Number(position.realized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'
+                  }`}
+                >
+                  {formatPnl(position.realized_pnl)}
+                </p>
+                {position.tp1_hit && (
+                  <p className="text-[10px] text-brand-profit/50 mt-0.5">TP1 исполнен</p>
+                )}
+              </div>
+            )}
             <div>
               <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
                 Размер
@@ -1603,6 +1632,28 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
               </p>
             </div>
           </div>
+
+          {/* Row 5: TP levels (if multi-TP) */}
+          {position.tp1_price && (
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                  TP1 {position.tp1_hit ? '(исполнен)' : '(ожидание)'}
+                </p>
+                <p className={`text-sm font-mono ${position.tp1_hit ? 'text-brand-profit line-through opacity-60' : 'text-brand-profit'}`}>
+                  {formatPrice(position.tp1_price)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                  TP2 {position.tp1_hit ? '(активен)' : '(следующий)'}
+                </p>
+                <p className="text-sm font-mono text-brand-profit">
+                  {position.tp2_price ? formatPrice(position.tp2_price) : formatPrice(takeProfit)}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

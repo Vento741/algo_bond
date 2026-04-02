@@ -420,12 +420,25 @@ async def _handle_position_event(
                     # Обновить размер при частичном закрытии
                     exchange_size = Decimal(size)
                     if exchange_size < position.quantity * Decimal("0.95"):
+                        closed_qty = position.quantity - exchange_size
                         if position.original_quantity is None:
                             position.original_quantity = position.quantity
                         position.quantity = exchange_size
+
+                        # Рассчитать реализованный PnL от частичного закрытия
+                        if mp and position.entry_price:
+                            side_val = position.side.value if hasattr(position.side, "value") else str(position.side)
+                            if side_val == "long":
+                                partial_pnl = (mp - position.entry_price) * closed_qty
+                            else:
+                                partial_pnl = (position.entry_price - mp) * closed_qty
+                            position.realized_pnl = (position.realized_pnl or Decimal("0")) + partial_pnl
+                            event_data["realized_pnl"] = str(position.realized_pnl)
+
                         await _write_bot_log(
                             bot_id, "info",
-                            f"Частичное закрытие: {symbol} {position.original_quantity} → {size}",
+                            f"TP1 исполнен: {symbol} {position.original_quantity} → {size} "
+                            f"(закрыто {closed_qty}, реализ. PnL: {position.realized_pnl})",
                         )
 
                         # === Breakeven + TP2: немедленная реакция на TP1 ===
@@ -439,6 +452,25 @@ async def _handle_position_event(
                     bot = bot_result.scalar_one_or_none()
                     if bot:
                         bot.updated_at = now
+                        # Обновить total_pnl с частичной реализованной прибылью
+                        if position.realized_pnl and position.realized_pnl != Decimal("0"):
+                            # Пересчитать: сумма всех realized_pnl закрытых + текущий partial
+                            from app.modules.trading.models import PositionStatus as PS
+                            closed_result = await db.execute(
+                                select(Position).where(
+                                    Position.bot_id == bot_id,
+                                    Position.status == PS.CLOSED,
+                                )
+                            )
+                            closed_pnl = sum(
+                                float(p.realized_pnl or 0)
+                                for p in closed_result.scalars().all()
+                            )
+                            # Добавить partial realized от текущей открытой позиции
+                            total = Decimal(str(closed_pnl)) + (position.realized_pnl or Decimal("0"))
+                            bot.total_pnl = total
+                            if total > bot.max_pnl:
+                                bot.max_pnl = total
 
                     # Обогатить событие данными позиции
                     event_data.update({

@@ -227,6 +227,10 @@ export interface PositionResponse {
   opened_at: string;
   closed_at: string | null;
   updated_at: string | null;
+  // Multi-TP info
+  tp1_price: number | null;
+  tp1_hit: boolean;
+  tp2_price: number | null;
 }
 
 export type BotLogLevel = 'info' | 'warn' | 'error' | 'debug';
