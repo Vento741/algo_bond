@@ -1402,7 +1402,16 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
   const entryPrice = Number(position.entry_price);
   const currentPrice = Number(position.current_price ?? entryPrice);
   const stopLoss = Number(position.stop_loss);
-  const takeProfit = Number(position.take_profit);
+  const rawTp = Number(position.take_profit);
+  const tp1Price = position.tp1_price ? Number(position.tp1_price) : null;
+  const tp2Price = position.tp2_price ? Number(position.tp2_price) : null;
+  // Эффективный TP для бара: если take_profit=0 (Partial mode), используем tp1 или tp2
+  const takeProfit = rawTp > 0 ? rawTp
+    : position.tp1_hit ? (tp2Price ?? tp1Price ?? entryPrice)
+    : (tp1Price ?? tp2Price ?? entryPrice);
+  // Какой TP сейчас активен
+  const activeTpLabel = !tp1Price ? 'TP'
+    : position.tp1_hit ? 'TP2' : 'TP1';
   const unrealizedPnl = Number(position.unrealized_pnl);
   const maxPnl = Number(position.max_pnl);
   const minPnl = Number(position.min_pnl);
@@ -1429,6 +1438,10 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
     rangeTotal !== 0
       ? ((currentPrice - stopLoss) / rangeTotal) * 100
       : 50;
+  // TP1 position on bar (if exists and different from TP2)
+  const tp1Pct = tp1Price && rangeTotal !== 0
+    ? ((tp1Price - stopLoss) / rangeTotal) * 100
+    : null;
 
   // Clamp for visual display
   const clamp = (v: number, min: number, max: number) =>
@@ -1542,6 +1555,18 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
                 style={{ left: `${entryPctClamped}%` }}
               />
 
+              {/* TP1 marker on bar (if TP1 exists and is between SL and TP2) */}
+              {tp1Pct != null && position.tp1_hit && (
+                <div
+                  className="absolute top-0 bottom-0 w-px bg-brand-profit/30 z-[3]"
+                  style={{ left: `${clamp(tp1Pct, 1, 99)}%` }}
+                >
+                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-[7px] font-mono text-brand-profit/40">
+                    TP1
+                  </span>
+                </div>
+              )}
+
               {/* Labels on the bar */}
               <div className="absolute inset-0 flex items-center justify-between px-3">
                 <span className="text-[9px] font-mono text-brand-loss/70 z-[1]">
@@ -1551,7 +1576,7 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
                   {formatPrice(entryPrice)}
                 </span>
                 <span className="text-[9px] font-mono text-brand-profit/70 z-[1]">
-                  {position.tp1_price ? 'TP2' : 'TP'} {formatPrice(takeProfit)}
+                  {activeTpLabel} {formatPrice(takeProfit)}
                 </span>
               </div>
             </div>
@@ -1634,22 +1659,22 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
           </div>
 
           {/* Row 5: TP levels (if multi-TP) */}
-          {position.tp1_price && (
+          {tp1Price && (
             <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
               <div>
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
-                  TP1 {position.tp1_hit ? '(исполнен)' : '(ожидание)'}
+                  TP1 {position.tp1_hit ? '(исполнен)' : '(активен)'}
                 </p>
-                <p className={`text-sm font-mono ${position.tp1_hit ? 'text-brand-profit line-through opacity-60' : 'text-brand-profit'}`}>
-                  {formatPrice(position.tp1_price)}
+                <p className={`text-sm font-mono ${position.tp1_hit ? 'text-brand-profit/50 line-through' : 'text-brand-accent'}`}>
+                  {formatPrice(tp1Price)}
                 </p>
               </div>
               <div>
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
                   TP2 {position.tp1_hit ? '(активен)' : '(следующий)'}
                 </p>
-                <p className="text-sm font-mono text-brand-profit">
-                  {position.tp2_price ? formatPrice(position.tp2_price) : formatPrice(takeProfit)}
+                <p className={`text-sm font-mono ${position.tp1_hit ? 'text-brand-accent' : 'text-gray-500'}`}>
+                  {tp2Price ? formatPrice(tp2Price) : '—'}
                 </p>
               </div>
             </div>
