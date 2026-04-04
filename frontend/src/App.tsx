@@ -11,9 +11,14 @@ import { BotDetail } from '@/pages/BotDetail';
 import { Backtest } from '@/pages/Backtest';
 import { Settings } from '@/pages/Settings';
 import { NotFound } from '@/pages/NotFound';
+import { Terms } from '@/pages/Terms';
+import { Privacy } from '@/pages/Privacy';
+import { Cookies } from '@/pages/Cookies';
+import { RiskDisclosure } from '@/pages/RiskDisclosure';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { CookieBanner } from '@/components/CookieBanner';
 import { ToastProvider } from '@/components/ui/toast';
 
 function App() {
@@ -26,6 +31,12 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+
+            {/* Legal pages */}
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/cookies" element={<Cookies />} />
+            <Route path="/risk" element={<RiskDisclosure />} />
 
             {/* Protected routes with dashboard layout */}
             <Route
@@ -49,6 +60,7 @@ function App() {
             {/* Fallback - 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <CookieBanner />
         </BrowserRouter>
       </ToastProvider>
     </ErrorBoundary>

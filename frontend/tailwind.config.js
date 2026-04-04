@@ -76,12 +76,17 @@ export default {
           '0%, 100%': { boxShadow: '0 0 20px 0 rgba(255, 215, 0, 0.25)' },
           '50%': { boxShadow: '0 0 32px 6px rgba(255, 215, 0, 0.40)' },
         },
+        'slide-up': {
+          '0%': { transform: 'translateY(100%)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'fade-up': 'fade-up 0.7s ease-out both',
         'glow-pulse': 'glow-pulse 2.5s ease-in-out infinite',
+        'slide-up': 'slide-up 0.4s ease-out both',
       },
     },
   },

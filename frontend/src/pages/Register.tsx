@@ -171,13 +171,17 @@ export function Register() {
                       className="mt-0.5 rounded border-white/20 bg-white/5 text-brand-premium focus:ring-brand-premium/50"
                     />
                     <span>
-                      Я согласен с{' '}
+                      Я принимаю{' '}
                       <Link to="/terms" target="_blank" className="text-brand-premium hover:underline">
-                        Условиями использования
-                      </Link>{' '}
-                      и{' '}
+                        Условия использования
+                      </Link>
+                      {' '}и{' '}
                       <Link to="/privacy" target="_blank" className="text-brand-premium hover:underline">
-                        Политикой конфиденциальности
+                        Политику конфиденциальности
+                      </Link>
+                      , а также ознакомлен с{' '}
+                      <Link to="/risk" target="_blank" className="text-brand-premium hover:underline">
+                        Раскрытием рисков
                       </Link>
                     </span>
                   </label>

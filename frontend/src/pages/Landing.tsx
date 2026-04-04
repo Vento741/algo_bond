@@ -2,6 +2,11 @@ import { Link } from 'react-router-dom';
 import { Brain, Zap, FlaskConical, ArrowRight, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { HowItWorks } from '@/components/landing/HowItWorks';
+import { AccessRequestForm } from '@/components/landing/AccessRequestForm';
+import { PerformanceSection } from '@/components/landing/PerformanceSection';
+import { FAQSection } from '@/components/landing/FAQSection';
+import { Footer } from '@/components/layout/Footer';
 
 /* ------------------------------------------------------------------ */
 /*  Data                                                               */
@@ -70,7 +75,7 @@ export function Landing() {
 
       {/* -------- Hero -------- */}
       <section className="relative flex flex-col items-center justify-center min-h-[100svh] px-5 pt-24 pb-20 lg:pt-0 lg:pb-0">
-        {/* Background image — responsive picture */}
+        {/* Background image - responsive picture */}
         <picture className="absolute inset-0 w-full h-full">
           <source media="(min-width: 768px)" srcSet="/hero-desktop.webp" />
           <img
@@ -99,7 +104,7 @@ export function Landing() {
               className="inline-flex items-center gap-2 px-4 py-1.5 mb-8 rounded-full text-sm"
             >
               <TrendingUp className="h-3.5 w-3.5" />
-              +710% RIVERUSDT — проверено на истории
+              +710% RIVERUSDT - проверено на истории
             </Badge>
           </div>
 
@@ -134,16 +139,19 @@ export function Landing() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up"
             style={{ animationDelay: '0.55s' }}
           >
-            <Link to="/register">
-              <Button
-                variant="premium"
-                size="xl"
-                className="group animate-glow-pulse"
-              >
-                Начать бесплатно
-                <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </Link>
+            <Button
+              variant="premium"
+              size="xl"
+              className="group animate-glow-pulse"
+              onClick={() => {
+                document.getElementById('access-request')?.scrollIntoView({
+                  behavior: 'smooth',
+                });
+              }}
+            >
+              Запросить доступ
+              <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+            </Button>
             <Link to="/login">
               <Button variant="outline" size="xl" className="border-white/10 text-gray-200 hover:bg-white/5">
                 Войти в аккаунт
@@ -207,24 +215,20 @@ export function Landing() {
         </div>
       </section>
 
+      {/* -------- How It Works -------- */}
+      <HowItWorks />
+
+      {/* -------- Access Request Form -------- */}
+      <AccessRequestForm />
+
+      {/* -------- Performance -------- */}
+      <PerformanceSection />
+
+      {/* -------- FAQ -------- */}
+      <FAQSection />
+
       {/* -------- Footer -------- */}
-      <footer className="relative z-10 border-t border-white/5 px-5 lg:px-16 py-8">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-gray-400 text-sm">
-            <img
-              src="/logo.webp"
-              alt=""
-              className="w-4 h-4 rounded-sm"
-              width={16}
-              height={16}
-            />
-            <span>AlgoBond</span>
-          </div>
-          <p className="text-xs text-gray-600 text-center sm:text-right max-w-lg">
-            Торговля криптофьючерсами&nbsp;&mdash; это риск. Прошлые результаты&nbsp;&ne; гарантия будущих. Мы даём инструменты, решения&nbsp;&mdash; ваши.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
