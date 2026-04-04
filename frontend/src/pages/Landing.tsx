@@ -93,7 +93,7 @@ export function Landing() {
         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-brand-bg to-transparent" />
 
         {/* Content */}
-        <div className="relative z-10 max-w-4xl mx-auto text-center">
+        <div className="relative z-10 max-w-5xl mx-auto text-center">
           {/* Badge */}
           <div
             className="animate-fade-up"
@@ -110,18 +110,18 @@ export function Landing() {
 
           {/* Title */}
           <h1
-            className="font-heading font-bold leading-[1.15] mb-6 animate-fade-up"
+            className="font-heading text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.15] mb-6 animate-fade-up"
             style={{ animationDelay: '0.25s' }}
           >
-            <span className="block text-[clamp(1.6rem,5vw,4.5rem)] bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent whitespace-nowrap">
-              Умная торговля без эмоций
+            <span className="block md:whitespace-nowrap bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
+              Умная торговля без&nbsp;эмоций
             </span>
-            <span className="block text-[clamp(1.6rem,5vw,4.5rem)]">
-              <span className="bg-gradient-to-r from-brand-premium via-yellow-300 to-brand-premium bg-clip-text text-transparent whitespace-nowrap">
+            <span className="block md:whitespace-nowrap">
+              <span className="bg-gradient-to-r from-brand-premium via-yellow-300 to-brand-premium bg-clip-text text-transparent">
                 Твоя прибыль
               </span>{' '}
-              <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent whitespace-nowrap">
-                на автопилоте
+              <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
+                на&nbsp;автопилоте
               </span>
             </span>
           </h1>
