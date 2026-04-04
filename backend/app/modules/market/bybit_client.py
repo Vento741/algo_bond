@@ -225,6 +225,25 @@ class BybitClient:
         except FailedRequestError as e:
             raise BybitAPIError(-1, f"Network error: {e.message}") from e
 
+    def get_closed_pnl(
+        self, symbol: str | None = None, limit: int = 50,
+    ) -> list[dict]:
+        """Получить историю закрытых P&L (для reconciliation).
+
+        Bybit V5 endpoint: /v5/position/closed-pnl
+        Возвращает записи с closedPnl, entryPrice, exitPrice, qty, side.
+        """
+        try:
+            kwargs: dict = {"category": "linear", "limit": limit}
+            if symbol:
+                kwargs["symbol"] = symbol
+            result = self._session.get_closed_pnl(**kwargs)
+            return result["result"]["list"]
+        except InvalidRequestError as e:
+            raise BybitAPIError(e.status_code, str(e.message)) from e
+        except FailedRequestError as e:
+            raise BybitAPIError(-1, f"Network error: {e.message}") from e
+
     def set_leverage(self, symbol: str, leverage: int) -> None:
         """Установить плечо (ignores 110043 if already set)."""
         try:

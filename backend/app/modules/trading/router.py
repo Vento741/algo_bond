@@ -94,6 +94,20 @@ async def delete_bot(
     await service.delete_bot(bot_id, user.id)
 
 
+# === Reconciliation ===
+
+
+@router.post("/bots/{bot_id}/reconcile")
+async def reconcile_bot_pnl(
+    bot_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Сверка P&L бота с данными Bybit и исправление расхождений."""
+    service = TradingService(db)
+    return await service.reconcile_bot_pnl(bot_id, user.id)
+
+
 # === Orders ===
 
 

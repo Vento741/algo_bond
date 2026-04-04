@@ -1,13 +1,18 @@
 """Бизнес-логика модуля trading."""
 
+import asyncio
 import uuid
+from collections import defaultdict
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundException
-from app.modules.trading.models import Bot, BotLog, BotStatus, Order, Position, TradeSignal
+from app.core.security import decrypt_value
+from app.modules.market.bybit_client import BybitClient
+from app.modules.trading.models import Bot, BotLog, BotMode, BotStatus, Order, Position, PositionStatus, TradeSignal
 from app.modules.trading.schemas import BotCreate
 
 
@@ -150,3 +155,83 @@ class TradingService:
             .offset(offset)
         )
         return list(result.scalars().all())
+
+    # === Reconciliation ===
+
+    def _create_client(self, bot: Bot) -> BybitClient:
+        """Создать BybitClient с ключами пользователя."""
+        account = bot.exchange_account
+        api_key = decrypt_value(account.api_key_encrypted)
+        api_secret = decrypt_value(account.api_secret_encrypted)
+        demo = account.is_testnet or bot.mode == BotMode.DEMO
+        return BybitClient(api_key=api_key, api_secret=api_secret, demo=demo)
+
+    async def reconcile_bot_pnl(
+        self, bot_id: uuid.UUID, user_id: uuid.UUID,
+    ) -> dict:
+        """Сверка P&L бота с данными Bybit. Обновляет расхождения."""
+        bot = await self.get_bot(bot_id, user_id)
+        client = self._create_client(bot)
+
+        symbol = bot.strategy_config.symbol
+        bybit_records = await asyncio.to_thread(
+            client.get_closed_pnl, symbol, limit=100,
+        )
+
+        result = await self.db.execute(
+            select(Position).where(
+                Position.bot_id == bot_id,
+                Position.status == PositionStatus.CLOSED,
+            ).order_by(Position.opened_at)
+        )
+        db_positions = list(result.scalars().all())
+
+        # Группировать Bybit записи по entry_price для матчинга
+        bybit_by_entry: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+        for rec in bybit_records:
+            entry_key = rec["entryPrice"]
+            bybit_by_entry[entry_key] += Decimal(rec["closedPnl"])
+
+        corrections: list[dict] = []
+        for pos in db_positions:
+            entry_key = str(pos.entry_price)
+            if entry_key in bybit_by_entry:
+                bybit_total = bybit_by_entry[entry_key]
+                db_pnl = pos.realized_pnl or Decimal("0")
+                diff = bybit_total - db_pnl
+                if abs(diff) > Decimal("0.01"):
+                    corrections.append({
+                        "position_id": str(pos.id),
+                        "entry_price": entry_key,
+                        "db_pnl": str(db_pnl),
+                        "bybit_pnl": str(bybit_total),
+                        "diff": str(diff),
+                    })
+                    pos.realized_pnl = bybit_total
+
+        if corrections:
+            total = sum(
+                (p.realized_pnl or Decimal("0"))
+                for p in db_positions
+            )
+            bot.total_pnl = total
+
+            wins = sum(1 for p in db_positions if (p.realized_pnl or Decimal("0")) > 0)
+            bot.win_rate = (
+                Decimal(str(round(wins / len(db_positions) * 100, 2)))
+                if db_positions
+                else Decimal("0")
+            )
+
+            if total > bot.max_pnl:
+                bot.max_pnl = total
+
+            await self.db.commit()
+
+        return {
+            "bot_id": str(bot_id),
+            "positions_checked": len(db_positions),
+            "bybit_records": len(bybit_records),
+            "corrections": corrections,
+            "new_total_pnl": str(bot.total_pnl),
+        }

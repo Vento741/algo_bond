@@ -881,3 +881,135 @@ async def test_handle_tp1_hit_sets_breakeven_and_tp2(
     # Cleanup
     bybit_listener._bot_configs.clear()
     bybit_listener._account_clients.clear()
+
+
+# === Tests: P&L accumulation after partial close ===
+
+
+@pytest.mark.asyncio
+async def test_position_close_after_tp1_accumulates_pnl(
+    db_session: AsyncSession,
+    listener_bot: Bot,
+    listener_position: Position,
+) -> None:
+    """При закрытии позиции после TP1 realized_pnl должен НАКАПЛИВАТЬСЯ, а не перезаписываться."""
+    from app.modules.trading import bybit_listener
+    from app.modules.trading.bybit_listener import _handle_position_event
+
+    account_id = listener_bot.exchange_account_id
+    bybit_listener._symbol_bot_map = {
+        ("BTCUSDT", account_id): [listener_bot.id],
+    }
+    bybit_listener._account_user_map = {account_id: listener_bot.user_id}
+    bybit_listener._position_dedup.clear()
+
+    # Симулировать состояние после TP1: SHORT позиция
+    # original_quantity=2.0, quantity=1.0 (половина закрыта на TP1)
+    # realized_pnl=5000 (P&L от TP1 partial close)
+    listener_position.side = PositionSide.SHORT
+    listener_position.entry_price = Decimal("50000")
+    listener_position.quantity = Decimal("1.0")
+    listener_position.original_quantity = Decimal("2.0")
+    listener_position.realized_pnl = Decimal("5000")
+    listener_position.unrealized_pnl = Decimal("2000")
+    db_session.add(listener_position)
+    await db_session.commit()
+
+    # Биржа отправляет size=0 (полное закрытие), mark_price=48000
+    # Финальный PnL = (50000 - 48000) * 1.0 = 2000
+    pos_data = {
+        "symbol": "BTCUSDT",
+        "side": "Sell",
+        "size": "0",
+        "unrealized_pnl": "0",
+        "mark_price": "48000",
+        "leverage": "1",
+        "take_profit": "0",
+        "stop_loss": "0",
+        "trailing_stop": "0",
+        "liq_price": "0",
+    }
+
+    with (
+        patch("app.database.async_session", test_session),
+        patch(
+            "app.modules.trading.bybit_listener._publish_event",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "app.modules.trading.bybit_listener._write_bot_log",
+            new_callable=AsyncMock,
+        ),
+    ):
+        await _handle_position_event(account_id, pos_data)
+
+    await db_session.refresh(listener_position)
+    # 5000 (TP1) + 2000 (финальное закрытие) = 7000
+    assert listener_position.realized_pnl == Decimal("7000"), (
+        f"Expected 7000 (5000 TP1 + 2000 final), got {listener_position.realized_pnl}"
+    )
+    assert listener_position.status == PositionStatus.CLOSED
+
+
+@pytest.mark.asyncio
+async def test_position_close_after_tp1_bot_total_pnl_correct(
+    db_session: AsyncSession,
+    listener_bot: Bot,
+    listener_position: Position,
+) -> None:
+    """bot.total_pnl должен быть 7000, а не 12000 (без двойного счёта)."""
+    from app.modules.trading import bybit_listener
+    from app.modules.trading.bybit_listener import _handle_position_event
+
+    account_id = listener_bot.exchange_account_id
+    bybit_listener._symbol_bot_map = {
+        ("BTCUSDT", account_id): [listener_bot.id],
+    }
+    bybit_listener._account_user_map = {account_id: listener_bot.user_id}
+    bybit_listener._position_dedup.clear()
+
+    # Бот уже имеет total_pnl=5000 от предыдущего TP1 partial
+    listener_bot.total_pnl = Decimal("5000")
+    db_session.add(listener_bot)
+
+    # Позиция после TP1: SHORT, половина закрыта
+    listener_position.side = PositionSide.SHORT
+    listener_position.entry_price = Decimal("50000")
+    listener_position.quantity = Decimal("1.0")
+    listener_position.original_quantity = Decimal("2.0")
+    listener_position.realized_pnl = Decimal("5000")
+    listener_position.unrealized_pnl = Decimal("2000")
+    db_session.add(listener_position)
+    await db_session.commit()
+
+    pos_data = {
+        "symbol": "BTCUSDT",
+        "side": "Sell",
+        "size": "0",
+        "unrealized_pnl": "0",
+        "mark_price": "48000",
+        "leverage": "1",
+        "take_profit": "0",
+        "stop_loss": "0",
+        "trailing_stop": "0",
+        "liq_price": "0",
+    }
+
+    with (
+        patch("app.database.async_session", test_session),
+        patch(
+            "app.modules.trading.bybit_listener._publish_event",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "app.modules.trading.bybit_listener._write_bot_log",
+            new_callable=AsyncMock,
+        ),
+    ):
+        await _handle_position_event(account_id, pos_data)
+
+    await db_session.refresh(listener_bot)
+    # total_pnl = сумма всех закрытых позиций = 7000 (NOT 5000+7000=12000)
+    assert listener_bot.total_pnl == Decimal("7000"), (
+        f"Expected 7000, got {listener_bot.total_pnl} (double-counting bug?)"
+    )

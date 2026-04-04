@@ -65,7 +65,7 @@ _bot_configs: dict[uuid.UUID, dict] = {}
 
 # Дедупликация position events: (symbol, exchange_account_id) → (last_size, last_time)
 _position_dedup: dict[tuple[str, uuid.UUID], tuple[str, float]] = {}
-POSITION_DEDUP_INTERVAL = 2.0  # секунды — игнорировать одинаковые events
+POSITION_DEDUP_INTERVAL = 0.5  # секунды — игнорировать одинаковые events
 
 # Интервал проверки новых ботов (секунды)
 REFRESH_INTERVAL = 60
@@ -310,33 +310,49 @@ async def _handle_position_event(
                     position.closed_at = now
                     position.updated_at = now
 
-                    # Bybit demo отдаёт pnl=0 в финальном event (size=0).
-                    # Используем последний сохранённый unrealized_pnl как realized,
-                    # или рассчитываем из entry/mark price.
+                    # Рассчитать P&L финального закрытия.
+                    # Если был partial close (TP1), position.realized_pnl уже содержит
+                    # частичный P&L — ДОБАВЛЯЕМ финальную часть, не перезаписываем.
+                    prior_pnl = position.realized_pnl or Decimal("0")
+
                     if upnl != Decimal("0"):
-                        position.realized_pnl = upnl
+                        final_pnl = upnl
                     elif position.unrealized_pnl and position.unrealized_pnl != Decimal("0"):
-                        # Берём последний известный unrealized PnL
-                        position.realized_pnl = position.unrealized_pnl
+                        final_pnl = position.unrealized_pnl
                     elif mp and position.entry_price:
-                        # Рассчитываем из цен
                         if position.side.value == "long":
-                            position.realized_pnl = (mp - position.entry_price) * position.quantity
+                            final_pnl = (mp - position.entry_price) * position.quantity
                         else:
-                            position.realized_pnl = (position.entry_price - mp) * position.quantity
+                            final_pnl = (position.entry_price - mp) * position.quantity
                     else:
-                        position.realized_pnl = Decimal("0")
+                        final_pnl = Decimal("0")
+
+                    if position.original_quantity is not None:
+                        # Был partial close — добавляем финальную часть к накопленному
+                        position.realized_pnl = prior_pnl + final_pnl
+                    else:
+                        # Не было partial close — просто устанавливаем
+                        position.realized_pnl = final_pnl
 
                     position.unrealized_pnl = Decimal("0")
                     if mp:
                         position.current_price = mp
 
-                    # Обновить статистику бота
+                    # Обновить статистику бота (пересчитать из всех закрытых)
                     bot_result = await db.execute(select(Bot).where(Bot.id == bot_id))
                     bot = bot_result.scalar_one_or_none()
                     if bot:
-                        pnl_value = position.realized_pnl or Decimal("0")
-                        bot.total_pnl = (bot.total_pnl or Decimal("0")) + pnl_value
+                        # Пересчитать total_pnl из ВСЕХ закрытых позиций
+                        all_closed_result = await db.execute(
+                            select(Position).where(
+                                Position.bot_id == bot_id,
+                                Position.status == PositionStatus.CLOSED,
+                            )
+                        )
+                        all_closed = all_closed_result.scalars().all()
+                        bot.total_pnl = sum(
+                            (p.realized_pnl or Decimal("0")) for p in all_closed
+                        )
                         bot.updated_at = now
 
                         # Трекинг пиков бота

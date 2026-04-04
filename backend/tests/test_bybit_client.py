@@ -163,6 +163,52 @@ class TestGetPositions:
         assert positions[0]["symbol"] == "BTCUSDT"
 
 
+class TestGetClosedPnl:
+    def test_returns_closed_pnl_records(self, mock_session: tuple) -> None:
+        """Возвращает список записей закрытых P&L."""
+        client, mock = mock_session
+        mock.get_closed_pnl.return_value = {"result": {"list": [
+            {
+                "symbol": "RIVERUSDT", "side": "Buy", "qty": "100",
+                "entryPrice": "0.01200", "exitPrice": "0.01350",
+                "closedPnl": "1.50", "createdTime": "1700001000000",
+            },
+            {
+                "symbol": "RIVERUSDT", "side": "Sell", "qty": "50",
+                "entryPrice": "0.01400", "exitPrice": "0.01300",
+                "closedPnl": "0.50", "createdTime": "1700002000000",
+            },
+        ]}}
+        records = client.get_closed_pnl("RIVERUSDT", limit=50)
+        assert len(records) == 2
+        assert records[0]["closedPnl"] == "1.50"
+        assert records[1]["symbol"] == "RIVERUSDT"
+        call_kwargs = mock.get_closed_pnl.call_args[1]
+        assert call_kwargs["category"] == "linear"
+        assert call_kwargs["symbol"] == "RIVERUSDT"
+        assert call_kwargs["limit"] == 50
+
+    def test_without_symbol(self, mock_session: tuple) -> None:
+        """Без symbol запрашивает все пары."""
+        client, mock = mock_session
+        mock.get_closed_pnl.return_value = {"result": {"list": []}}
+        records = client.get_closed_pnl()
+        assert records == []
+        call_kwargs = mock.get_closed_pnl.call_args[1]
+        assert "symbol" not in call_kwargs
+
+    def test_api_error_raises(self, mock_session: tuple) -> None:
+        """Ошибка API пробрасывается как BybitAPIError."""
+        client, mock = mock_session
+        from pybit.exceptions import InvalidRequestError
+        mock.get_closed_pnl.side_effect = InvalidRequestError(
+            message="Auth error", status_code=10003, time=0, resp_headers={}, request=""
+        )
+        with pytest.raises(BybitAPIError) as exc:
+            client.get_closed_pnl("BTCUSDT")
+        assert exc.value.code == 10003
+
+
 class TestGetWalletBalance:
     def test_returns_balance(self, mock_session: tuple) -> None:
         client, mock = mock_session
