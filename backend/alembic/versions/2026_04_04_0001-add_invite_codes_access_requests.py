@@ -59,7 +59,7 @@ def upgrade() -> None:
         sa.Column("telegram", sa.String(64), index=True, nullable=False),
         sa.Column(
             "status",
-            sa.Enum("pending", "approved", "rejected", name="access_request_status"),
+            postgresql.ENUM("pending", "approved", "rejected", name="access_request_status", create_type=False),
             nullable=False,
             server_default="pending",
         ),
