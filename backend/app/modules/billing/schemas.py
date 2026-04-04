@@ -32,6 +32,16 @@ class PlanCreate(BaseModel):
     features: dict = Field(default_factory=dict)
 
 
+class PlanUpdate(BaseModel):
+    """Обновление тарифного плана (admin only)."""
+    name: str | None = Field(None, min_length=1, max_length=50)
+    price_monthly: Decimal | None = Field(None, ge=0)
+    max_bots: int | None = Field(None, ge=0)
+    max_strategies: int | None = Field(None, ge=0)
+    max_backtests_per_day: int | None = Field(None, ge=0)
+    features: dict | None = None
+
+
 class SubscriptionResponse(BaseModel):
     """Ответ — подписка пользователя."""
     model_config = ConfigDict(from_attributes=True)

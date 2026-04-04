@@ -260,3 +260,71 @@ export interface TradingPair {
   is_active: boolean;
   status: string;
 }
+
+/* ---- Admin ---- */
+
+export interface AdminStats {
+  users_count: number;
+  active_bots: number;
+  pending_requests: number;
+  total_trades: number;
+  total_pnl: number;
+  active_invites: number;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+  bots_count: number;
+  subscription_plan: string | null;
+}
+
+export interface AdminUserDetail extends AdminUser {
+  updated_at: string;
+  exchange_accounts_count: number;
+  subscription_status: string | null;
+  subscription_expires_at: string | null;
+  total_pnl: number;
+  total_trades: number;
+}
+
+export interface AccessRequestItem {
+  id: string;
+  telegram: string;
+  status: string;
+  created_at: string;
+  reviewed_at: string | null;
+  reject_reason: string | null;
+}
+
+export interface InviteCodeItem {
+  id: string;
+  code: string;
+  is_active: boolean;
+  created_at: string;
+  expires_at: string | null;
+  used_at: string | null;
+  created_by_email: string | null;
+  used_by_email: string | null;
+}
+
+export interface AdminLogEntry {
+  id: string;
+  bot_id: string;
+  level: BotLogLevel;
+  message: string;
+  details: Record<string, unknown> | null;
+  created_at: string;
+  user_email: string | null;
+}

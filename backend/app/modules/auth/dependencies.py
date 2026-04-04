@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import CredentialsException
 from app.core.security import decode_token
 from app.database import get_db
-from app.modules.auth.models import User
+from app.modules.auth.models import User, UserRole
 from app.modules.auth.service import AuthService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -47,3 +47,15 @@ async def get_current_active_user(
     if not user.is_active:
         raise CredentialsException("Аккаунт деактивирован")
     return user
+
+
+async def get_admin_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Dependency: пользователь с ролью admin."""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail="Требуются права администратора",
+        )
+    return current_user

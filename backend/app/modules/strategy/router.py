@@ -5,10 +5,9 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ForbiddenException
 from app.database import get_db
-from app.modules.auth.dependencies import get_current_user
-from app.modules.auth.models import User, UserRole
+from app.modules.auth.dependencies import get_admin_user, get_current_user
+from app.modules.auth.models import User
 from app.modules.strategy.schemas import (
     StrategyConfigCreate,
     StrategyConfigResponse,
@@ -48,14 +47,12 @@ async def get_strategy(
 @router.post("", response_model=StrategyResponse, status_code=201)
 async def create_strategy(
     data: StrategyCreate,
-    user: User = Depends(get_current_user),
+    admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ) -> StrategyResponse:
     """Создать стратегию (только admin)."""
-    if user.role != UserRole.ADMIN:
-        raise ForbiddenException("Только администратор может создавать стратегии")
     service = StrategyService(db)
-    return await service.create_strategy(data, author_id=user.id)
+    return await service.create_strategy(data, author_id=admin.id)
 
 
 # === Strategy Configs ===

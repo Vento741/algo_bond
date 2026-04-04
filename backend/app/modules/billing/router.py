@@ -1,13 +1,14 @@
 """API-эндпоинты модуля billing."""
 
+import uuid
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ForbiddenException
 from app.database import get_db
-from app.modules.auth.dependencies import get_current_user
-from app.modules.auth.models import User, UserRole
-from app.modules.billing.schemas import PlanCreate, PlanResponse, SubscriptionResponse
+from app.modules.auth.dependencies import get_admin_user, get_current_user
+from app.modules.auth.models import User
+from app.modules.billing.schemas import PlanCreate, PlanResponse, PlanUpdate, SubscriptionResponse
 from app.modules.billing.service import BillingService
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
@@ -25,12 +26,10 @@ async def list_plans(
 @router.post("/plans", response_model=PlanResponse, status_code=201)
 async def create_plan(
     data: PlanCreate,
-    user: User = Depends(get_current_user),
+    admin: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
 ) -> PlanResponse:
     """Создать тарифный план (только admin)."""
-    if user.role != UserRole.ADMIN:
-        raise ForbiddenException("Только администратор может создавать тарифные планы")
     service = BillingService(db)
     return await service.create_plan(data)
 
@@ -43,6 +42,29 @@ async def get_my_subscription(
     """Получить текущую подписку пользователя."""
     service = BillingService(db)
     return await service.get_user_subscription(user.id)
+
+
+@router.patch("/plans/{plan_id}", response_model=PlanResponse)
+async def update_plan(
+    plan_id: uuid.UUID,
+    data: PlanUpdate,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> PlanResponse:
+    """Обновить тарифный план (только admin)."""
+    service = BillingService(db)
+    return await service.update_plan(plan_id, data)
+
+
+@router.delete("/plans/{plan_id}", status_code=204)
+async def delete_plan(
+    plan_id: uuid.UUID,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Удалить тарифный план (только admin, если нет подписок)."""
+    service = BillingService(db)
+    await service.delete_plan(plan_id)
 
 
 @router.post("/subscribe/{plan_slug}", response_model=SubscriptionResponse)

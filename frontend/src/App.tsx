@@ -16,10 +16,19 @@ import { Privacy } from '@/pages/Privacy';
 import { Cookies } from '@/pages/Cookies';
 import { RiskDisclosure } from '@/pages/RiskDisclosure';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { AdminRoute } from '@/components/AdminRoute';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { CookieBanner } from '@/components/CookieBanner';
 import { ToastProvider } from '@/components/ui/toast';
+
+// Admin pages
+import { AdminDashboard } from '@/pages/admin/AdminDashboard';
+import { AdminUsers } from '@/pages/admin/AdminUsers';
+import { AdminRequests } from '@/pages/admin/AdminRequests';
+import { AdminInvites } from '@/pages/admin/AdminInvites';
+import { AdminBilling } from '@/pages/admin/AdminBilling';
+import { AdminLogs } from '@/pages/admin/AdminLogs';
 
 function App() {
   return (
@@ -55,6 +64,22 @@ function App() {
               <Route path="/bots/:id" element={<BotDetail />} />
               <Route path="/backtest" element={<Backtest />} />
               <Route path="/settings" element={<Settings />} />
+            </Route>
+
+            {/* Admin routes with dashboard layout */}
+            <Route
+              element={
+                <AdminRoute>
+                  <DashboardLayout />
+                </AdminRoute>
+              }
+            >
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/requests" element={<AdminRequests />} />
+              <Route path="/admin/invites" element={<AdminInvites />} />
+              <Route path="/admin/billing" element={<AdminBilling />} />
+              <Route path="/admin/logs" element={<AdminLogs />} />
             </Route>
 
             {/* Fallback - 404 */}

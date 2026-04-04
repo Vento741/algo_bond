@@ -9,8 +9,14 @@ import {
   CandlestickChart,
   Menu,
   X,
+  Users,
+  MessageCircle,
+  KeyRound,
+  CreditCard,
+  Terminal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/auth';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -21,9 +27,55 @@ const navigation = [
   { name: 'Настройки', href: '/settings', icon: Settings },
 ];
 
+const adminNavigation = [
+  { name: 'Обзор', href: '/admin', icon: LayoutDashboard },
+  { name: 'Пользователи', href: '/admin/users', icon: Users },
+  { name: 'Заявки', href: '/admin/requests', icon: MessageCircle },
+  { name: 'Инвайт-коды', href: '/admin/invites', icon: KeyRound },
+  { name: 'Тарифы', href: '/admin/billing', icon: CreditCard },
+  { name: 'Логи', href: '/admin/logs', icon: Terminal },
+];
+
+function NavItem({
+  item,
+  location,
+  onClick,
+}: {
+  item: { name: string; href: string; icon: React.ElementType; matchPrefix?: string };
+  location: { pathname: string };
+  onClick?: () => void;
+}) {
+  const prefix = item.matchPrefix ?? item.href;
+  const isActive =
+    location.pathname === item.href ||
+    (prefix !== '/dashboard' && prefix !== '/admin' && location.pathname.startsWith(prefix));
+
+  return (
+    <Link
+      to={item.href}
+      onClick={onClick}
+      className={cn(
+        'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+        isActive
+          ? 'bg-brand-premium/10 text-brand-premium'
+          : 'text-gray-400 hover:text-white hover:bg-white/5',
+      )}
+    >
+      {isActive && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-brand-premium" />
+      )}
+      <item.icon className="h-5 w-5 flex-shrink-0" />
+      {item.name}
+    </Link>
+  );
+}
+
 export function Sidebar() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user } = useAuthStore();
+
+  const isAdmin = user?.role === 'admin';
 
   const navContent = (
     <>
@@ -43,32 +95,33 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {navigation.map((item) => {
-          const prefix = item.matchPrefix ?? item.href;
-          const isActive =
-            location.pathname === item.href ||
-            (prefix !== '/dashboard' && location.pathname.startsWith(prefix));
-          return (
-            <Link
-              key={item.name}
-              to={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-brand-premium/10 text-brand-premium'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5',
-              )}
-            >
-              {isActive && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-brand-premium" />
-              )}
-              <item.icon className="h-5 w-5 flex-shrink-0" />
-              {item.name}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        {navigation.map((item) => (
+          <NavItem
+            key={item.href}
+            item={item}
+            location={location}
+            onClick={() => setMobileOpen(false)}
+          />
+        ))}
+
+        {/* Admin section */}
+        {isAdmin && (
+          <>
+            <div className="my-3 border-t border-white/10" />
+            <span className="block text-xs text-gray-400 px-3 pb-1 uppercase tracking-wider font-medium">
+              Админ
+            </span>
+            {adminNavigation.map((item) => (
+              <NavItem
+                key={item.href}
+                item={item}
+                location={location}
+                onClick={() => setMobileOpen(false)}
+              />
+            ))}
+          </>
+        )}
       </nav>
 
       {/* Bottom */}

@@ -2,13 +2,13 @@
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import ConflictException, NotFoundException
 from app.modules.billing.models import Plan, Subscription, SubscriptionStatus
-from app.modules.billing.schemas import PlanCreate
+from app.modules.billing.schemas import PlanCreate, PlanUpdate
 
 
 class BillingService:
@@ -47,6 +47,44 @@ class BillingService:
         await self.db.flush()
         await self.db.commit()
         return plan
+
+    async def update_plan(self, plan_id: uuid.UUID, data: PlanUpdate) -> Plan:
+        """Обновить тарифный план (admin)."""
+        result = await self.db.execute(select(Plan).where(Plan.id == plan_id))
+        plan = result.scalar_one_or_none()
+        if not plan:
+            raise NotFoundException("Тарифный план не найден")
+
+        update_data = data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(plan, field, value)
+
+        await self.db.flush()
+        await self.db.commit()
+        return plan
+
+    async def delete_plan(self, plan_id: uuid.UUID) -> None:
+        """Удалить тарифный план (admin, если нет активных подписок)."""
+        result = await self.db.execute(select(Plan).where(Plan.id == plan_id))
+        plan = result.scalar_one_or_none()
+        if not plan:
+            raise NotFoundException("Тарифный план не найден")
+
+        # Проверить активные подписки
+        sub_result = await self.db.execute(
+            select(func.count(Subscription.id)).where(
+                Subscription.plan_id == plan_id,
+                Subscription.status == SubscriptionStatus.ACTIVE,
+            )
+        )
+        active_subs: int = sub_result.scalar_one()
+        if active_subs > 0:
+            raise ConflictException(
+                f"Нельзя удалить план с {active_subs} активными подписками"
+            )
+
+        await self.db.delete(plan)
+        await self.db.commit()
 
     # === Subscriptions ===
 
