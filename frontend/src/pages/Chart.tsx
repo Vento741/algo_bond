@@ -80,6 +80,7 @@ export function Chart() {
 
   const handleSymbolChange = useCallback(
     (val: string) => {
+      setKlines([]); // Очистка старых данных — предотвращает смешивание при загрузке
       setSymbol(val);
       navigate(`/chart/${val}`, { replace: true });
     },

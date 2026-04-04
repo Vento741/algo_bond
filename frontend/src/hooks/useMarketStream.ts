@@ -34,6 +34,15 @@ export function useMarketStream(
   const attemptRef = useRef(0);
   const unmountedRef = useRef(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Текущий символ — защита от stale WS сообщений */
+  const symbolRef = useRef(symbol);
+
+  // Сброс состояния при смене символа/интервала
+  useEffect(() => {
+    symbolRef.current = symbol;
+    setLastKline(null);
+    setLastPrice(null);
+  }, [symbol, interval]);
 
   const connect = useCallback(() => {
     if (!symbol || unmountedRef.current) return;
@@ -54,6 +63,8 @@ export function useMarketStream(
 
     ws.onmessage = (event) => {
       if (unmountedRef.current) return;
+      // Игнорируем сообщения от старого символа (race condition при переключении)
+      if (symbolRef.current !== symbol) return;
       try {
         const msg: MarketMessage = JSON.parse(event.data);
         if (msg.type === 'kline') {
@@ -102,8 +113,8 @@ export function useMarketStream(
     return () => {
       unmountedRef.current = true;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      // Закрываем только если соединение открыто (не CONNECTING)
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      // Закрываем WebSocket в любом состоянии (CONNECTING или OPEN)
+      if (wsRef.current && wsRef.current.readyState <= WebSocket.OPEN) {
         wsRef.current.close();
       }
       wsRef.current = null;

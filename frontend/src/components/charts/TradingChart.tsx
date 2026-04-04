@@ -176,6 +176,8 @@ export function TradingChart({
     const sorted = [...initialData].sort((a, b) => a.time - b.time);
     candleSeriesRef.current?.setData(sorted.map(toCandlestick));
     volumeSeriesRef.current?.setData(sorted.map(toVolume));
+    // Принудительный autoScale по оси Y — сбрасывает ручное масштабирование
+    chartRef.current?.priceScale('right').applyOptions({ autoScale: true });
     chartRef.current?.timeScale().fitContent();
   }, [initialData]);
 

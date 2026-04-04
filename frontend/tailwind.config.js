@@ -54,10 +54,10 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['Poiret One', 'system-ui', 'sans-serif'],
+        sans: ['JetBrains Mono', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
-        heading: ['Poiret One', 'system-ui', 'sans-serif'],
-        body: ['Poiret One', 'system-ui', 'sans-serif'],
+        heading: ['JetBrains Mono', 'system-ui', 'sans-serif'],
+        body: ['JetBrains Mono', 'system-ui', 'sans-serif'],
         data: ['JetBrains Mono', 'monospace'],
       },
       keyframes: {
