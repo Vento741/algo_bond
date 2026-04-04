@@ -110,22 +110,19 @@ export function Landing() {
 
           {/* Title */}
           <h1
-            className="font-heading text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold leading-[1.15] mb-6 animate-fade-up"
+            className="font-heading font-bold leading-[1.15] mb-6 animate-fade-up"
             style={{ animationDelay: '0.25s' }}
           >
-            <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent whitespace-nowrap">
-              Умная торговля
+            <span className="block text-[clamp(1.6rem,5vw,4.5rem)] bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent whitespace-nowrap">
+              Умная торговля без эмоций
             </span>
-            <br className="hidden sm:block" />{' '}
-            <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent whitespace-nowrap">
-              без&nbsp;эмоций
-            </span>
-            <br />
-            <span className="bg-gradient-to-r from-brand-premium via-yellow-300 to-brand-premium bg-clip-text text-transparent whitespace-nowrap">
-              Твоя прибыль
-            </span>{' '}
-            <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent whitespace-nowrap">
-              на&nbsp;автопилоте
+            <span className="block text-[clamp(1.6rem,5vw,4.5rem)]">
+              <span className="bg-gradient-to-r from-brand-premium via-yellow-300 to-brand-premium bg-clip-text text-transparent whitespace-nowrap">
+                Твоя прибыль
+              </span>{' '}
+              <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent whitespace-nowrap">
+                на автопилоте
+              </span>
             </span>
           </h1>
 
