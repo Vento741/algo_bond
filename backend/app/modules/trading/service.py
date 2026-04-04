@@ -188,16 +188,20 @@ class TradingService:
 
         # Группировать Bybit записи по entry_price для матчинга
         # Bybit V5 API: поле avgEntryPrice (не entryPrice)
-        # Нормализуем ключи через Decimal для сопоставления precision
+        # Округляем до 3 знаков — DB хранит float64 precision (15.381999999...)
+        # а Bybit возвращает "15.382"
+        def _round_key(val: str | Decimal) -> str:
+            return str(round(float(val), 3))
+
         bybit_by_entry: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
         for rec in bybit_records:
             raw_entry = rec.get("avgEntryPrice") or rec.get("entryPrice", "0")
-            entry_key = str(Decimal(raw_entry).normalize())
+            entry_key = _round_key(raw_entry)
             bybit_by_entry[entry_key] += Decimal(rec["closedPnl"])
 
         corrections: list[dict] = []
         for pos in db_positions:
-            entry_key = str(Decimal(str(pos.entry_price)).normalize())
+            entry_key = _round_key(pos.entry_price)
             if entry_key in bybit_by_entry:
                 bybit_total = bybit_by_entry[entry_key]
                 db_pnl = pos.realized_pnl or Decimal("0")
