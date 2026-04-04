@@ -94,7 +94,7 @@ export function AccessRequestForm() {
                 </h2>
               </div>
               <p className="text-[15px] text-gray-400 mb-9">
-                Оставьте ваш Telegram - мы отправим персональный код приглашения
+                Оставьте ваш Telegram - мы отправим персональный&nbsp;инвайт-код
               </p>
 
               <form onSubmit={handleSubmit}>

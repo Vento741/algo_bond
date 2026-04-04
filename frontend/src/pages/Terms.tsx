@@ -1,14 +1,6 @@
 import { LegalLayout } from '@/components/layout/LegalLayout';
 
-const operatorName = import.meta.env.VITE_OPERATOR_NAME || '';
-const operatorInn = import.meta.env.VITE_OPERATOR_INN || '';
-const operatorAddress = import.meta.env.VITE_OPERATOR_ADDRESS || '';
-const operatorEmail = import.meta.env.VITE_OPERATOR_EMAIL || '';
 const platformUrl = 'https://algo.dev-james.bond';
-
-function OperatorInfo({ value, fallback = 'Не указано' }: { value: string; fallback?: string }) {
-  return <span className={value ? '' : 'text-gray-500 italic'}>{value || fallback}</span>;
-}
 
 export function Terms() {
   return (
@@ -23,27 +15,20 @@ export function Terms() {
         </p>
 
         <p>
-          1.2. Оператор Платформы: <OperatorInfo value={operatorName} />.
-          ИНН: <OperatorInfo value={operatorInn} />.
-          Адрес: <OperatorInfo value={operatorAddress} />.
-          Email: <OperatorInfo value={operatorEmail} />.
-        </p>
-
-        <p>
-          1.3. AlgoBond - это веб-платформа алгоритмической торговли криптовалютными фьючерсами,
+          1.2. AlgoBond - это веб-платформа алгоритмической торговли криптовалютными фьючерсами,
           предоставляющая инструменты для настройки торговых стратегий, запуска автоматических
           торговых ботов, проведения бэктестинга на исторических данных и мониторинга торговых
           операций в режиме реального времени. Платформа работает с биржей Bybit через API-интеграцию.
         </p>
 
         <p>
-          1.4. Регистрируясь на Платформе и используя её сервисы, вы подтверждаете, что полностью
+          1.3. Регистрируясь на Платформе и используя её сервисы, вы подтверждаете, что полностью
           ознакомились с настоящими Условиями, принимаете их без оговорок и обязуетесь их соблюдать.
           Если вы не согласны с какой-либо частью Условий, вы не вправе использовать Платформу.
         </p>
 
         <p>
-          1.5. Настоящие Условия являются публичной офертой в соответствии со статьёй 437
+          1.4. Настоящие Условия являются публичной офертой в соответствии со статьёй 437
           Гражданского кодекса Российской Федерации. Акцептом оферты является регистрация
           на Платформе и/или фактическое использование её функциональности.
         </p>
@@ -355,9 +340,7 @@ export function Terms() {
         <p className="mt-8 pt-6 border-t border-white/10 text-gray-400 text-sm">
           Дата публикации: 4 апреля 2026 г.
           <br />
-          Оператор: <OperatorInfo value={operatorName} />
-          <br />
-          Контактный email: <OperatorInfo value={operatorEmail} />
+          Платформа: <a href={platformUrl} className="text-brand-premium hover:underline">{platformUrl}</a>
         </p>
       </section>
     </LegalLayout>

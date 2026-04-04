@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --font-ui: 'Inter', system-ui, sans-serif;
+    --font-ui: 'Tektur', system-ui, sans-serif;
     --font-data: 'JetBrains Mono', Consolas, monospace;
 
     --background: 240 33% 5%;

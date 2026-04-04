@@ -54,9 +54,9 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Tektur', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Consolas', 'monospace'],
-        heading: ['Inter', 'system-ui', 'sans-serif'],
+        heading: ['Tektur', 'system-ui', 'sans-serif'],
         data: ['JetBrains Mono', 'Consolas', 'monospace'],
       },
       keyframes: {

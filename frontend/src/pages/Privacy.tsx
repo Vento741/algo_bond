@@ -1,14 +1,5 @@
 import { LegalLayout } from '@/components/layout/LegalLayout';
 
-const operatorName = import.meta.env.VITE_OPERATOR_NAME || '';
-const operatorInn = import.meta.env.VITE_OPERATOR_INN || '';
-const operatorAddress = import.meta.env.VITE_OPERATOR_ADDRESS || '';
-const operatorEmail = import.meta.env.VITE_OPERATOR_EMAIL || '';
-
-function OperatorInfo({ value, fallback = 'Не указано' }: { value: string; fallback?: string }) {
-  return <span className={value ? '' : 'text-gray-500 italic'}>{value || fallback}</span>;
-}
-
 export function Privacy() {
   return (
     <LegalLayout title="Политика конфиденциальности" lastUpdated="4 апреля 2026">
@@ -16,13 +7,10 @@ export function Privacy() {
         <h2>1. Оператор персональных данных</h2>
 
         <p>
-          1.1. Оператором персональных данных является: <OperatorInfo value={operatorName} /> (далее - «Оператор»).
+          1.1. Оператором персональных данных является администрация платформы AlgoBond (далее - «Оператор»).
+          Контактная информация для обращений по вопросам персональных данных доступна
+          в разделе «Контакты» на Платформе.
         </p>
-        <ul>
-          <li>ИНН: <OperatorInfo value={operatorInn} /></li>
-          <li>Адрес: <OperatorInfo value={operatorAddress} /></li>
-          <li>Email для обращений по персональным данным: <OperatorInfo value={operatorEmail} /></li>
-        </ul>
 
         <p>
           1.2. Настоящая Политика конфиденциальности (далее - «Политика») разработана
@@ -169,7 +157,7 @@ export function Privacy() {
 
         <p>
           Для реализации своих прав Пользователь может направить запрос на электронную
-          почту: <OperatorInfo value={operatorEmail} />. Запрос должен содержать ФИО,
+          почту, указанную в разделе «Контакты» на Платформе. Запрос должен содержать ФИО,
           email, зарегистрированный на Платформе, и описание запроса. Срок рассмотрения
           запроса - не более 30 (тридцати) календарных дней с момента получения.
         </p>
@@ -237,9 +225,7 @@ export function Privacy() {
         <p className="mt-8 pt-6 border-t border-white/10 text-gray-400 text-sm">
           Дата публикации: 4 апреля 2026 г.
           <br />
-          Оператор: <OperatorInfo value={operatorName} />
-          <br />
-          Контактный email: <OperatorInfo value={operatorEmail} />
+          Платформа: <a href="https://algo.dev-james.bond" className="text-brand-premium hover:underline">algo.dev-james.bond</a>
         </p>
       </section>
     </LegalLayout>
