@@ -11,7 +11,7 @@ from app.config import settings
 from app.database import Base
 
 # Импорт всех моделей для autogenerate
-from app.modules.auth.models import ExchangeAccount, User, UserSettings  # noqa: F401
+from app.modules.auth.models import AccessRequest, ExchangeAccount, InviteCode, User, UserSettings  # noqa: F401
 from app.modules.billing.models import Plan, Subscription  # noqa: F401
 from app.modules.backtest.models import BacktestResult, BacktestRun  # noqa: F401
 from app.modules.strategy.models import Strategy, StrategyConfig  # noqa: F401

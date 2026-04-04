@@ -166,7 +166,7 @@ export function Landing() {
                 {stat.value}
               </div>
               <div className="text-sm text-white font-medium">{stat.label}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{stat.sublabel}</div>
+              <div className="text-xs text-gray-400 mt-0.5">{stat.sublabel}</div>
             </div>
           ))}
         </div>
@@ -210,7 +210,7 @@ export function Landing() {
       {/* -------- Footer -------- */}
       <footer className="relative z-10 border-t border-white/5 px-5 lg:px-16 py-8">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-gray-500 text-sm">
+          <div className="flex items-center gap-2 text-gray-400 text-sm">
             <img
               src="/logo.webp"
               alt=""

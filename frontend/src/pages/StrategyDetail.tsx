@@ -254,12 +254,12 @@ function CollapsibleSection({
       >
         <div>
           <span className="text-sm font-medium text-white">{title}</span>
-          <span className="block text-xs text-gray-500 mt-0.5">{description}</span>
+          <span className="block text-xs text-gray-400 mt-0.5">{description}</span>
         </div>
         {open ? (
-          <ChevronUp className="h-4 w-4 text-gray-500 shrink-0" />
+          <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-gray-500 shrink-0" />
+          <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
         )}
       </button>
       {open && (
@@ -945,7 +945,7 @@ function ConfigCard({ config: cfg, onEdit, onDelete, deleting }: ConfigCardProps
     <div className="flex items-center justify-between p-3 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <Settings className="h-3.5 w-3.5 text-gray-500 shrink-0" />
+          <Settings className="h-3.5 w-3.5 text-gray-400 shrink-0" />
           <span className="text-sm font-medium text-white truncate">
             {cfg.name}
           </span>
@@ -1122,7 +1122,7 @@ export function StrategyDetail() {
             <span className="px-2 py-0.5 rounded-md bg-brand-accent/10 text-brand-accent text-xs font-medium">
               {strategy.engine_type}
             </span>
-            <span className="text-gray-500 text-xs font-mono">
+            <span className="text-gray-400 text-xs font-mono">
               v{strategy.version}
             </span>
             {strategy.is_public && (
@@ -1168,12 +1168,12 @@ export function StrategyDetail() {
             <CardContent>
               {configsLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                  <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                 </div>
               ) : configs.length === 0 ? (
                 <div className="text-center py-8">
                   <Settings className="h-8 w-8 text-gray-700 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-400">
                     Нет конфигураций. Создайте первую для запуска бота или бэктеста.
                   </p>
                 </div>

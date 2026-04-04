@@ -52,7 +52,7 @@ export function SymbolSearch({
         }}
         className="flex items-center justify-between w-full h-10 px-3 py-2 text-sm rounded-md border border-white/10 bg-[#1a1a2e] text-white hover:border-white/20 focus:outline-none focus:ring-1 focus:ring-[#FFD700]/50"
       >
-        <span className={selectedPair ? 'text-white' : 'text-gray-500'}>{displayValue}</span>
+        <span className={selectedPair ? 'text-white' : 'text-gray-400'}>{displayValue}</span>
         <ChevronDown className="h-4 w-4 text-gray-400 ml-2" />
       </button>
 
@@ -79,9 +79,9 @@ export function SymbolSearch({
           {/* Список пар */}
           <div className="overflow-y-auto max-h-[250px]">
             {loading ? (
-              <div className="px-3 py-4 text-sm text-gray-500 text-center">Загрузка...</div>
+              <div className="px-3 py-4 text-sm text-gray-400 text-center">Загрузка...</div>
             ) : filtered.length === 0 ? (
-              <div className="px-3 py-4 text-sm text-gray-500 text-center">Не найдено</div>
+              <div className="px-3 py-4 text-sm text-gray-400 text-center">Не найдено</div>
             ) : (
               filtered.map((pair) => (
                 <button
@@ -99,7 +99,7 @@ export function SymbolSearch({
                   <span className="font-medium">
                     {pair.base_currency}/{pair.quote_currency}
                   </span>
-                  <span className="text-xs text-gray-500">{pair.symbol}</span>
+                  <span className="text-xs text-gray-400">{pair.symbol}</span>
                 </button>
               ))
             )}

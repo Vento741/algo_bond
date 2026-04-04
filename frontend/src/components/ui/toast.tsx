@@ -85,7 +85,7 @@ function ToastItem({
       <span className="flex-1">{item.message}</span>
       <button
         onClick={() => onDismiss(item.id)}
-        className="text-gray-500 hover:text-white transition-colors"
+        className="text-gray-400 hover:text-white transition-colors"
       >
         <X className="h-3.5 w-3.5" />
       </button>

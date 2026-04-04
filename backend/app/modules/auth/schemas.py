@@ -13,6 +13,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     username: str = Field(min_length=2, max_length=100)
     password: str = Field(min_length=8, max_length=128)
+    invite_code: str | None = Field(None, min_length=8, max_length=8)
 
 
 class LoginRequest(BaseModel):
@@ -113,3 +114,38 @@ class UserSettingsUpdate(BaseModel):
     default_symbol: str | None = None
     default_timeframe: str | None = None
     ui_preferences: UIPreferences | None = None
+
+
+# === Заявки на доступ ===
+
+class AccessRequestCreate(BaseModel):
+    """Заявка на получение доступа (публичный endpoint)."""
+    telegram: str = Field(
+        min_length=5,
+        max_length=33,
+        pattern=r"^@[a-zA-Z][a-zA-Z0-9_]{3,31}$",
+        examples=["@username"],
+    )
+
+
+class AccessRequestResponse(BaseModel):
+    """Ответ на создание заявки."""
+    message: str
+    status: str
+
+
+# === Инвайт-коды ===
+
+class InviteCodeResponse(BaseModel):
+    """Ответ - инвайт-код (для админки)."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    code: str
+    created_by: uuid.UUID
+    used_by: uuid.UUID | None
+    used_at: datetime | None
+    expires_at: datetime | None
+    label: str | None
+    is_active: bool
+    created_at: datetime

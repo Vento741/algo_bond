@@ -39,12 +39,12 @@ export function Strategies() {
           </p>
         </div>
         <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Поиск стратегий..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+            className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-gray-400"
           />
         </div>
       </div>
@@ -63,7 +63,7 @@ export function Strategies() {
                 ? 'Стратегии не найдены'
                 : 'Стратегии пока не добавлены'}
             </p>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-gray-400 text-sm mt-1">
               {search
                 ? 'Попробуйте изменить поисковый запрос'
                 : 'Администратор скоро добавит первые стратегии'}
@@ -94,7 +94,7 @@ export function Strategies() {
                     <span className="px-2 py-1 rounded-md bg-brand-accent/10 text-brand-accent font-medium">
                       {strategy.engine_type}
                     </span>
-                    <span className="text-gray-500 font-mono">
+                    <span className="text-gray-400 font-mono">
                       v{strategy.version}
                     </span>
                     {strategy.is_public && (

@@ -4,6 +4,9 @@
 
 @layer base {
   :root {
+    --font-ui: 'Inter', system-ui, sans-serif;
+    --font-data: 'JetBrains Mono', Consolas, monospace;
+
     --background: 240 33% 5%;
     --foreground: 0 0% 95%;
     --card: 240 33% 9%;
@@ -33,18 +36,14 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'JetBrains Mono', system-ui, sans-serif;
+    font-family: var(--font-ui);
     margin: 0;
     min-height: 100vh;
   }
 }
 
-.font-heading {
-  font-family: 'JetBrains Mono', system-ui, sans-serif;
-}
-
 .font-data {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-data);
 }
 
 .pnl-positive {

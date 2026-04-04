@@ -87,7 +87,7 @@ const LOG_LEVEL_CONFIG: Record<
   info: { icon: Info, color: 'text-blue-400', label: 'Info' },
   warn: { icon: AlertTriangle, color: 'text-yellow-400', label: 'Warn' },
   error: { icon: XCircle, color: 'text-brand-loss', label: 'Error' },
-  debug: { icon: Bug, color: 'text-gray-500', label: 'Debug' },
+  debug: { icon: Bug, color: 'text-gray-400', label: 'Debug' },
 };
 
 /* ---- SSE connection status ---- */
@@ -701,7 +701,7 @@ export function BotDetail() {
                 {MODE_LABELS[bot.mode]}
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-400 mt-1">
               Создан {formatDatetime(bot.created_at)}
             </p>
           </div>
@@ -1080,8 +1080,8 @@ export function BotDetail() {
         <TabsContent value="logs">
           {/* Log filter bar */}
           <div className="flex items-center gap-2 mb-3">
-            <Filter className="h-3.5 w-3.5 text-gray-500" />
-            <span className="text-xs text-gray-500 mr-1">Фильтр:</span>
+            <Filter className="h-3.5 w-3.5 text-gray-400" />
+            <span className="text-xs text-gray-400 mr-1">Фильтр:</span>
             {(['all', 'info', 'warn', 'error', 'debug'] as const).map(
               (level) => (
                 <button
@@ -1090,7 +1090,7 @@ export function BotDetail() {
                   className={`text-[10px] font-medium px-2 py-0.5 rounded-md transition-colors ${
                     logFilter === level
                       ? 'bg-white/10 text-white'
-                      : 'text-gray-500 hover:text-gray-300'
+                      : 'text-gray-400 hover:text-gray-300'
                   }`}
                 >
                   {level === 'all'
@@ -1136,7 +1136,7 @@ export function BotDetail() {
                       {log.details && (
                         <button
                           onClick={() => toggleLogExpand(log.id)}
-                          className="text-gray-500 hover:text-gray-300 transition-colors shrink-0"
+                          className="text-gray-400 hover:text-gray-300 transition-colors shrink-0"
                         >
                           {isExpanded ? (
                             <ChevronUp className="h-4 w-4" />
@@ -1150,7 +1150,7 @@ export function BotDetail() {
                     {/* Expandable details */}
                     {isExpanded && log.details && (
                       <div className="mt-3 pt-3 border-t border-white/5">
-                        <pre className="text-[11px] text-gray-500 font-mono bg-black/20 rounded-md p-3 overflow-x-auto max-h-60">
+                        <pre className="text-[11px] text-gray-400 font-mono bg-black/20 rounded-md p-3 overflow-x-auto max-h-60">
                           {JSON.stringify(log.details, null, 2)}
                         </pre>
                       </div>
@@ -1262,7 +1262,7 @@ function PositionExpandableCard({ position: p }: { position: PositionResponse })
             {p.side === 'long' ? 'LONG' : 'SHORT'}
           </Badge>
           <span className="font-mono text-white font-medium">{p.symbol}</span>
-          <span className="text-xs text-gray-500">qty {formatQty(p.quantity)}</span>
+          <span className="text-xs text-gray-400">qty {formatQty(p.quantity)}</span>
         </div>
         <div className="flex items-center gap-4">
           <span className={`font-mono font-bold ${pnlColor}`}>{formatPnl(pnlValue)}</span>
@@ -1281,12 +1281,12 @@ function PositionExpandableCard({ position: p }: { position: PositionResponse })
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Entry */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Цена входа</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">Цена входа</p>
               <p className="font-mono text-white">{formatPrice(p.entry_price)}</p>
             </div>
             {/* Exit / Current */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">
+              <p className="text-[10px] text-gray-400 uppercase mb-1">
                 {isClosed ? 'Цена закрытия' : 'Текущая цена'}
               </p>
               <p className="font-mono text-white">
@@ -1295,41 +1295,41 @@ function PositionExpandableCard({ position: p }: { position: PositionResponse })
             </div>
             {/* SL */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Stop Loss</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">Stop Loss</p>
               <p className="font-mono text-brand-loss">{formatPrice(p.stop_loss)}</p>
             </div>
             {/* TP */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">
+              <p className="text-[10px] text-gray-400 uppercase mb-1">
                 {p.tp1_price ? (p.tp1_hit ? 'TP2 (активен)' : 'TP1') : 'Take Profit'}
               </p>
               <p className="font-mono text-brand-profit">{formatPrice(p.take_profit)}</p>
               {p.tp1_price && (
-                <p className={`text-[10px] mt-0.5 ${p.tp1_hit ? 'text-brand-profit/50 line-through' : 'text-gray-500'}`}>
+                <p className={`text-[10px] mt-0.5 ${p.tp1_hit ? 'text-brand-profit/50 line-through' : 'text-gray-400'}`}>
                   TP1: {formatPrice(p.tp1_price)} {p.tp1_hit ? '(исполнен)' : ''}
                 </p>
               )}
             </div>
             {/* Trailing */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Trailing Stop</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">Trailing Stop</p>
               <p className="font-mono text-white">
                 {p.trailing_stop ? formatPrice(p.trailing_stop) : '—'}
               </p>
             </div>
             {/* Qty */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Количество</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">Количество</p>
               <p className="font-mono text-white">{formatQty(p.quantity)}</p>
               {p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) && (
-                <p className="text-[10px] text-gray-500">
+                <p className="text-[10px] text-gray-400">
                   Изначально: {formatQty(p.original_quantity)}
                 </p>
               )}
             </div>
             {/* Realized PnL */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Реализ. P&L</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">Реализ. P&L</p>
               <p className={`font-mono font-bold ${(Number(p.realized_pnl ?? 0)) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
                 {p.realized_pnl != null && Number(p.realized_pnl) !== 0
                   ? formatPnl(p.realized_pnl)
@@ -1341,7 +1341,7 @@ function PositionExpandableCard({ position: p }: { position: PositionResponse })
             </div>
             {/* Unrealized PnL */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Нереализ. P&L</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">Нереализ. P&L</p>
               <p className={`font-mono ${Number(p.unrealized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
                 {formatPnl(p.unrealized_pnl)}
               </p>
@@ -1352,43 +1352,43 @@ function PositionExpandableCard({ position: p }: { position: PositionResponse })
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/5">
             {/* Max PnL */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Пик P&L</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">Пик P&L</p>
               <p className="font-mono text-brand-profit">{formatPnl(p.max_pnl)}</p>
             </div>
             {/* Min PnL */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Мин P&L</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">Мин P&L</p>
               <p className="font-mono text-brand-loss">{formatPnl(p.min_pnl)}</p>
             </div>
             {/* Max Price */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Макс. цена</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">Макс. цена</p>
               <p className="font-mono text-white">{p.max_price ? formatPrice(p.max_price) : '—'}</p>
             </div>
             {/* Min Price */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Мин. цена</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">Мин. цена</p>
               <p className="font-mono text-white">{p.min_price ? formatPrice(p.min_price) : '—'}</p>
             </div>
             {/* Opened */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Открыта</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">Открыта</p>
               <p className="text-xs text-white">{formatDatetime(p.opened_at)}</p>
             </div>
             {/* Closed */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Закрыта</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">Закрыта</p>
               <p className="text-xs text-white">{p.closed_at ? formatDatetime(p.closed_at) : '—'}</p>
             </div>
             {/* Duration */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">Длительность</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">Длительность</p>
               <p className="text-xs text-white font-mono">{duration ?? '—'}</p>
             </div>
             {/* Position ID */}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase mb-1">ID</p>
-              <p className="text-[10px] text-gray-500 font-mono">{p.id.slice(0, 8)}</p>
+              <p className="text-[10px] text-gray-400 uppercase mb-1">ID</p>
+              <p className="text-[10px] text-gray-400 font-mono">{p.id.slice(0, 8)}</p>
             </div>
           </div>
         </div>
@@ -1473,7 +1473,7 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
                 {position.side === 'long' ? 'LONG' : 'SHORT'}
               </Badge>
             </div>
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-gray-400">
               Открыта {formatDuration(position.opened_at)}
             </span>
           </div>
@@ -1481,7 +1481,7 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
           {/* Row 2: Prices */}
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
                 Вход
               </p>
               <p className="text-sm font-mono text-white font-medium">
@@ -1489,7 +1489,7 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
               </p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
                 Текущая
               </p>
               <p
@@ -1501,7 +1501,7 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
               </p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
                 Изменение
               </p>
               <p
@@ -1585,7 +1585,7 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
           {/* Row 4: P&L details + position info */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <div>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
                 Нереализ. P&L
               </p>
               <p
@@ -1607,7 +1607,7 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
             </div>
             {position.realized_pnl != null && Number(position.realized_pnl) !== 0 && (
               <div>
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
                   Реализ. P&L
                 </p>
                 <p
@@ -1623,13 +1623,13 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
               </div>
             )}
             <div>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
                 Размер
               </p>
               <p className="text-sm font-mono text-white">
                 {formatQty(quantity)}
                 {originalQty !== quantity && (
-                  <span className="text-gray-500">
+                  <span className="text-gray-400">
                     {' / '}
                     {formatQty(originalQty)}
                   </span>
@@ -1637,7 +1637,7 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
               </p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
                 Trail
               </p>
               <p className="text-sm font-mono text-white">
@@ -1645,7 +1645,7 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
               </p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
                 ROI
               </p>
               <p
@@ -1662,7 +1662,7 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
           {tp1Price && (
             <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
               <div>
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
                   TP1 {position.tp1_hit ? '(исполнен)' : '(активен)'}
                 </p>
                 <p className={`text-sm font-mono ${position.tp1_hit ? 'text-brand-profit/50 line-through' : 'text-brand-accent'}`}>
@@ -1670,10 +1670,10 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
                 </p>
               </div>
               <div>
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
                   TP2 {position.tp1_hit ? '(активен)' : '(следующий)'}
                 </p>
-                <p className={`text-sm font-mono ${position.tp1_hit ? 'text-brand-accent' : 'text-gray-500'}`}>
+                <p className={`text-sm font-mono ${position.tp1_hit ? 'text-brand-accent' : 'text-gray-400'}`}>
                   {tp2Price ? formatPrice(tp2Price) : '—'}
                 </p>
               </div>
@@ -1708,7 +1708,7 @@ function EmptyState({ message }: { message: string }) {
     <Card className="border-white/5 bg-white/[0.02]">
       <CardContent className="flex flex-col items-center justify-center py-12">
         <Activity className="h-8 w-8 text-gray-600 mb-3" />
-        <p className="text-gray-500 text-sm">{message}</p>
+        <p className="text-gray-400 text-sm">{message}</p>
       </CardContent>
     </Card>
   );

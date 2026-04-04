@@ -390,8 +390,8 @@ export function Backtest() {
               </label>
               {configsLoading ? (
                 <div className="flex h-9 items-center rounded-md border border-white/10 bg-white/5 px-3">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-500" />
-                  <span className="ml-2 text-sm text-gray-500">Загрузка...</span>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />
+                  <span className="ml-2 text-sm text-gray-400">Загрузка...</span>
                 </div>
               ) : configs.length > 0 ? (
                 <Select
@@ -402,7 +402,7 @@ export function Backtest() {
                 />
               ) : (
                 <div className="flex h-9 items-center rounded-md border border-white/10 bg-white/5 px-3">
-                  <span className="text-sm text-gray-500">Нет конфигураций</span>
+                  <span className="text-sm text-gray-400">Нет конфигураций</span>
                 </div>
               )}
             </div>
@@ -593,7 +593,7 @@ export function Backtest() {
                     <TableBody>
                       {result.trades.map((trade) => (
                         <TableRow key={trade.id}>
-                          <TableCell className="font-mono text-xs text-gray-500">
+                          <TableCell className="font-mono text-xs text-gray-400">
                             {trade.id}
                           </TableCell>
                           <TableCell>
@@ -646,7 +646,7 @@ export function Backtest() {
             <p className="text-gray-400 text-lg font-medium">
               Запустите бэктест
             </p>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-gray-400 text-sm mt-1">
               Выберите конфигурацию стратегии, настройте параметры и нажмите
               "Запуск"
             </p>
@@ -998,7 +998,7 @@ function TradesChart({
       {/* Timeframe selector */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">Таймфрейм:</span>
+          <span className="text-xs text-gray-400">Таймфрейм:</span>
           <div className="flex items-center rounded-lg bg-white/5 p-0.5">
             {CHART_TIMEFRAME_OPTIONS.map((tf) => (
               <button
@@ -1029,7 +1029,7 @@ function TradesChart({
       )}
       <div ref={containerRef} className="w-full" style={{ minHeight: 450 }} />
       {!loading && trades.length > 0 && (
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-white/5 text-xs text-gray-500">
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-white/5 text-xs text-gray-400">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-2 h-2 bg-brand-profit rounded-sm" /> Long вход
           </span>
@@ -1180,7 +1180,7 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
             <span className="text-white font-medium text-sm">
               {run.symbol}
             </span>
-            <span className="text-xs text-gray-500">/</span>
+            <span className="text-xs text-gray-400">/</span>
             <span className="text-xs text-gray-400 font-mono">{tfLabel}</span>
             <span className="text-xs text-gray-600 font-mono">
               {run.start_date.slice(0, 10)} → {run.end_date.slice(0, 10)}
@@ -1241,7 +1241,7 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
         )}
 
         {resultLoading && (
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5 text-xs text-gray-500">
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5 text-xs text-gray-400">
             <Loader2 className="h-3 w-3 animate-spin" /> Загрузка результатов...
           </div>
         )}
@@ -1258,8 +1258,8 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
         <div className="px-4 py-3 flex items-start gap-3">
           <div className="flex-1">
             <div className="flex items-center gap-1.5 mb-1.5">
-              <StickyNote className="h-3 w-3 text-gray-500" />
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider">Заметка</span>
+              <StickyNote className="h-3 w-3 text-gray-400" />
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider">Заметка</span>
             </div>
             <Input
               value={note}
@@ -1287,7 +1287,7 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
               className={`text-xs h-8 ${
                 confirmDelete
                   ? 'text-brand-loss bg-brand-loss/10 hover:bg-brand-loss/20'
-                  : 'text-gray-500 hover:text-brand-loss hover:bg-brand-loss/10'
+                  : 'text-gray-400 hover:text-brand-loss hover:bg-brand-loss/10'
               }`}
             >
               <Trash2 className="h-3 w-3 mr-1" />
@@ -1337,14 +1337,14 @@ function BacktestHistory({
         <CardContent className="flex flex-col items-center justify-center py-20">
           <History className="h-12 w-12 text-gray-600 mb-4" />
           <p className="text-gray-400 text-lg font-medium">Нет запусков</p>
-          <p className="text-gray-500 text-sm mt-1">
+          <p className="text-gray-400 text-sm mt-1">
             Запустите бэктест, и он появится здесь
           </p>
           {hiddenIds.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              className="mt-4 text-xs text-gray-500"
+              className="mt-4 text-xs text-gray-400"
               onClick={() => {
                 localStorage.removeItem(LS_HIDDEN_KEY);
                 setHiddenIds([]);
@@ -1363,7 +1363,7 @@ function BacktestHistory({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-400">
           {visibleRuns.length} {visibleRuns.length === 1 ? 'запуск' : visibleRuns.length < 5 ? 'запуска' : 'запусков'}
         </p>
         <div className="flex items-center gap-2">
@@ -1371,7 +1371,7 @@ function BacktestHistory({
             <Button
               variant="ghost"
               size="sm"
-              className="text-xs text-gray-500 h-7"
+              className="text-xs text-gray-400 h-7"
               onClick={() => {
                 localStorage.removeItem(LS_HIDDEN_KEY);
                 setHiddenIds([]);

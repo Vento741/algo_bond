@@ -8,9 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export function Register() {
+  const [inviteCode, setInviteCode] = useState('');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [consent, setConsent] = useState(false);
   const [success, setSuccess] = useState(false);
   const { register, isLoading, error, clearError } = useAuthStore();
   const navigate = useNavigate();
@@ -18,7 +20,7 @@ export function Register() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await register(email, username, password);
+      await register(email, username, password, inviteCode);
       setSuccess(true);
       setTimeout(() => navigate('/login'), 2000);
     } catch {
@@ -55,7 +57,7 @@ export function Register() {
               Готов торговать?
             </CardTitle>
             <CardDescription className="text-gray-400">
-              Пара минут — и рынок ваш.
+              Пара минут - и рынок ваш.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -77,6 +79,32 @@ export function Register() {
                     </div>
                   )}
 
+                  {/* Код приглашения - первое поле */}
+                  <div className="space-y-2">
+                    <Label htmlFor="invite_code" className="text-gray-300">
+                      Код приглашения
+                    </Label>
+                    <Input
+                      id="invite_code"
+                      type="text"
+                      required
+                      maxLength={8}
+                      placeholder="XXXXXXXX"
+                      value={inviteCode}
+                      onChange={(e) => {
+                        setInviteCode(e.target.value.toUpperCase());
+                        clearError();
+                      }}
+                      className="bg-white/5 border-white/10 text-white font-mono tracking-widest text-center text-lg placeholder:text-gray-500 focus:border-brand-premium/50"
+                    />
+                    <p className="text-xs text-gray-400">
+                      Получите код, оставив заявку на{' '}
+                      <Link to="/" className="text-brand-premium hover:underline">
+                        главной странице
+                      </Link>
+                    </p>
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-gray-300">
                       Email
@@ -91,7 +119,7 @@ export function Register() {
                         clearError();
                       }}
                       required
-                      className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-brand-premium/50"
+                      className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-brand-premium/50"
                     />
                   </div>
 
@@ -110,7 +138,7 @@ export function Register() {
                       }}
                       required
                       minLength={2}
-                      className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-brand-premium/50"
+                      className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-brand-premium/50"
                     />
                   </div>
 
@@ -129,15 +157,36 @@ export function Register() {
                       }}
                       required
                       minLength={8}
-                      className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-brand-premium/50"
+                      className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-brand-premium/50"
                     />
                   </div>
+
+                  {/* Checkbox согласия */}
+                  <label className="flex items-start gap-3 text-sm text-gray-400 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      required
+                      checked={consent}
+                      onChange={(e) => setConsent(e.target.checked)}
+                      className="mt-0.5 rounded border-white/20 bg-white/5 text-brand-premium focus:ring-brand-premium/50"
+                    />
+                    <span>
+                      Я согласен с{' '}
+                      <Link to="/terms" target="_blank" className="text-brand-premium hover:underline">
+                        Условиями использования
+                      </Link>{' '}
+                      и{' '}
+                      <Link to="/privacy" target="_blank" className="text-brand-premium hover:underline">
+                        Политикой конфиденциальности
+                      </Link>
+                    </span>
+                  </label>
 
                   <Button
                     type="submit"
                     variant="premium"
                     className="w-full"
-                    disabled={isLoading}
+                    disabled={isLoading || !consent}
                   >
                     {isLoading ? (
                       <>

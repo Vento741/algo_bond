@@ -221,11 +221,11 @@ export function Settings() {
             <CardContent className="space-y-4">
               {/* Email (readonly) */}
               <div>
-                <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1.5">
+                <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">
                   Email
                 </label>
                 <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-white/5 bg-white/[0.01]">
-                  <span className="text-sm text-gray-500 font-mono truncate">
+                  <span className="text-sm text-gray-400 font-mono truncate">
                     {user?.email ?? '...'}
                   </span>
                   <Shield className="h-3.5 w-3.5 text-gray-600 ml-auto flex-shrink-0" />
@@ -234,7 +234,7 @@ export function Settings() {
 
               {/* Username */}
               <div>
-                <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1.5">
+                <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">
                   Имя пользователя
                 </label>
                 <Input
@@ -247,13 +247,13 @@ export function Settings() {
 
               {/* Роль */}
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Роль</span>
+                <span className="text-xs text-gray-400 uppercase tracking-wider">Роль</span>
                 <Badge variant="premium">{roleLabel(user?.role ?? 'user')}</Badge>
               </div>
 
               {/* Дата регистрации */}
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500 uppercase tracking-wider">
+                <span className="text-xs text-gray-400 uppercase tracking-wider">
                   Участник с
                 </span>
                 <span className="text-xs text-gray-400 font-mono flex items-center gap-1.5">
@@ -292,13 +292,13 @@ export function Settings() {
             <CardContent className="space-y-4">
               {loadingSettings ? (
                 <div className="flex items-center justify-center py-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                  <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                 </div>
               ) : (
                 <>
                   {/* Торговая пара по умолчанию */}
                   <div>
-                    <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1.5">
+                    <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">
                       Символ по умолчанию
                     </label>
                     <SymbolSearch
@@ -310,7 +310,7 @@ export function Settings() {
 
                   {/* Таймфрейм по умолчанию */}
                   <div>
-                    <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1.5">
+                    <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">
                       Таймфрейм по умолчанию
                     </label>
                     <Select
@@ -323,7 +323,7 @@ export function Settings() {
 
                   {/* Тема */}
                   <div>
-                    <label className="text-xs text-gray-500 uppercase tracking-wider block mb-1.5">
+                    <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">
                       <Monitor className="h-3 w-3 inline mr-1" />
                       Тема оформления
                     </label>
@@ -385,7 +385,7 @@ export function Settings() {
                   <p className="text-gray-400 text-sm font-medium">
                     Нет подключённых аккаунтов
                   </p>
-                  <p className="text-gray-500 text-xs mt-1">
+                  <p className="text-gray-400 text-xs mt-1">
                     Добавьте API-ключи биржи для начала торговли
                   </p>
                   <Button
@@ -422,7 +422,7 @@ export function Settings() {
                             )}
                           </div>
                           <div className="flex items-center gap-3 mt-1">
-                            <span className="text-xs text-gray-500 uppercase">
+                            <span className="text-xs text-gray-400 uppercase">
                               {account.exchange}
                             </span>
                             <span className="text-xs text-gray-600 font-mono">
@@ -436,7 +436,7 @@ export function Settings() {
                         size="icon"
                         onClick={() => setShowDeleteConfirm(account.id)}
                         disabled={deletingId === account.id}
-                        className="text-gray-500 hover:text-brand-loss hover:bg-brand-loss/10 flex-shrink-0"
+                        className="text-gray-400 hover:text-brand-loss hover:bg-brand-loss/10 flex-shrink-0"
                       >
                         {deletingId === account.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -559,7 +559,7 @@ function AddAccountDialog({
           <div>
             <label className="text-sm text-gray-400 block mb-1.5">Биржа</label>
             <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-white/5 bg-white/[0.01]">
-              <span className="text-sm text-gray-500">Bybit</span>
+              <span className="text-sm text-gray-400">Bybit</span>
               <Badge variant="default" className="ml-auto">
                 V5 API
               </Badge>
@@ -605,7 +605,7 @@ function AddAccountDialog({
               <button
                 type="button"
                 onClick={() => setShowSecret(!showSecret)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
               >
                 {showSecret ? (
                   <EyeOff className="h-4 w-4" />
@@ -620,7 +620,7 @@ function AddAccountDialog({
           <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5">
             <div>
               <p className="text-sm text-white">Demo-режим</p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-gray-400 mt-0.5">
                 Реальные цены, симулированные ордера (без риска)
               </p>
             </div>

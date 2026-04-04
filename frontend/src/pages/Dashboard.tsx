@@ -137,7 +137,7 @@ export function Dashboard() {
             <CardContent>
               {loadingStrategies ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                 </div>
               ) : strategies.length === 0 ? (
                 <div className="text-center py-8">
@@ -162,7 +162,7 @@ export function Dashboard() {
                           <p className="text-sm font-medium text-white group-hover:text-brand-premium transition-colors">
                             {strategy.name}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-400">
                             {strategy.engine_type} v{strategy.version}
                           </p>
                         </div>

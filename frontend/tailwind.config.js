@@ -54,11 +54,10 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['JetBrains Mono', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
-        heading: ['JetBrains Mono', 'system-ui', 'sans-serif'],
-        body: ['JetBrains Mono', 'system-ui', 'sans-serif'],
-        data: ['JetBrains Mono', 'monospace'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Consolas', 'monospace'],
+        heading: ['Inter', 'system-ui', 'sans-serif'],
+        data: ['JetBrains Mono', 'Consolas', 'monospace'],
       },
       keyframes: {
         'accordion-down': {

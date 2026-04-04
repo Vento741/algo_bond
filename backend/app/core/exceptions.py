@@ -3,6 +3,13 @@
 from fastapi import HTTPException, status
 
 
+class BadRequestException(HTTPException):
+    """Некорректный запрос (400)."""
+
+    def __init__(self, detail: str = "Некорректный запрос"):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+
 class CredentialsException(HTTPException):
     """Невалидные учётные данные (401)."""
 

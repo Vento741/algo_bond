@@ -17,6 +17,7 @@ if not hasattr(_bcrypt_module, "__about__"):
 os.environ.setdefault(
     "ENCRYPTION_KEY", "oPQzU1kJKtMupq8qe5cdSJ2u5kDoiRxnDXwVIeNECIY="
 )
+os.environ.setdefault("INVITE_CODE_REQUIRED", "false")
 
 import asyncio
 import uuid
@@ -44,7 +45,7 @@ import app.modules.trading.models  # noqa: F401
 from app.core.security import create_access_token, hash_password
 from app.database import Base, get_db
 from app.main import app as fastapi_app
-from app.modules.auth.models import User, UserRole, UserSettings
+from app.modules.auth.models import AccessRequest, InviteCode, User, UserRole, UserSettings  # noqa: F401
 
 # Тестовая БД — SQLite async (in-memory, shared cache для доступа из нескольких сессий)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///file:testdb?mode=memory&cache=shared&uri=true"
@@ -94,6 +95,10 @@ async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 fastapi_app.dependency_overrides[get_db] = override_get_db
+
+# Отключить rate limiting в тестах
+from app.core.rate_limit import limiter
+limiter.enabled = False
 
 
 @pytest_asyncio.fixture

@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /strategies
+Disallow: /chart
+Disallow: /bots
+Disallow: /backtest
+Disallow: /settings
+Disallow: /admin
+
+Sitemap: https://algo.dev-james.bond/sitemap.xml

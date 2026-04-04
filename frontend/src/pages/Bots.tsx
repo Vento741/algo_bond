@@ -198,7 +198,7 @@ export function Bots() {
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Bot className="h-12 w-12 text-gray-600 mb-4" />
             <p className="text-gray-400 text-lg font-medium">Боты не созданы</p>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-gray-400 text-sm mt-1">
               Создайте первого бота для автоматической торговли
             </p>
           </CardContent>
@@ -227,7 +227,7 @@ export function Bots() {
                       <CardTitle className="text-sm text-white">
                         {config?.name ?? 'Конфигурация'}
                       </CardTitle>
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className="text-xs text-gray-400 mt-0.5">
                         {config
                           ? `${config.symbol} / ${config.timeframe}`
                           : bot.strategy_config_id.slice(0, 8)}
@@ -235,7 +235,7 @@ export function Bots() {
                     </div>
                   </div>
                   <button
-                    className="text-gray-500 hover:text-white transition-colors"
+                    className="text-gray-400 hover:text-white transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(`/bots/${bot.id}`);
@@ -335,7 +335,7 @@ export function Bots() {
                           e.stopPropagation();
                           deleteBot(bot.id);
                         }}
-                        className="text-gray-500 hover:text-brand-loss"
+                        className="text-gray-400 hover:text-brand-loss"
                         title="Удалить бота"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -471,7 +471,7 @@ function CreateBotDialog({
               <label className="text-sm text-gray-400 block mb-1.5">Конфигурация стратегии</label>
               {configs.length === 0 ? (
                 <div className="flex items-center gap-2 p-3 rounded-md border border-white/10 bg-white/5">
-                  <Settings className="h-4 w-4 text-gray-500 shrink-0" />
+                  <Settings className="h-4 w-4 text-gray-400 shrink-0" />
                   <p className="text-sm text-gray-400">
                     Сначала создайте конфигурацию стратегии{' '}
                     <Link
@@ -500,7 +500,7 @@ function CreateBotDialog({
               <label className="text-sm text-gray-400 block mb-1.5">Аккаунт биржи</label>
               {accounts.length === 0 ? (
                 <div className="flex items-center gap-2 p-3 rounded-md border border-white/10 bg-white/5">
-                  <Zap className="h-4 w-4 text-gray-500 shrink-0" />
+                  <Zap className="h-4 w-4 text-gray-400 shrink-0" />
                   <p className="text-sm text-gray-400">
                     Добавьте API ключи биржи{' '}
                     <Link

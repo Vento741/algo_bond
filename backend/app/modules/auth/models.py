@@ -1,6 +1,7 @@
-"""Модели аутентификации: User, ExchangeAccount, UserSettings."""
+"""Модели аутентификации: User, ExchangeAccount, UserSettings, InviteCode, AccessRequest."""
 
 import enum
+import secrets
 import uuid
 from datetime import datetime, timezone
 
@@ -9,6 +10,14 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+# Безопасные символы для инвайт-кодов (без ambiguous: 0/O, 1/I/L)
+SAFE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+
+
+def generate_invite_code() -> str:
+    """Генерация 8-символьного инвайт-кода без ambiguous символов."""
+    return ''.join(secrets.choice(SAFE_CHARS) for _ in range(8))
 
 
 class UserRole(str, enum.Enum):
@@ -20,6 +29,13 @@ class UserRole(str, enum.Enum):
 class ExchangeType(str, enum.Enum):
     """Поддерживаемые биржи. Расширяемо для будущих интеграций."""
     BYBIT = "bybit"
+
+
+class AccessRequestStatus(str, enum.Enum):
+    """Статусы заявки на доступ."""
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
 
 
 class User(Base):
@@ -37,6 +53,9 @@ class User(Base):
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="user_role"), default=UserRole.USER
+    )
+    consent_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -112,3 +131,59 @@ class UserSettings(Base):
 
     # Связи
     user: Mapped["User"] = relationship(back_populates="settings")
+
+
+class InviteCode(Base):
+    """Инвайт-код для закрытой регистрации."""
+
+    __tablename__ = "invite_codes"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    code: Mapped[str] = mapped_column(String(8), unique=True, index=True)
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    used_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    label: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class AccessRequest(Base):
+    """Заявка на получение доступа к платформе."""
+
+    __tablename__ = "access_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    telegram: Mapped[str] = mapped_column(String(64), index=True)
+    status: Mapped[AccessRequestStatus] = mapped_column(
+        Enum(AccessRequestStatus, name="access_request_status"),
+        default=AccessRequestStatus.PENDING,
+    )
+    generated_invite_code_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("invite_codes.id"), nullable=True
+    )
+    reject_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )

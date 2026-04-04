@@ -78,7 +78,7 @@ export function Login() {
                     clearError();
                   }}
                   required
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-brand-premium/50"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-brand-premium/50"
                 />
               </div>
 
@@ -96,7 +96,7 @@ export function Login() {
                     clearError();
                   }}
                   required
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-500 focus:border-brand-premium/50"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-brand-premium/50"
                 />
               </div>
 

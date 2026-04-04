@@ -12,6 +12,8 @@ from app.database import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
 from app.modules.auth.schemas import (
+    AccessRequestCreate,
+    AccessRequestResponse,
     ExchangeAccountCreate,
     ExchangeAccountResponse,
     LoginRequest,
@@ -75,6 +77,19 @@ async def refresh_token(
         access_token=create_access_token({"sub": str(user.id)}),
         refresh_token=create_refresh_token({"sub": str(user.id)}),
     )
+
+
+@router.post("/access-request", response_model=AccessRequestResponse, status_code=201)
+@limiter.limit("5/hour")
+async def create_access_request(
+    request: Request,
+    data: AccessRequestCreate,
+    db: AsyncSession = Depends(get_db),
+) -> AccessRequestResponse:
+    """Отправить заявку на получение доступа к платформе."""
+    service = AuthService(db)
+    await service.create_access_request(data)
+    return AccessRequestResponse(message="Заявка отправлена", status="pending")
 
 
 @router.get("/me", response_model=UserResponse)

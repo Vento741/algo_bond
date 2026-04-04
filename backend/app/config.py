@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # Регистрация
+    invite_code_required: bool = True
+
     # Bybit
     bybit_api_key: str = ""
     bybit_api_secret: str = ""
