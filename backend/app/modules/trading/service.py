@@ -187,14 +187,17 @@ class TradingService:
         db_positions = list(result.scalars().all())
 
         # Группировать Bybit записи по entry_price для матчинга
+        # Bybit V5 API: поле avgEntryPrice (не entryPrice)
+        # Нормализуем ключи через Decimal для сопоставления precision
         bybit_by_entry: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
         for rec in bybit_records:
-            entry_key = rec["entryPrice"]
+            raw_entry = rec.get("avgEntryPrice") or rec.get("entryPrice", "0")
+            entry_key = str(Decimal(raw_entry).normalize())
             bybit_by_entry[entry_key] += Decimal(rec["closedPnl"])
 
         corrections: list[dict] = []
         for pos in db_positions:
-            entry_key = str(pos.entry_price)
+            entry_key = str(Decimal(str(pos.entry_price)).normalize())
             if entry_key in bybit_by_entry:
                 bybit_total = bybit_by_entry[entry_key]
                 db_pnl = pos.realized_pnl or Decimal("0")
