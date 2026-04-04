@@ -114,14 +114,14 @@ export function Landing() {
             style={{ animationDelay: '0.25s' }}
           >
             <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
-              Пока рынок спит
+              Умная торговля без эмоций
             </span>
             <br />
             <span className="bg-gradient-to-r from-brand-premium via-yellow-300 to-brand-premium bg-clip-text text-transparent">
-              твои алгоритмы
+              Твоя прибыль
             </span>{' '}
             <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
-              работают
+              на автопилоте
             </span>
           </h1>
 
