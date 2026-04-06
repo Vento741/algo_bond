@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import api from '@/lib/api';
 import type { User } from '@/types/api';
+import { setTrackerUserRole } from '@/lib/tracker';
 
 interface AuthState {
   user: User | null;
@@ -61,6 +62,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('_ab_user_role');
     set({ user: null, isAuthenticated: false });
   },
 
@@ -69,6 +71,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isLoading: true });
       const { data } = await api.get('/auth/me');
       set({ user: data, isAuthenticated: true, isLoading: false });
+      setTrackerUserRole(data.role);
     } catch {
       set({ user: null, isAuthenticated: false, isLoading: false });
     }
