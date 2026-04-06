@@ -256,9 +256,16 @@ async def _manage_position(
     current_sl = float(position.stop_loss or 0)
     breakeven_set = abs(current_sl - entry_price) < entry_price * 0.005  # ~0.5% tolerance
 
+    try:
+        sym_info = client.get_symbol_info(symbol)
+    except BybitAPIError:
+        sym_info = None
+
     if use_breakeven and not breakeven_set:
         # Listener не успел → установить breakeven
         try:
+            tick = sym_info.tick_size if sym_info else 0.001
+            entry_price = _round_price(entry_price, tick)
             client.set_trading_stop(symbol=symbol, stop_loss=entry_price)
             position.stop_loss = Decimal(str(entry_price))
             await _log(db, bot.id, "info", f"Breakeven (backup): SL = {entry_price}", {
@@ -289,6 +296,8 @@ async def _manage_position(
                 else:
                     tp2_price = entry_price - atr * tp2_mult
 
+                tick = sym_info.tick_size if sym_info else 0.001
+                tp2_price = _round_price(tp2_price, tick)
                 client.set_trading_stop(symbol=symbol, take_profit=tp2_price)
                 position.take_profit = Decimal(str(round(tp2_price, 6)))
                 await _log(db, bot.id, "info", f"TP2 (backup): {tp2_price:.4f}", {
@@ -298,6 +307,16 @@ async def _manage_position(
             logger.warning("Bot %s: TP2 setup failed: %s", bot.id, e)
 
     await db.commit()
+
+
+# === Helpers ===
+
+
+def _round_price(price: float, tick_size: float) -> float:
+    """Округлить цену до tick_size символа (требование Bybit)."""
+    if tick_size <= 0:
+        return round(price, 8)
+    return round(round(price / tick_size) * tick_size, 8)
 
 
 # === Order Placement ===
@@ -337,20 +356,34 @@ async def _place_order(
             await db.commit()
             return {"status": "error", "message": f"Qty too small: {qty}"}
 
+        if qty > symbol_info.max_qty:
+            qty = round(symbol_info.max_qty // symbol_info.qty_step * symbol_info.qty_step, 8)
+
+        # Валидация SL — позиция без SL запрещена
+        if not signal.stop_loss or float(signal.stop_loss) <= 0:
+            await _log(db, bot.id, "error", "Сигнал без SL — ордер отклонён")
+            await db.commit()
+            return {"status": "error", "message": "Signal has no stop_loss"}
+
+        tick = symbol_info.tick_size
+
         # Определить TP для ордера
         order_tp = None
-        order_sl = signal.stop_loss
+        order_sl = _round_price(float(signal.stop_loss), tick)
 
         if use_multi_tp and tp_levels and signal.tp_levels:
-            # Multi-TP: НЕ ставим TP на ордер, управляем через set_trading_stop
+            # Multi-TP: НЕ ставим SL/TP на ордер — избегаем tpslMode Full→Partial конфликт.
+            # Всё устанавливается через set_trading_stop после fill.
             order_tp = None
+            order_sl_for_order = None
         else:
-            # Обычный режим: один TP
-            order_tp = signal.take_profit
+            # Обычный режим: один TP + SL на ордере (tpslMode=Full)
+            order_tp = _round_price(float(signal.take_profit), tick) if signal.take_profit else None
+            order_sl_for_order = order_sl
 
         bybit_result = client.place_order(
             symbol=symbol, side=side, order_type="Market",
-            qty=qty, take_profit=order_tp, stop_loss=order_sl,
+            qty=qty, take_profit=order_tp, stop_loss=order_sl_for_order,
             order_link_id=order_link_id,
         )
 
@@ -384,20 +417,21 @@ async def _place_order(
         # Установить trailing stop
         if signal.trailing_atr:
             try:
-                active_price = (
-                    signal.entry_price + signal.trailing_atr
+                active_price = _round_price(
+                    float(signal.entry_price) + signal.trailing_atr
                     if signal.direction == "long"
-                    else signal.entry_price - signal.trailing_atr
+                    else float(signal.entry_price) - signal.trailing_atr,
+                    tick,
                 )
                 client.set_trading_stop(
                     symbol=symbol,
-                    trailing_stop=signal.trailing_atr,
+                    trailing_stop=round(signal.trailing_atr, 8),
                     active_price=active_price,
                 )
             except BybitAPIError as e:
                 logger.warning("Bot %s: trailing stop failed: %s", bot.id, e.message)
 
-        # Установить multi-TP (partial TP1)
+        # Установить multi-TP (partial TP1 + SL через set_trading_stop)
         if use_multi_tp and tp_levels and signal.tp_levels:
             try:
                 tp1 = signal.tp_levels[0]
@@ -407,9 +441,9 @@ async def _place_order(
                 tp1_qty = round(tp1_qty // symbol_info.qty_step * symbol_info.qty_step, 8)
 
                 if signal.direction == "long":
-                    tp1_price = float(ticker.last_price) + tp1_atr_dist
+                    tp1_price = _round_price(float(ticker.last_price) + tp1_atr_dist, tick)
                 else:
-                    tp1_price = float(ticker.last_price) - tp1_atr_dist
+                    tp1_price = _round_price(float(ticker.last_price) - tp1_atr_dist, tick)
 
                 # Рассчитать TP2 для сохранения (если есть)
                 tp2_price = None
@@ -418,9 +452,9 @@ async def _place_order(
                     if hasattr(signal, "tp_levels") and signal.tp_levels and len(signal.tp_levels) >= 2:
                         tp2_atr_dist = signal.tp_levels[1]["atr_mult"]
                     if signal.direction == "long":
-                        tp2_price = float(ticker.last_price) + tp2_atr_dist
+                        tp2_price = _round_price(float(ticker.last_price) + tp2_atr_dist, tick)
                     else:
-                        tp2_price = float(ticker.last_price) - tp2_atr_dist
+                        tp2_price = _round_price(float(ticker.last_price) - tp2_atr_dist, tick)
 
                 # Сохранить TP1/TP2 цены в сигнал для фронтенда
                 trade_signal.indicators_snapshot["tp1_price"] = round(tp1_price, 6)
@@ -429,17 +463,30 @@ async def _place_order(
                 if tp2_price:
                     trade_signal.indicators_snapshot["tp2_price"] = round(tp2_price, 6)
 
+                # Установить TP1 (Partial) + SL (Partial) единым вызовом
+                # Избегаем конфликта tpslMode: ордер без SL/TP, всё через Partial
                 client.set_trading_stop(
                     symbol=symbol,
                     take_profit=tp1_price,
+                    stop_loss=float(order_sl),
                     tpsl_mode="Partial",
                     tp_size=tp1_qty,
+                    sl_size=qty,  # SL на весь объём
                 )
-                await _log(db, bot.id, "info", f"Multi-TP1: {tp1_price:.4f} qty={tp1_qty}", {
+                await _log(db, bot.id, "info", f"Multi-TP1: {tp1_price:.4f} qty={tp1_qty} SL: {order_sl}", {
                     "tp1_pct": tp1_close_pct,
                 })
             except BybitAPIError as e:
-                logger.warning("Bot %s: multi-TP1 failed: %s", bot.id, e.message)
+                # Fallback: установить хотя бы SL Full если Partial не сработал
+                logger.warning("Bot %s: multi-TP1 failed: %s, fallback to Full SL", bot.id, e.message)
+                try:
+                    client.set_trading_stop(
+                        symbol=symbol,
+                        stop_loss=float(order_sl),
+                        tpsl_mode="Full",
+                    )
+                except BybitAPIError as e2:
+                    logger.error("Bot %s: CRITICAL - SL fallback also failed: %s", bot.id, e2.message)
 
         trade_signal.was_executed = True
         bot.total_trades = (bot.total_trades or 0) + 1

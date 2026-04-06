@@ -860,6 +860,9 @@ async def test_handle_tp1_hit_sets_breakeven_and_tp2(
         for _ in range(20)
     ]
     mock_client.set_trading_stop.return_value = None
+    mock_symbol_info = MagicMock()
+    mock_symbol_info.tick_size = 0.01
+    mock_client.get_symbol_info.return_value = mock_symbol_info
     bybit_listener._account_clients[account_id] = mock_client
 
     with patch(

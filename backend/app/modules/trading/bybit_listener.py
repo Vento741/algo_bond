@@ -537,13 +537,26 @@ async def _handle_tp1_hit(
     tp_levels = risk_cfg.get("tp_levels", [])
     entry_price = float(position.entry_price)
 
+    # Получить tick_size для округления цен
+    try:
+        sym_info = await asyncio.to_thread(client.get_symbol_info, symbol)
+        tick = sym_info.tick_size
+    except Exception:
+        tick = 0.001
+
+    def _rp(price: float) -> float:
+        """Округлить до tick_size."""
+        if tick <= 0:
+            return round(price, 8)
+        return round(round(price / tick) * tick, 8)
+
     # 1. Breakeven: SL = entry_price
     if use_breakeven:
         try:
             await asyncio.to_thread(
                 client.set_trading_stop,
                 symbol=symbol,
-                stop_loss=entry_price,
+                stop_loss=_rp(entry_price),
             )
             position.stop_loss = position.entry_price
             logger.info("Breakeven установлен: %s SL=%s", symbol, entry_price)
@@ -580,6 +593,7 @@ async def _handle_tp1_hit(
                 else:
                     tp2_price = entry_price - atr * tp2_mult
 
+                tp2_price = _rp(tp2_price)
                 await asyncio.to_thread(
                     client.set_trading_stop,
                     symbol=symbol,
