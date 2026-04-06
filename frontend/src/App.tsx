@@ -29,6 +29,7 @@ import { AdminRequests } from '@/pages/admin/AdminRequests';
 import { AdminInvites } from '@/pages/admin/AdminInvites';
 import { AdminBilling } from '@/pages/admin/AdminBilling';
 import { AdminLogs } from '@/pages/admin/AdminLogs';
+import { AdminAnalytics } from '@/pages/admin/AdminAnalytics';
 
 function App() {
   return (
@@ -75,6 +76,7 @@ function App() {
               }
             >
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/analytics" element={<AdminAnalytics />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/requests" element={<AdminRequests />} />
               <Route path="/admin/invites" element={<AdminInvites />} />

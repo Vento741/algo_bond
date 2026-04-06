@@ -62,12 +62,12 @@ export function Landing() {
 
         <div className="flex items-center gap-3">
           <Link to="/login">
-            <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white">
+            <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white" data-track="nav_login">
               Войти
             </Button>
           </Link>
           <Link to="/register">
-            <Button variant="premium" size="sm">
+            <Button variant="premium" size="sm" data-track="nav_register">
               Регистрация
             </Button>
           </Link>
@@ -145,6 +145,7 @@ export function Landing() {
               variant="premium"
               size="xl"
               className="group animate-glow-pulse"
+              data-track="cta_hero"
               onClick={() => {
                 document.getElementById('access-request')?.scrollIntoView({
                   behavior: 'smooth',
@@ -155,7 +156,7 @@ export function Landing() {
               <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
             </Button>
             <Link to="/login">
-              <Button variant="outline" size="xl" className="border-white/10 text-gray-200 hover:bg-white/5">
+              <Button variant="outline" size="xl" className="border-white/10 text-gray-200 hover:bg-white/5" data-track="cta_login">
                 Войти в аккаунт
               </Button>
             </Link>

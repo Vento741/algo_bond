@@ -14,6 +14,7 @@ import {
   KeyRound,
   CreditCard,
   Terminal,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
@@ -28,6 +29,7 @@ const navigation = [
 ];
 
 const adminNavigation = [
+  { name: 'Аналитика', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Обзор', href: '/admin', icon: LayoutDashboard },
   { name: 'Пользователи', href: '/admin/users', icon: Users },
   { name: 'Заявки', href: '/admin/requests', icon: MessageCircle },

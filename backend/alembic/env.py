@@ -17,6 +17,7 @@ from app.modules.backtest.models import BacktestResult, BacktestRun  # noqa: F40
 from app.modules.strategy.models import Strategy, StrategyConfig  # noqa: F401
 from app.modules.trading.models import Bot, BotLog, Order, Position, TradeSignal  # noqa: F401
 from app.modules.market.models import OHLCVCandle, TradingPair  # noqa: F401
+from app.modules.analytics.models import AnalyticsSession, AnalyticsEvent, AnalyticsConversion  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

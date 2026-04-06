@@ -95,7 +95,7 @@ export function AccessRequestForm() {
                 Оставьте ваш Telegram - мы отправим персональный&nbsp;инвайт-код
               </p>
 
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit} data-track-form="access_request">
                 <div className="flex flex-col sm:flex-row gap-3 mb-4">
                   <input
                     type="text"
