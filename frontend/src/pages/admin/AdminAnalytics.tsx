@@ -136,6 +136,10 @@ const PERIODS: PeriodOption[] = [
   { value: '90d', label: '90 дней' },
 ];
 
+function periodToDays(p: Period): number {
+  return parseInt(p.replace('d', ''), 10);
+}
+
 /* ------------------------------------------------------------------ */
 /*  Data fetching hook - eliminates repeated fetch pattern             */
 /* ------------------------------------------------------------------ */
@@ -430,7 +434,7 @@ function StatCard({ label, value, icon: Icon, change }: StatCardProps) {
 
 function OverviewTab({ period }: { period: Period }) {
   const { data, loading } = useAnalyticsData<AnalyticsSummary>(
-    `/admin/analytics/summary?period=${period}`,
+    `/admin/analytics/overview?days=${periodToDays(period)}`,
   );
 
   if (loading) return <TabLoader />;
@@ -491,7 +495,7 @@ function OverviewTab({ period }: { period: Period }) {
 
 function PagesTab({ period }: { period: Period }) {
   const { data: pages, loading } = useAnalyticsData<PageStat[]>(
-    `/admin/analytics/pages?period=${period}`,
+    `/admin/analytics/pages?days=${periodToDays(period)}`,
   );
   const [sortKey, setSortKey] = useState<'views' | 'unique_views' | 'avg_time'>('views');
 
@@ -576,7 +580,7 @@ function PagesTab({ period }: { period: Period }) {
 
 function SourcesTab({ period }: { period: Period }) {
   const { data: sources, loading } = useAnalyticsData<SourceStat[]>(
-    `/admin/analytics/sources?period=${period}`,
+    `/admin/analytics/sources?days=${periodToDays(period)}`,
   );
 
   if (loading) return <TabLoader />;
@@ -638,7 +642,7 @@ function SourcesTab({ period }: { period: Period }) {
 
 function DevicesTab({ period }: { period: Period }) {
   const { data, loading } = useAnalyticsData<DevicesData>(
-    `/admin/analytics/devices?period=${period}`,
+    `/admin/analytics/devices?days=${periodToDays(period)}`,
   );
 
   if (loading) return <TabLoader />;
@@ -730,7 +734,7 @@ function DevicesTab({ period }: { period: Period }) {
 
 function FunnelTab({ period }: { period: Period }) {
   const { data: steps, loading } = useAnalyticsData<FunnelStep[]>(
-    `/admin/analytics/funnel?period=${period}`,
+    `/admin/analytics/funnel?days=${periodToDays(period)}`,
   );
 
   if (loading) return <TabLoader />;
@@ -864,7 +868,7 @@ function EventsTab({ period }: { period: Period }) {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      params.set('period', period);
+      params.set('days', String(periodToDays(period)));
       params.set('limit', String(limit));
       params.set('offset', String(page * limit));
       if (typeFilter) params.set('type', typeFilter);
