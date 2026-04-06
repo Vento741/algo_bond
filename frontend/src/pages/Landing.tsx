@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { HowItWorks } from '@/components/landing/HowItWorks';
 import { AccessRequestForm } from '@/components/landing/AccessRequestForm';
 import { PerformanceSection } from '@/components/landing/PerformanceSection';
+import { PricingSection } from '@/components/landing/PricingSection';
 import { FAQSection } from '@/components/landing/FAQSection';
 import { Footer } from '@/components/layout/Footer';
 
@@ -224,6 +225,9 @@ export function Landing() {
 
       {/* -------- Performance -------- */}
       <PerformanceSection />
+
+      {/* -------- Pricing -------- */}
+      <PricingSection />
 
       {/* -------- FAQ -------- */}
       <FAQSection />
