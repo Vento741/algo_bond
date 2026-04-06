@@ -28,19 +28,17 @@ import { cn } from '@/lib/utils';
 interface AnalyticsSummary {
   visitors: number;
   pageviews: number;
+  sessions: number;
   bounce_rate: number;
   avg_duration: number;
-  visitors_prev: number;
-  pageviews_prev: number;
-  daily_visits: { date: string; count: number }[];
+  daily_data: { date: string; visitors: number; pageviews: number; sessions: number }[];
 }
 
 interface PageStat {
   path: string;
   views: number;
-  unique_views: number;
-  avg_time: number;
-  scroll_depth: number;
+  unique_visitors: number;
+  avg_scroll: number | null;
 }
 
 interface SourceStat {
@@ -57,36 +55,38 @@ interface DeviceStat {
 
 interface DevicesData {
   browsers: DeviceStat[];
-  os: DeviceStat[];
-  devices: DeviceStat[];
-  countries: { country: string; visits: number }[];
+  os_list: DeviceStat[];
+  device_types: DeviceStat[];
+  countries: DeviceStat[];
 }
 
 interface FunnelStep {
-  name: string;
+  step_name: string;
   count: number;
-  percentage: number;
+  conversion_rate: number;
 }
 
 interface RealtimeData {
-  online_now: number;
-  active_pages: { path: string; count: number }[];
+  online_count: number;
+  active_pages: { path: string; visitors: number }[];
 }
 
 interface EventEntry {
   id: string;
-  time: string;
-  type: string;
-  page: string;
-  element: string | null;
-  details: string | null;
+  session_id: string;
+  event_type: string;
+  page_path: string | null;
+  page_title: string | null;
+  element_id: string | null;
+  scroll_depth: number | null;
+  error_message: string | null;
+  extra_data: Record<string, unknown> | null;
+  created_at: string;
 }
 
 interface EventsResponse {
   items: EventEntry[];
   total: number;
-  limit: number;
-  offset: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -353,7 +353,7 @@ function FunnelChart({ steps }: { steps: FunnelStep[] }) {
             : null;
 
         return (
-          <div key={step.name}>
+          <div key={step.step_name}>
             {/* Conversion arrow between steps */}
             {convRate !== null && (
               <div className="flex items-center justify-center py-1.5">
@@ -377,7 +377,7 @@ function FunnelChart({ steps }: { steps: FunnelStep[] }) {
                 />
                 <div className="relative flex items-center justify-between h-full px-4">
                   <span className="text-sm text-white font-medium truncate">
-                    {step.name}
+                    {step.step_name}
                   </span>
                   <span className="text-sm font-data text-brand-premium shrink-0 ml-2">
                     {step.count.toLocaleString()}
@@ -443,15 +443,6 @@ function OverviewTab({ period }: { period: Period }) {
     return <div className="text-gray-500 text-sm py-12 text-center">Не удалось загрузить данные</div>;
   }
 
-  const visitorsChange =
-    data.visitors_prev > 0
-      ? ((data.visitors - data.visitors_prev) / data.visitors_prev) * 100
-      : 0;
-  const pvChange =
-    data.pageviews_prev > 0
-      ? ((data.pageviews - data.pageviews_prev) / data.pageviews_prev) * 100
-      : 0;
-
   return (
     <div className="space-y-6">
       {/* Stat cards */}
@@ -460,13 +451,11 @@ function OverviewTab({ period }: { period: Period }) {
           label="Посетители"
           value={data.visitors.toLocaleString()}
           icon={Users}
-          change={visitorsChange}
         />
         <StatCard
           label="Просмотры"
           value={data.pageviews.toLocaleString()}
           icon={Eye}
-          change={pvChange}
         />
         <StatCard
           label="Bounce Rate"
@@ -483,7 +472,7 @@ function OverviewTab({ period }: { period: Period }) {
       {/* Chart */}
       <div className="rounded-xl border border-white/5 bg-[#1a1a2e] p-5">
         <h3 className="text-sm text-gray-400 mb-4">Визиты по дням</h3>
-        <VisitsChart data={data.daily_visits} />
+        <VisitsChart data={data.daily_data.map(d => ({ date: d.date, count: d.visitors }))} />
       </div>
     </div>
   );
@@ -497,7 +486,7 @@ function PagesTab({ period }: { period: Period }) {
   const { data: pages, loading } = useAnalyticsData<PageStat[]>(
     `/admin/analytics/pages?days=${periodToDays(period)}`,
   );
-  const [sortKey, setSortKey] = useState<'views' | 'unique_views' | 'avg_time'>('views');
+  const [sortKey, setSortKey] = useState<'views' | 'unique_visitors'>('views');
 
   const sorted = [...(pages ?? [])].sort((a, b) => b[sortKey] - a[sortKey]);
 
@@ -517,13 +506,8 @@ function PagesTab({ period }: { period: Period }) {
               />
               <ThSortable
                 label="Уники"
-                active={sortKey === 'unique_views'}
-                onClick={() => setSortKey('unique_views')}
-              />
-              <ThSortable
-                label="Ср. время"
-                active={sortKey === 'avg_time'}
-                onClick={() => setSortKey('avg_time')}
+                active={sortKey === 'unique_visitors'}
+                onClick={() => setSortKey('unique_visitors')}
               />
               <th className="text-left px-4 py-3 text-gray-400 font-medium">Scroll Depth</th>
             </tr>
@@ -546,21 +530,18 @@ function PagesTab({ period }: { period: Period }) {
                     {p.views.toLocaleString()}
                   </td>
                   <td className="px-4 py-2.5 text-gray-400 font-data text-xs">
-                    {p.unique_views.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-400 font-data text-xs">
-                    {formatDuration(p.avg_time)}
+                    {p.unique_visitors.toLocaleString()}
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <div className="w-16 h-1.5 rounded-full bg-white/5 overflow-hidden">
                         <div
                           className="h-full rounded-full bg-brand-premium"
-                          style={{ width: `${p.scroll_depth}%` }}
+                          style={{ width: `${p.avg_scroll ?? 0}%` }}
                         />
                       </div>
                       <span className="text-gray-400 font-data text-xs">
-                        {p.scroll_depth}%
+                        {p.avg_scroll ?? 0}%
                       </span>
                     </div>
                   </td>
@@ -671,7 +652,7 @@ function DevicesTab({ period }: { period: Period }) {
             <h3 className="text-sm text-gray-400">ОС</h3>
           </div>
           <HorizontalBarChart
-            data={data.os.map((o) => ({ name: o.name, percentage: o.percentage }))}
+            data={data.os_list.map((o) => ({ name: o.name, percentage: o.percentage }))}
             color="#4488ff"
           />
         </div>
@@ -681,7 +662,7 @@ function DevicesTab({ period }: { period: Period }) {
             <h3 className="text-sm text-gray-400">Устройства</h3>
           </div>
           <HorizontalBarChart
-            data={data.devices.map((d) => ({ name: d.name, percentage: d.percentage }))}
+            data={data.device_types.map((d) => ({ name: d.name, percentage: d.percentage }))}
             color="#00E676"
           />
         </div>
@@ -710,12 +691,12 @@ function DevicesTab({ period }: { period: Period }) {
               ) : (
                 data.countries.map((c) => (
                   <tr
-                    key={c.country}
+                    key={c.name}
                     className="border-b border-white/5 hover:bg-white/[0.02] transition-colors"
                   >
-                    <td className="px-4 py-2.5 text-gray-300 text-xs">{c.country}</td>
+                    <td className="px-4 py-2.5 text-gray-300 text-xs">{c.name || 'Unknown'}</td>
                     <td className="px-4 py-2.5 text-white font-data text-xs">
-                      {c.visits.toLocaleString()}
+                      {c.count.toLocaleString()}
                     </td>
                   </tr>
                 ))
@@ -793,7 +774,7 @@ function RealtimeTab() {
             <span className="relative inline-flex rounded-full h-3 w-3 bg-[#00E676]" />
           </span>
           <span className="text-3xl font-bold font-data text-white">
-            {data?.online_now ?? 0}
+            {data?.online_count ?? 0}
           </span>
           <span className="text-sm text-gray-400">online сейчас</span>
         </div>
@@ -828,13 +809,13 @@ function RealtimeTab() {
                     <td className="px-4 py-2.5 text-gray-300 font-data text-xs">{p.path}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-white font-data text-xs">{p.count}</span>
+                        <span className="text-white font-data text-xs">{p.visitors}</span>
                         <div className="w-16 h-1.5 rounded-full bg-white/5 overflow-hidden">
                           <div
                             className="h-full rounded-full bg-[#00E676]"
                             style={{
                               width: `${Math.min(
-                                (p.count / Math.max(data.online_now, 1)) * 100,
+                                (p.visitors / Math.max(data.online_count, 1)) * 100,
                                 100,
                               )}%`,
                             }}
@@ -968,7 +949,7 @@ function EventsTab({ period }: { period: Period }) {
                     className="border-b border-white/5 hover:bg-white/[0.02] transition-colors"
                   >
                     <td className="px-4 py-2.5 text-gray-500 text-xs font-data whitespace-nowrap">
-                      {new Date(ev.time).toLocaleString('ru-RU', {
+                      {new Date(ev.created_at).toLocaleString('ru-RU', {
                         hour: '2-digit',
                         minute: '2-digit',
                         second: '2-digit',
@@ -977,16 +958,16 @@ function EventsTab({ period }: { period: Period }) {
                       })}
                     </td>
                     <td className="px-4 py-2.5">
-                      <EventTypeBadge type={ev.type} />
+                      <EventTypeBadge type={ev.event_type} />
                     </td>
                     <td className="px-4 py-2.5 text-gray-400 text-xs font-data max-w-[180px] truncate">
-                      {ev.page}
+                      {ev.page_path || '-'}
                     </td>
                     <td className="px-4 py-2.5 text-gray-400 text-xs">
-                      {ev.element || '-'}
+                      {ev.element_id || '-'}
                     </td>
                     <td className="px-4 py-2.5 text-gray-500 text-xs max-w-[200px] truncate">
-                      {ev.details || '-'}
+                      {ev.page_title || '-'}
                     </td>
                   </tr>
                 ))
@@ -999,7 +980,7 @@ function EventsTab({ period }: { period: Period }) {
         {data && data.total > limit && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-white/5">
             <span className="text-xs text-gray-500">
-              {data.offset + 1}-{Math.min(data.offset + limit, data.total)} из {data.total}
+              {page * limit + 1}-{Math.min((page + 1) * limit, data.total)} из {data.total}
             </span>
             <div className="flex items-center gap-1">
               <button
