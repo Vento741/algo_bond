@@ -1262,7 +1262,7 @@ function PositionExpandableCard({ position: p }: { position: PositionResponse })
             {p.side === 'long' ? 'LONG' : 'SHORT'}
           </Badge>
           <span className="font-mono text-white font-medium">{p.symbol}</span>
-          <span className="text-xs text-gray-400">qty {formatQty(p.quantity)}</span>
+          <span className="text-xs text-gray-400">qty {formatQty(p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) ? p.original_quantity : p.quantity)}</span>
         </div>
         <div className="flex items-center gap-4">
           <span className={`font-mono font-bold ${pnlColor}`}>{formatPnl(pnlValue)}</span>
@@ -1301,7 +1301,7 @@ function PositionExpandableCard({ position: p }: { position: PositionResponse })
             {/* TP */}
             <div>
               <p className="text-[10px] text-gray-400 uppercase mb-1">
-                {p.tp1_price ? (p.tp1_hit ? 'TP2 (активен)' : 'TP1') : 'Take Profit'}
+                {p.tp1_price ? (p.tp1_hit ? (isClosed ? 'TP2 (исполнен)' : 'TP2 (активен)') : 'TP1') : 'Take Profit'}
               </p>
               <p className="font-mono text-brand-profit">{formatPrice(p.take_profit)}</p>
               {p.tp1_price && (
@@ -1320,10 +1320,10 @@ function PositionExpandableCard({ position: p }: { position: PositionResponse })
             {/* Qty */}
             <div>
               <p className="text-[10px] text-gray-400 uppercase mb-1">Количество</p>
-              <p className="font-mono text-white">{formatQty(p.quantity)}</p>
+              <p className="font-mono text-white">{formatQty(p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) ? p.original_quantity : p.quantity)}</p>
               {p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) && (
                 <p className="text-[10px] text-gray-400">
-                  Изначально: {formatQty(p.original_quantity)}
+                  Остаток: {formatQty(p.quantity)}
                 </p>
               )}
             </div>
