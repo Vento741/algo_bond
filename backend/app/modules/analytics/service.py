@@ -343,7 +343,7 @@ class AnalyticsService:
         """Топ страниц с метриками."""
         since = datetime.now(timezone.utc) - timedelta(days=days)
 
-        # Подзапрос для уникальных посетителей по странице
+        # Pageview stats
         stmt = (
             select(
                 AnalyticsEvent.page_path,
@@ -351,7 +351,6 @@ class AnalyticsService:
                 func.count(distinct(AnalyticsEvent.session_id)).label(
                     "unique_visitors"
                 ),
-                func.avg(AnalyticsEvent.scroll_depth).label("avg_scroll"),
             )
             .where(
                 AnalyticsEvent.created_at >= since,
@@ -362,20 +361,35 @@ class AnalyticsService:
             .order_by(func.count(AnalyticsEvent.id).desc())
             .limit(limit)
         )
-
         result = await self.db.execute(stmt)
-        rows = result.all()
+        page_rows = result.all()
+
+        # Max scroll depth per page (from scroll_depth events)
+        scroll_stmt = (
+            select(
+                AnalyticsEvent.page_path,
+                func.max(AnalyticsEvent.scroll_depth).label("max_scroll"),
+            )
+            .where(
+                AnalyticsEvent.created_at >= since,
+                AnalyticsEvent.event_type == "scroll_depth",
+                AnalyticsEvent.page_path.isnot(None),
+            )
+            .group_by(AnalyticsEvent.page_path)
+        )
+        scroll_result = await self.db.execute(scroll_stmt)
+        scroll_map: dict[str, int] = {
+            r.page_path: r.max_scroll for r in scroll_result.all() if r.page_path
+        }
 
         return [
             PageStats(
                 path=row.page_path,
                 views=row.views,
                 unique_visitors=row.unique_visitors,
-                avg_scroll=round(float(row.avg_scroll), 1)
-                if row.avg_scroll
-                else None,
+                avg_scroll=float(scroll_map.get(row.page_path, 0)),
             )
-            for row in rows
+            for row in page_rows
         ]
 
     async def get_sources(self, days: int = 7) -> list[SourceStats]:
@@ -587,6 +601,9 @@ class AnalyticsService:
 
         items: list[EventItem] = []
         for event, ip, browser, device_type, user_email in rows:
+            meta = event.metadata
+            if meta is not None and not isinstance(meta, dict):
+                meta = None
             items.append(EventItem(
                 id=event.id,
                 session_id=event.session_id,
@@ -596,7 +613,7 @@ class AnalyticsService:
                 element_id=event.element_id,
                 scroll_depth=event.scroll_depth,
                 error_message=event.error_message,
-                metadata=event.metadata,
+                metadata=meta,
                 created_at=event.created_at,
                 ip=ip,
                 user_email=user_email,
