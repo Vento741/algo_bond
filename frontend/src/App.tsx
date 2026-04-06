@@ -20,6 +20,7 @@ import { AdminRoute } from '@/components/AdminRoute';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { CookieBanner } from '@/components/CookieBanner';
+import { AnalyticsProvider } from '@/components/AnalyticsProvider';
 import { ToastProvider } from '@/components/ui/toast';
 
 // Admin pages
@@ -36,6 +37,7 @@ function App() {
     <ErrorBoundary>
       <ToastProvider>
         <BrowserRouter>
+          <AnalyticsProvider>
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Landing />} />
@@ -88,6 +90,7 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieBanner />
+          </AnalyticsProvider>
         </BrowserRouter>
       </ToastProvider>
     </ErrorBoundary>
