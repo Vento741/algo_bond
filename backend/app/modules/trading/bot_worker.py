@@ -347,7 +347,10 @@ async def _place_order(
         symbol_info = client.get_symbol_info(symbol)
         ticker = client.get_ticker(symbol)
 
-        position_value = available * order_size_pct
+        # order_size_pct = % баланса как маржа, leverage умножает позицию
+        # Пример: 30% маржа * 10x = позиция на 300% от available
+        margin_value = available * order_size_pct
+        position_value = margin_value * leverage
         qty = position_value / ticker.last_price
         qty = round(qty // symbol_info.qty_step * symbol_info.qty_step, 8)
 
