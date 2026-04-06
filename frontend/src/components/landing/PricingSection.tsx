@@ -153,7 +153,7 @@ function mapAPIPlan(plan: PlanFromAPI): PlanDisplay {
     name: plan.name,
     slug: plan.slug,
     subtitle: PLAN_SUBTITLES[plan.slug.toLowerCase()] ?? 'Для трейдеров',
-    priceMonthly: plan.price_monthly,
+    priceMonthly: Number(plan.price_monthly),
     maxBots: plan.max_bots,
     maxStrategies: plan.max_strategies,
     maxBacktestsPerDay: plan.max_backtests_per_day,
