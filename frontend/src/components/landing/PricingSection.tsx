@@ -275,7 +275,7 @@ function PlanCard({ plan, index }: { plan: PlanDisplay; index: number }) {
 
         {/* Badge */}
         {rec && (
-          <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
+          <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-20">
             <Badge
               variant="premium"
               className="px-3 py-0.5 text-[11px] font-semibold tracking-wide rounded-full shadow-lg shadow-brand-premium/20"
