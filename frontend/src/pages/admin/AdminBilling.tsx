@@ -51,8 +51,8 @@ export function AdminBilling() {
       setLoading(true);
       const { data } = await api.get('/billing/plans');
       setPlans(data);
-    } catch {
-      // Error
+    } catch (err) {
+      console.error('Failed to fetch plans:', err);
     } finally {
       setLoading(false);
     }
