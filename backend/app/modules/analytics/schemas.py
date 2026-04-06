@@ -127,18 +127,20 @@ class RealtimeStats(BaseModel):
 class EventItem(BaseModel):
     """Событие для списка."""
 
-    model_config = ConfigDict(from_attributes=True)
-
     id: uuid.UUID
     session_id: uuid.UUID
     event_type: str
-    page_path: str | None
-    page_title: str | None
-    element_id: str | None
-    scroll_depth: int | None
-    error_message: str | None
-    extra_data: dict | None
+    page_path: str | None = None
+    page_title: str | None = None
+    element_id: str | None = None
+    scroll_depth: int | None = None
+    error_message: str | None = None
+    metadata: dict | None = None
     created_at: datetime
+    ip: str | None = None
+    user_email: str | None = None
+    browser: str | None = None
+    device_type: str | None = None
 
 
 class EventListResponse(BaseModel):

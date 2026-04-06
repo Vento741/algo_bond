@@ -82,6 +82,10 @@ interface EventEntry {
   error_message: string | null;
   extra_data: Record<string, unknown> | null;
   created_at: string;
+  ip: string | null;
+  user_email: string | null;
+  browser: string | null;
+  device_type: string | null;
 }
 
 interface EventsResponse {
@@ -925,7 +929,8 @@ function EventsTab({ period }: { period: Period }) {
                 <th className="text-left px-4 py-3 text-gray-400 font-medium">Время</th>
                 <th className="text-left px-4 py-3 text-gray-400 font-medium">Тип</th>
                 <th className="text-left px-4 py-3 text-gray-400 font-medium">Страница</th>
-                <th className="text-left px-4 py-3 text-gray-400 font-medium">Элемент</th>
+                <th className="text-left px-4 py-3 text-gray-400 font-medium">Пользователь</th>
+                <th className="text-left px-4 py-3 text-gray-400 font-medium">IP</th>
                 <th className="text-left px-4 py-3 text-gray-400 font-medium">Детали</th>
               </tr>
             </thead>
@@ -963,11 +968,18 @@ function EventsTab({ period }: { period: Period }) {
                     <td className="px-4 py-2.5 text-gray-400 text-xs font-data max-w-[180px] truncate">
                       {ev.page_path || '-'}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-400 text-xs">
-                      {ev.element_id || '-'}
+                    <td className="px-4 py-2.5 text-xs">
+                      {ev.user_email ? (
+                        <span className="text-brand-premium">{ev.user_email}</span>
+                      ) : (
+                        <span className="text-gray-600">anon</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-gray-500 text-xs font-data">
+                      {ev.ip || '-'}
                     </td>
                     <td className="px-4 py-2.5 text-gray-500 text-xs max-w-[200px] truncate">
-                      {ev.page_title || '-'}
+                      {ev.element_id || ev.page_title || '-'}
                     </td>
                   </tr>
                 ))

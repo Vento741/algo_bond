@@ -203,6 +203,8 @@ function now(): string {
 }
 
 export function trackPageview(path: string, title: string): void {
+  // Не трекаем админские страницы
+  if (path.startsWith('/admin')) return;
   // Сбрасываем scroll depth при смене страницы
   maxScrollDepth = 0;
   pushEvent({

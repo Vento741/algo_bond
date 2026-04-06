@@ -3,6 +3,7 @@ import { Key, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FadeUp } from '@/components/landing/FadeUp';
 import api from '@/lib/api';
+import { trackConversion } from '@/lib/tracker';
 
 const TG_REGEX = /^@[a-zA-Z0-9_-]{4,31}$/;
 const LS_KEY = 'access_request_sent';
@@ -36,6 +37,7 @@ export function AccessRequestForm() {
         await api.post('/auth/access-request', { telegram });
         localStorage.setItem(LS_KEY, '1');
         setSent(true);
+        trackConversion('access_request', { telegram });
       } catch (err: unknown) {
         const axiosErr = err as { response?: { status?: number } };
         if (axiosErr.response?.status === 409) {

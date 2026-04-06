@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.auth.models import User
 from app.modules.analytics.models import (
     AnalyticsConversion,
     AnalyticsEvent,
@@ -565,18 +566,45 @@ class AnalyticsService:
         count_r = await self.db.execute(count_q)
         total = count_r.scalar() or 0
 
-        # Выборка с пагинацией
+        # Выборка с пагинацией + join session + user
         stmt = (
-            select(AnalyticsEvent)
+            select(
+                AnalyticsEvent,
+                AnalyticsSession.ip,
+                AnalyticsSession.browser,
+                AnalyticsSession.device_type,
+                User.email.label("user_email"),
+            )
+            .join(AnalyticsSession, AnalyticsEvent.session_id == AnalyticsSession.id)
+            .outerjoin(User, AnalyticsSession.user_id == User.id)
             .where(*conditions)
             .order_by(AnalyticsEvent.created_at.desc())
             .limit(limit)
             .offset(offset)
         )
         result = await self.db.execute(stmt)
-        events = result.scalars().all()
+        rows = result.all()
+
+        items: list[EventItem] = []
+        for event, ip, browser, device_type, user_email in rows:
+            items.append(EventItem(
+                id=event.id,
+                session_id=event.session_id,
+                event_type=event.event_type,
+                page_path=event.page_path,
+                page_title=event.page_title,
+                element_id=event.element_id,
+                scroll_depth=event.scroll_depth,
+                error_message=event.error_message,
+                metadata=event.metadata,
+                created_at=event.created_at,
+                ip=ip,
+                user_email=user_email,
+                browser=browser,
+                device_type=device_type,
+            ))
 
         return EventListResponse(
-            items=[EventItem.model_validate(e) for e in events],
+            items=items,
             total=total,
         )

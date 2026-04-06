@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import api from '@/lib/api';
 import type { User } from '@/types/api';
-import { setTrackerUserRole } from '@/lib/tracker';
+import { setTrackerUserRole, setTrackerUserId, trackConversion } from '@/lib/tracker';
 
 interface AuthState {
   user: User | null;
@@ -31,6 +31,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Загружаем профиль пользователя
       const { data: user } = await api.get('/auth/me');
       set({ user, isLoading: false });
+      setTrackerUserRole(user.role);
+      setTrackerUserId(user.id);
+      trackConversion('login', { email: user.email });
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { detail?: string } } }).response?.data?.detail ||
@@ -50,6 +53,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         invite_code: inviteCode,
       });
       set({ isLoading: false });
+      trackConversion('register', { email });
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { detail?: string } } }).response?.data?.detail ||

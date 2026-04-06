@@ -38,7 +38,7 @@ async def ingest_events(
 
     Rate limit: 30 запросов/мин на IP.
     """
-    ip = request.client.host if request.client else "0.0.0.0"
+    ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or request.headers.get("x-real-ip", "") or (request.client.host if request.client else "0.0.0.0")
     user_agent = request.headers.get("user-agent", "")
 
     service = AnalyticsService(db)
