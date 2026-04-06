@@ -123,7 +123,7 @@ class AccessRequestCreate(BaseModel):
     telegram: str = Field(
         min_length=5,
         max_length=33,
-        pattern=r"^@[a-zA-Z][a-zA-Z0-9_]{3,31}$",
+        pattern=r"^@[a-zA-Z0-9][a-zA-Z0-9_-]{3,31}$",
         examples=["@username"],
     )
 

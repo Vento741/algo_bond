@@ -4,14 +4,14 @@ import { Button } from '@/components/ui/button';
 import { FadeUp } from '@/components/landing/FadeUp';
 import api from '@/lib/api';
 
-const TG_REGEX = /^@[a-zA-Z0-9_]{4,31}$/;
+const TG_REGEX = /^@[a-zA-Z0-9_-]{4,31}$/;
 const LS_KEY = 'access_request_sent';
 
 function validateTelegram(value: string): string {
   if (!value) return 'Введите ваш Telegram username';
   if (!value.startsWith('@')) return 'Username должен начинаться с @';
   if (!TG_REGEX.test(value))
-    return 'Формат: @username (5-32 символа, латиница, цифры, _)';
+    return 'Формат: @username (5-32 символа, латиница, цифры, _, -)';
   return '';
 }
 
@@ -44,9 +44,7 @@ export function AccessRequestForm() {
         } else if (axiosErr.response?.status === 429) {
           setError('Слишком много попыток. Повторите позже.');
         } else {
-          // API may not exist yet - show success anyway for graceful degradation
-          localStorage.setItem(LS_KEY, '1');
-          setSent(true);
+          setError('Ошибка отправки. Попробуйте позже.');
         }
       } finally {
         setLoading(false);
@@ -81,7 +79,7 @@ export function AccessRequestForm() {
                 Заявка отправлена!
               </h2>
               <p className="text-[15px] text-gray-400">
-                Мы свяжемся с вами в Telegram и отправим инвайт-код.
+                Мы свяжемся с вами в Telegram и отправим&nbsp;инвайт-код.
               </p>
             </div>
           ) : (

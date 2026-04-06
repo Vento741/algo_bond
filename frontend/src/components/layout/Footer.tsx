@@ -59,7 +59,7 @@ export function Footer() {
               Контакты
             </h4>
             <a
-              href="https://t.me/algobond"
+              href="https://t.me/web_dusha"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-400 transition-colors"

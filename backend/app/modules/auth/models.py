@@ -171,7 +171,7 @@ class AccessRequest(Base):
     )
     telegram: Mapped[str] = mapped_column(String(64), index=True)
     status: Mapped[AccessRequestStatus] = mapped_column(
-        Enum(AccessRequestStatus, name="access_request_status"),
+        Enum(AccessRequestStatus, name="access_request_status", values_callable=lambda e: [x.value for x in e]),
         default=AccessRequestStatus.PENDING,
     )
     generated_invite_code_id: Mapped[uuid.UUID | None] = mapped_column(
