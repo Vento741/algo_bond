@@ -466,22 +466,25 @@ async def _place_order(
                 if tp2_price:
                     trade_signal.indicators_snapshot["tp2_price"] = round(tp2_price, 6)
 
-                # Установить TP1 (Partial) + SL (Partial) единым вызовом
-                # Избегаем конфликта tpslMode: ордер без SL/TP, всё через Partial
+                # Bybit не позволяет Partial TP + Full SL в одном вызове.
+                # Два отдельных: сначала SL (Full), потом TP1 (Partial).
+                client.set_trading_stop(
+                    symbol=symbol,
+                    stop_loss=float(order_sl),
+                    tpsl_mode="Full",
+                )
                 client.set_trading_stop(
                     symbol=symbol,
                     take_profit=tp1_price,
-                    stop_loss=float(order_sl),
                     tpsl_mode="Partial",
                     tp_size=tp1_qty,
-                    sl_size=qty,  # SL на весь объём
                 )
                 await _log(db, bot.id, "info", f"Multi-TP1: {tp1_price:.4f} qty={tp1_qty} SL: {order_sl}", {
                     "tp1_pct": tp1_close_pct,
                 })
             except BybitAPIError as e:
-                # Fallback: установить хотя бы SL Full если Partial не сработал
-                logger.warning("Bot %s: multi-TP1 failed: %s, fallback to Full SL", bot.id, e.message)
+                # Fallback: установить хотя бы SL Full
+                logger.warning("Bot %s: multi-TP setup failed: %s, fallback to Full SL", bot.id, e.message)
                 try:
                     client.set_trading_stop(
                         symbol=symbol,
