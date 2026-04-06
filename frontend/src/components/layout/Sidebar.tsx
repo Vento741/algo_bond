@@ -126,7 +126,7 @@ export function Sidebar() {
 
       {/* Bottom */}
       <div className="px-4 py-4 border-t border-border">
-        <div className="text-xs text-gray-400/60 font-data tracking-wide">v0.8.0</div>
+        <div className="text-xs text-gray-400/60 font-data tracking-wide">v0.9.0</div>
       </div>
     </>
   );

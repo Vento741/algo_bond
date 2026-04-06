@@ -69,18 +69,6 @@ services:
       - db
     restart: always
 
-  flower:
-    build: ./backend
-    container_name: algobond-flower
-    command: celery -A app.celery_app flower --port=5555
-    ports:
-      - "5555:5555"
-    env_file:
-      - .env
-    depends_on:
-      - redis
-    restart: always
-
 volumes:
   pgdata:
   redis_data:

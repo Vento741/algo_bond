@@ -75,7 +75,7 @@ export function Footer() {
           <p className="text-xs text-gray-700">
             &copy; 2026 AlgoBond. Все права защищены.
             &nbsp;&nbsp;
-            <span className="font-data text-gray-700">v0.8.0</span>
+            <span className="font-data text-gray-700">v0.9.0</span>
           </p>
           <p className="text-[11px] text-gray-700 leading-[1.7] max-w-[640px] mx-auto mt-4">
             Торговля криптовалютными фьючерсами сопряжена с высоким риском
