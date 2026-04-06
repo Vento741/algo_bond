@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundException
 from app.core.security import decrypt_value
+from app.modules.auth.models import ExchangeAccount
 from app.modules.market.bybit_client import BybitClient
 from app.modules.trading.models import Bot, BotLog, BotMode, BotStatus, Order, Position, PositionStatus, TradeSignal
 from app.modules.trading.schemas import BotCreate
@@ -155,6 +156,41 @@ class TradingService:
             .offset(offset)
         )
         return list(result.scalars().all())
+
+    # === Balance ===
+
+    async def get_user_balance(self, user_id: uuid.UUID) -> dict | None:
+        """Получить баланс USDT с Bybit для активного live-аккаунта пользователя.
+
+        Ищет первый активный не-demo аккаунт. Если таких нет - первый активный demo.
+        Возвращает None если у пользователя нет привязанных аккаунтов.
+        """
+        result = await self.db.execute(
+            select(ExchangeAccount)
+            .where(
+                ExchangeAccount.user_id == user_id,
+                ExchangeAccount.is_active.is_(True),
+            )
+            .order_by(ExchangeAccount.is_testnet.asc())  # live первые
+        )
+        accounts = list(result.scalars().all())
+        if not accounts:
+            return None
+
+        account = accounts[0]
+        api_key = decrypt_value(account.api_key_encrypted)
+        api_secret = decrypt_value(account.api_secret_encrypted)
+        client = BybitClient(api_key=api_key, api_secret=api_secret, demo=account.is_testnet)
+
+        balance = await asyncio.to_thread(client.get_wallet_balance, "USDT")
+        return {
+            "equity": balance["equity"],
+            "available": balance["available"],
+            "unrealized_pnl": balance["unrealized_pnl"],
+            "wallet_balance": balance["wallet_balance"],
+            "is_demo": account.is_testnet,
+            "account_label": account.label,
+        }
 
     # === Reconciliation ===
 

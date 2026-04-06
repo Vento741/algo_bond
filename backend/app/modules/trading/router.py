@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Query
@@ -21,7 +22,31 @@ from app.modules.trading.schemas import (
 )
 from app.modules.trading.service import TradingService
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/trading", tags=["trading"])
+
+
+# === Balance ===
+
+
+@router.get("/balance")
+async def get_balance(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Получить баланс USDT с Bybit для текущего пользователя."""
+    service = TradingService(db)
+    try:
+        balance = await service.get_user_balance(user.id)
+    except Exception:
+        logger.exception("Ошибка получения баланса для user=%s", user.id)
+        return {"balance": None, "error": "Failed to fetch balance from exchange"}
+
+    if balance is None:
+        return {"balance": None, "error": "No exchange account linked"}
+
+    return {"balance": balance, "error": None}
 
 
 # === Bots ===

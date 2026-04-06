@@ -1,4 +1,10 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -26,6 +32,7 @@ import {
   Wifi,
   WifiOff,
   Target,
+  LineChart,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,6 +47,13 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
+import {
+  createChart,
+  type IChartApi,
+  ColorType,
+  LineStyle,
+  type Time,
+} from 'lightweight-charts';
 import api from '@/lib/api';
 import type {
   BotResponse,
@@ -922,6 +936,10 @@ export function BotDetail() {
           </TabsTrigger>
           <TabsTrigger value="orders">Ордера</TabsTrigger>
           <TabsTrigger value="positions">Позиции</TabsTrigger>
+          <TabsTrigger value="equity">
+            <LineChart className="mr-1.5 h-3.5 w-3.5" />
+            Equity
+          </TabsTrigger>
           <TabsTrigger value="logs">Логи</TabsTrigger>
         </TabsList>
 
@@ -1074,6 +1092,11 @@ export function BotDetail() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        {/* ---- Equity Curve Tab ---- */}
+        <TabsContent value="equity">
+          <EquityCurveTab positions={positions} loading={positionsLoading} />
         </TabsContent>
 
         {/* ---- Logs Tab ---- */}
@@ -1701,6 +1724,226 @@ function OrderStatusBadge({
   };
   const c = config[status];
   return <Badge variant={c.variant}>{c.label}</Badge>;
+}
+
+/* ---- Equity Curve Tab ---- */
+
+interface EquityDataPoint {
+  time: Time;
+  value: number;
+}
+
+function EquityCurveTab({
+  positions,
+  loading,
+}: {
+  positions: PositionResponse[];
+  loading: boolean;
+}) {
+  const equityData = useMemo<EquityDataPoint[]>(() => {
+    const closed = positions
+      .filter((p) => p.status === 'closed' && p.closed_at && p.realized_pnl != null)
+      .sort(
+        (a, b) =>
+          new Date(a.closed_at!).getTime() - new Date(b.closed_at!).getTime(),
+      );
+
+    if (closed.length === 0) return [];
+
+    let cumulative = 0;
+    const points: EquityDataPoint[] = [
+      {
+        time: (Math.floor(new Date(closed[0].closed_at!).getTime() / 1000) - 1) as Time,
+        value: 0,
+      },
+    ];
+
+    for (const p of closed) {
+      cumulative += Number(p.realized_pnl);
+      points.push({
+        time: Math.floor(new Date(p.closed_at!).getTime() / 1000) as Time,
+        value: +cumulative.toFixed(2),
+      });
+    }
+
+    return points;
+  }, [positions]);
+
+  const tradeCount = equityData.length - 1;
+  const totalPnl = equityData.length > 0 ? equityData[equityData.length - 1].value : 0;
+  const avgPnl = tradeCount > 0 ? totalPnl / tradeCount : 0;
+  const isPositive = totalPnl >= 0;
+
+  if (loading) {
+    return (
+      <Card className="border-white/5 bg-white/[0.02]">
+        <CardContent className="py-8">
+          <Skeleton className="h-[350px] w-full rounded-lg" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (equityData.length === 0) {
+    return <EmptyState message="Нет закрытых сделок" />;
+  }
+
+  return (
+    <Card className="border-white/5 bg-white/[0.02] overflow-hidden">
+      <CardContent className="pt-5 pb-4 px-4">
+        {/* Header with total PnL */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <LineChart className="h-4 w-4 text-gray-400" />
+            <span className="text-sm text-gray-400">Кривая доходности</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {isPositive ? (
+              <TrendingUp className="h-4 w-4 text-brand-profit" />
+            ) : (
+              <TrendingDown className="h-4 w-4 text-brand-loss" />
+            )}
+            <span
+              className={`font-mono text-lg font-semibold ${
+                isPositive ? 'text-brand-profit' : 'text-brand-loss'
+              }`}
+            >
+              {formatPnl(totalPnl)}
+            </span>
+            <span className="text-xs text-gray-500">USDT</span>
+          </div>
+        </div>
+
+        {/* Chart */}
+        <BotEquityChart data={equityData} />
+
+        {/* Footer stats */}
+        <div className="flex items-center gap-6 mt-4 pt-3 border-t border-white/5">
+          <div className="flex items-center gap-1.5">
+            <Hash className="h-3 w-3 text-gray-500" />
+            <span className="text-xs text-gray-500">Сделок:</span>
+            <span className="text-xs font-mono text-gray-300">
+              {tradeCount}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <BarChart3 className="h-3 w-3 text-gray-500" />
+            <span className="text-xs text-gray-500">Средняя:</span>
+            <span
+              className={`text-xs font-mono ${
+                avgPnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'
+              }`}
+            >
+              {formatPnl(avgPnl)}
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function BotEquityChart({ data }: { data: EquityDataPoint[] }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+
+  const lastValue = data.length > 0 ? data[data.length - 1].value : 0;
+  const isPositive = lastValue >= 0;
+
+  const initChart = useCallback(() => {
+    if (!containerRef.current || data.length === 0) return;
+
+    // Cleanup previous chart
+    if (chartRef.current) {
+      chartRef.current.remove();
+      chartRef.current = null;
+    }
+
+    const chart = createChart(containerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: '#555',
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 11,
+      },
+      grid: {
+        vertLines: { color: 'rgba(255,255,255,0.03)' },
+        horzLines: { color: 'rgba(255,255,255,0.03)' },
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(255,255,255,0.06)',
+      },
+      timeScale: {
+        borderColor: 'rgba(255,255,255,0.06)',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      crosshair: {
+        vertLine: {
+          color: 'rgba(255,255,255,0.1)',
+          labelBackgroundColor: '#1a1a2e',
+        },
+        horzLine: {
+          color: 'rgba(255,255,255,0.1)',
+          labelBackgroundColor: '#1a1a2e',
+        },
+      },
+      height: 350,
+    });
+    chartRef.current = chart;
+
+    // Line color based on final PnL sign
+    const lineColor = isPositive ? '#00E676' : '#FF1744';
+    const topColor = isPositive
+      ? 'rgba(0,230,118,0.12)'
+      : 'rgba(255,23,68,0.12)';
+    const bottomColor = isPositive
+      ? 'rgba(0,230,118,0.0)'
+      : 'rgba(255,23,68,0.0)';
+
+    const areaSeries = chart.addAreaSeries({
+      lineColor,
+      topColor,
+      bottomColor,
+      lineWidth: 2,
+      crosshairMarkerRadius: 4,
+      crosshairMarkerBorderColor: lineColor,
+      crosshairMarkerBackgroundColor: '#0d0d1a',
+    });
+
+    areaSeries.setData(data);
+
+    // Zero baseline
+    areaSeries.createPriceLine({
+      price: 0,
+      color: 'rgba(255,255,255,0.08)',
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      axisLabelVisible: false,
+    });
+
+    chart.timeScale().fitContent();
+
+    // Resize observer
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        chart.applyOptions({ width: entry.contentRect.width });
+      }
+    });
+    ro.observe(containerRef.current);
+
+    return () => {
+      ro.disconnect();
+      chart.remove();
+    };
+  }, [data, isPositive]);
+
+  useEffect(() => {
+    const cleanup = initChart();
+    return () => cleanup?.();
+  }, [initChart]);
+
+  return <div ref={containerRef} className="w-full" style={{ minHeight: 350 }} />;
 }
 
 function EmptyState({ message }: { message: string }) {
