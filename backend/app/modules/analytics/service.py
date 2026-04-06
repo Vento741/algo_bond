@@ -1,8 +1,12 @@
 """Бизнес-логика модуля аналитики."""
 
 import hashlib
+import httpx
+import logging
 import re
 import uuid
+
+logger = logging.getLogger(__name__)
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -42,6 +46,24 @@ FUNNEL_STEPS = [
     ("login", "Вход"),
     ("bot_started", "Запуск бота"),
 ]
+
+
+async def lookup_geo(ip: str) -> dict[str, str | None]:
+    """Определение страны и города по IP через ip-api.com (бесплатный, без ключа)."""
+    if not ip or ip in ("127.0.0.1", "0.0.0.0", "::1") or ip.startswith("172.") or ip.startswith("10.") or ip.startswith("192.168."):
+        return {"country": None, "city": None}
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            resp = await client.get(f"http://ip-api.com/json/{ip}?fields=countryCode,city")
+            if resp.status_code == 200:
+                data = resp.json()
+                return {
+                    "country": data.get("countryCode"),
+                    "city": data.get("city"),
+                }
+    except Exception:
+        logger.debug("GeoIP lookup failed for %s", ip)
+    return {"country": None, "city": None}
 
 
 def parse_user_agent(ua: str) -> dict[str, str]:
@@ -115,6 +137,9 @@ class AnalyticsService:
             # Парсинг UA
             ua_info = parse_user_agent(user_agent)
 
+            # GeoIP
+            geo = await lookup_geo(ip)
+
             # Определить user_id если передан
             user_id = None
             if batch.user_id:
@@ -127,6 +152,8 @@ class AnalyticsService:
                 fingerprint=fingerprint,
                 user_id=user_id,
                 ip=ip,
+                country=geo["country"],
+                city=geo["city"],
                 browser=ua_info["browser"],
                 browser_version=ua_info["browser_version"],
                 os=ua_info["os"],
