@@ -88,7 +88,8 @@ async def _check_new_candle(
         prev = await redis.get(key)
         current = str(int(last_candle_timestamp))
 
-        if prev == current:
+        # redis.get() возвращает bytes - декодируем для сравнения
+        if prev is not None and prev.decode("utf-8") == current:
             return False
 
         ttl = 2 * _timeframe_to_seconds(timeframe)
@@ -701,6 +702,9 @@ async def _place_order(
                     tpsl_mode="Partial",
                     tp_size=tp1_qty,
                 )
+                # Обновить TP в позиции для корректного отображения
+                position.take_profit = Decimal(str(round(tp1_price, 6)))
+
                 await _log(db, bot.id, "info", f"Multi-TP1: {tp1_price:.4f} qty={tp1_qty} SL: {order_sl}", {
                     "tp1_pct": tp1_close_pct,
                 })
