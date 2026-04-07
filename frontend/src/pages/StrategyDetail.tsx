@@ -106,6 +106,7 @@ interface BacktestConfig {
 interface LiveConfig {
   order_size: number;
   leverage: number;
+  on_reverse: string;
 }
 
 interface FullStrategyConfig {
@@ -185,6 +186,7 @@ const DEFAULT_CONFIG: FullStrategyConfig = {
   live: {
     order_size: 30,
     leverage: 1,
+    on_reverse: 'ignore',
   },
 };
 
@@ -200,6 +202,12 @@ const TIMEFRAMES = [
 const RIBBON_TYPES = [
   { value: 'EMA', label: 'EMA' },
   { value: 'SMA', label: 'SMA' },
+];
+
+const ON_REVERSE_OPTIONS = [
+  { value: 'ignore', label: 'Игнорировать (текущее поведение)' },
+  { value: 'close', label: 'Закрыть позицию' },
+  { value: 'reverse', label: 'Развернуть позицию' },
 ];
 
 /* ================================================================
@@ -894,6 +902,14 @@ function ConfigEditorDialog({
                 min={1}
                 max={100}
                 suffix="×"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-gray-400">При обратном сигнале</Label>
+              <Select
+                options={ON_REVERSE_OPTIONS}
+                value={config.live.on_reverse}
+                onChange={(v) => updateSection('live', { on_reverse: v })}
               />
             </div>
           </CollapsibleSection>

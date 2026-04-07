@@ -1,7 +1,7 @@
-"""Тесты bot_worker — unit tests с мокированием."""
+"""Тесты bot_worker -- unit tests с мокированием."""
 
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 import pytest
@@ -45,6 +45,24 @@ def _make_flat_arrays(count: int = MIN_CANDLES) -> dict:
         "volume": np.full(count, 1000.0),
         "timestamps": np.arange(count, dtype=np.float64) * 60000,
     }
+
+
+def _patch_new_candle():
+    """Мок _check_new_candle -> True (всегда новая свеча)."""
+    return patch(
+        "app.modules.trading.bot_worker._check_new_candle",
+        new_callable=AsyncMock,
+        return_value=True,
+    )
+
+
+def _patch_no_new_candle():
+    """Мок _check_new_candle -> False (нет новой свечи)."""
+    return patch(
+        "app.modules.trading.bot_worker._check_new_candle",
+        new_callable=AsyncMock,
+        return_value=False,
+    )
 
 
 @pytest_asyncio.fixture
@@ -100,7 +118,7 @@ async def bot_with_deps(db_session: AsyncSession, test_user: User) -> Bot:
 
 @pytest.mark.asyncio
 async def test_bot_cycle_not_found() -> None:
-    """Несуществующий бот — error."""
+    """Несуществующий бот -- error."""
     result = await run_bot_cycle(uuid.uuid4(), session_factory=test_session)
     assert result["status"] == "error"
     assert "not found" in result["message"].lower()
@@ -110,7 +128,7 @@ async def test_bot_cycle_not_found() -> None:
 async def test_bot_cycle_stopped(
     bot_with_deps: Bot, db_session: AsyncSession
 ) -> None:
-    """Остановленный бот — skip."""
+    """Остановленный бот -- skip."""
     bot_with_deps.status = BotStatus.STOPPED
     await db_session.commit()
 
@@ -122,7 +140,7 @@ async def test_bot_cycle_stopped(
 async def test_bot_cycle_error_status(
     bot_with_deps: Bot, db_session: AsyncSession
 ) -> None:
-    """Бот в статусе error — skip."""
+    """Бот в статусе error -- skip."""
     bot_with_deps.status = BotStatus.ERROR
     await db_session.commit()
 
@@ -132,7 +150,7 @@ async def test_bot_cycle_error_status(
 
 @pytest.mark.asyncio
 async def test_bot_cycle_not_enough_candles(bot_with_deps: Bot) -> None:
-    """Недостаточно свечей — error."""
+    """Недостаточно свечей -- error."""
     with patch("app.modules.trading.bot_worker._create_client") as mock_create:
         mock_client = MagicMock()
         mock_create.return_value = mock_client
@@ -149,10 +167,11 @@ async def test_bot_cycle_not_enough_candles(bot_with_deps: Bot) -> None:
 
 @pytest.mark.asyncio
 async def test_bot_cycle_no_signal(bot_with_deps: Bot) -> None:
-    """Стратегия не генерирует сигнал — no_signal."""
+    """Стратегия не генерирует сигнал -- no_signal."""
     with (
         patch("app.modules.trading.bot_worker._create_client") as mock_create,
         patch("app.modules.trading.bot_worker.get_engine") as mock_engine,
+        _patch_new_candle(),
     ):
         mock_client = MagicMock()
         mock_create.return_value = mock_client
@@ -179,10 +198,11 @@ async def test_bot_cycle_no_signal(bot_with_deps: Bot) -> None:
 
 @pytest.mark.asyncio
 async def test_bot_cycle_old_signal(bot_with_deps: Bot) -> None:
-    """Сигнал слишком старый — no_signal."""
+    """Сигнал слишком старый -- no_signal."""
     with (
         patch("app.modules.trading.bot_worker._create_client") as mock_create,
         patch("app.modules.trading.bot_worker.get_engine") as mock_engine,
+        _patch_new_candle(),
     ):
         mock_client = MagicMock()
         mock_create.return_value = mock_client
@@ -219,12 +239,13 @@ async def test_bot_cycle_old_signal(bot_with_deps: Bot) -> None:
 
 @pytest.mark.asyncio
 async def test_bot_cycle_fresh_signal_places_order(bot_with_deps: Bot) -> None:
-    """Свежий сигнал → ордер размещён на Bybit."""
+    """Свежий сигнал -> ордер размещен на Bybit."""
     from app.modules.market.bybit_client import SymbolInfo, Ticker
 
     with (
         patch("app.modules.trading.bot_worker._create_client") as mock_create,
         patch("app.modules.trading.bot_worker.get_engine") as mock_engine,
+        _patch_new_candle(),
     ):
         mock_client = MagicMock()
         mock_create.return_value = mock_client
@@ -310,12 +331,13 @@ async def test_bot_cycle_fresh_signal_places_order(bot_with_deps: Bot) -> None:
 
 @pytest.mark.asyncio
 async def test_bot_cycle_short_signal(bot_with_deps: Bot) -> None:
-    """Short-сигнал → Sell ордер."""
+    """Short-сигнал -> Sell ордер."""
     from app.modules.market.bybit_client import SymbolInfo, Ticker
 
     with (
         patch("app.modules.trading.bot_worker._create_client") as mock_create,
         patch("app.modules.trading.bot_worker.get_engine") as mock_engine,
+        _patch_new_candle(),
     ):
         mock_client = MagicMock()
         mock_create.return_value = mock_client
@@ -380,6 +402,7 @@ async def test_bot_cycle_bybit_api_error(bot_with_deps: Bot) -> None:
     with (
         patch("app.modules.trading.bot_worker._create_client") as mock_create,
         patch("app.modules.trading.bot_worker.get_engine") as mock_engine,
+        _patch_new_candle(),
     ):
         mock_client = MagicMock()
         mock_create.return_value = mock_client
@@ -439,12 +462,13 @@ async def test_bot_cycle_bybit_api_error(bot_with_deps: Bot) -> None:
 
 @pytest.mark.asyncio
 async def test_bot_cycle_qty_too_small(bot_with_deps: Bot) -> None:
-    """Размер позиции меньше минимума — error."""
+    """Размер позиции меньше минимума -- error."""
     from app.modules.market.bybit_client import SymbolInfo, Ticker
 
     with (
         patch("app.modules.trading.bot_worker._create_client") as mock_create,
         patch("app.modules.trading.bot_worker.get_engine") as mock_engine,
+        _patch_new_candle(),
     ):
         mock_client = MagicMock()
         mock_create.return_value = mock_client
@@ -470,7 +494,7 @@ async def test_bot_cycle_qty_too_small(bot_with_deps: Bot) -> None:
         )
         mock_engine.return_value = engine_instance
 
-        # Очень маленький баланс → qty < min_qty
+        # Очень маленький баланс -> qty < min_qty
         mock_client.get_wallet_balance.return_value = {
             "coin": "USDT", "available": 0.01,
             "wallet_balance": 0.01, "equity": 0.01,
@@ -496,3 +520,298 @@ async def test_bot_cycle_qty_too_small(bot_with_deps: Bot) -> None:
 
     assert result["status"] == "error"
     assert "qty too small" in result["message"].lower()
+
+
+# === Smart Cycle Tests ===
+
+
+@pytest.mark.asyncio
+async def test_smart_skip_no_new_candle_no_position(bot_with_deps: Bot) -> None:
+    """Нет новой свечи и нет позиции -- тихий skip без лога."""
+    with (
+        patch("app.modules.trading.bot_worker._create_client") as mock_create,
+        _patch_no_new_candle(),
+    ):
+        mock_client = MagicMock()
+        mock_create.return_value = mock_client
+        mock_client.get_klines.return_value = _make_flat_candles()
+
+        result = await run_bot_cycle(
+            bot_with_deps.id, session_factory=test_session
+        )
+
+    assert result["status"] == "skipped"
+    assert "no new candle" in result["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_smart_skip_no_new_candle_with_position(
+    bot_with_deps: Bot, db_session: AsyncSession,
+) -> None:
+    """Нет новой свечи, но есть позиция -- manage only."""
+    from app.modules.trading.models import Position, PositionSide, PositionStatus
+
+    # Создать открытую позицию
+    position = Position(
+        bot_id=bot_with_deps.id, symbol="BTCUSDT",
+        side=PositionSide.LONG, entry_price=100.0,
+        quantity=1.0, stop_loss=95.0, take_profit=110.0,
+        unrealized_pnl=0, status=PositionStatus.OPEN,
+    )
+    db_session.add(position)
+    await db_session.commit()
+
+    with (
+        patch("app.modules.trading.bot_worker._create_client") as mock_create,
+        _patch_no_new_candle(),
+        patch("app.modules.trading.bot_worker._sync_positions", new_callable=AsyncMock) as mock_sync,
+        patch("app.modules.trading.bot_worker._manage_position", new_callable=AsyncMock) as mock_manage,
+    ):
+        mock_client = MagicMock()
+        mock_create.return_value = mock_client
+        mock_client.get_klines.return_value = _make_flat_candles()
+
+        result = await run_bot_cycle(
+            bot_with_deps.id, session_factory=test_session
+        )
+
+    assert result["status"] == "managing"
+    assert "no new candle" in result["message"].lower()
+    mock_manage.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_timeframe_to_seconds() -> None:
+    """Проверка конвертации таймфрейма в секунды."""
+    from app.modules.trading.bot_worker import _timeframe_to_seconds
+
+    assert _timeframe_to_seconds("5") == 300
+    assert _timeframe_to_seconds("15") == 900
+    assert _timeframe_to_seconds("60") == 3600
+    assert _timeframe_to_seconds("240") == 14400
+    assert _timeframe_to_seconds("D") == 86400
+
+
+# === Reverse Signal Tests ===
+
+
+def _make_strategy_result(direction: str, bar_index: int = MIN_CANDLES - 1) -> StrategyResult:
+    """Создать StrategyResult с одним сигналом."""
+    signal = Signal(
+        bar_index=bar_index,
+        direction=direction,
+        entry_price=100.0,
+        stop_loss=95.0 if direction == "long" else 105.0,
+        take_profit=110.0 if direction == "long" else 90.0,
+        confluence_score=5.0,
+        signal_type="trend",
+    )
+    return StrategyResult(
+        signals=[signal],
+        confluence_scores_long=np.full(MIN_CANDLES, 0.8),
+        confluence_scores_short=np.full(MIN_CANDLES, 0.2),
+        knn_scores=np.full(MIN_CANDLES, 0.9),
+        knn_classes=np.ones(MIN_CANDLES),
+    )
+
+
+@pytest.mark.asyncio
+async def test_reverse_signal_ignore(
+    bot_with_deps: Bot, db_session: AsyncSession,
+) -> None:
+    """on_reverse=ignore: обратный сигнал логируется, позиция остается."""
+    from app.modules.trading.models import Position, PositionSide, PositionStatus
+
+    position = Position(
+        bot_id=bot_with_deps.id, symbol="BTCUSDT",
+        side=PositionSide.LONG, entry_price=100.0,
+        quantity=1.0, stop_loss=95.0, take_profit=110.0,
+        unrealized_pnl=0, status=PositionStatus.OPEN,
+    )
+    db_session.add(position)
+    await db_session.commit()
+
+    with (
+        patch("app.modules.trading.bot_worker._create_client") as mock_create,
+        patch("app.modules.trading.bot_worker.get_engine") as mock_engine,
+        _patch_new_candle(),
+        patch("app.modules.trading.bot_worker._sync_positions", new_callable=AsyncMock),
+        patch("app.modules.trading.bot_worker._manage_position", new_callable=AsyncMock) as mock_manage,
+    ):
+        mock_client = MagicMock()
+        mock_create.return_value = mock_client
+        mock_client.get_klines.return_value = _make_flat_candles()
+        mock_client.klines_to_arrays.return_value = _make_flat_arrays()
+
+        # SHORT сигнал при LONG позиции, on_reverse=ignore (default)
+        mock_engine.return_value = MagicMock(
+            generate_signals=MagicMock(return_value=_make_strategy_result("short")),
+        )
+
+        result = await run_bot_cycle(
+            bot_with_deps.id, session_factory=test_session,
+        )
+
+    assert result["status"] == "managing"
+    assert "ignore" in result["message"].lower()
+    mock_manage.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_reverse_signal_close(
+    bot_with_deps: Bot, db_session: AsyncSession,
+) -> None:
+    """on_reverse=close: закрыть позицию, не открывать новую."""
+    from app.modules.trading.models import Position, PositionSide, PositionStatus
+
+    # Конфиг с on_reverse=close
+    sc = bot_with_deps.strategy_config
+    await db_session.refresh(sc)
+    sc.config = {"live": {"order_size": 30, "leverage": 1, "on_reverse": "close"}}
+    await db_session.commit()
+
+    position = Position(
+        bot_id=bot_with_deps.id, symbol="BTCUSDT",
+        side=PositionSide.LONG, entry_price=100.0,
+        quantity=1.0, stop_loss=95.0, take_profit=110.0,
+        unrealized_pnl=0, status=PositionStatus.OPEN,
+    )
+    db_session.add(position)
+    await db_session.commit()
+
+    with (
+        patch("app.modules.trading.bot_worker._create_client") as mock_create,
+        patch("app.modules.trading.bot_worker.get_engine") as mock_engine,
+        _patch_new_candle(),
+        patch("app.modules.trading.bot_worker._sync_positions", new_callable=AsyncMock),
+    ):
+        mock_client = MagicMock()
+        mock_create.return_value = mock_client
+        mock_client.get_klines.return_value = _make_flat_candles()
+        mock_client.klines_to_arrays.return_value = _make_flat_arrays()
+        mock_client.place_order.return_value = {"orderId": "close-order-789"}
+
+        mock_engine.return_value = MagicMock(
+            generate_signals=MagicMock(return_value=_make_strategy_result("short")),
+        )
+
+        result = await run_bot_cycle(
+            bot_with_deps.id, session_factory=test_session,
+        )
+
+    assert result["status"] == "closed"
+    # place_order вызван для закрытия (Sell для LONG позиции)
+    mock_client.place_order.assert_called_once()
+    call_kwargs = mock_client.place_order.call_args
+    assert call_kwargs.kwargs["side"] == "Sell"
+
+
+@pytest.mark.asyncio
+async def test_reverse_signal_reverse(
+    bot_with_deps: Bot, db_session: AsyncSession,
+) -> None:
+    """on_reverse=reverse: закрыть + открыть в обратном направлении."""
+    from app.modules.market.bybit_client import SymbolInfo, Ticker
+    from app.modules.trading.models import Position, PositionSide, PositionStatus
+
+    # Конфиг с on_reverse=reverse
+    sc = bot_with_deps.strategy_config
+    await db_session.refresh(sc)
+    sc.config = {"live": {"order_size": 30, "leverage": 1, "on_reverse": "reverse"}}
+    await db_session.commit()
+
+    position = Position(
+        bot_id=bot_with_deps.id, symbol="BTCUSDT",
+        side=PositionSide.LONG, entry_price=100.0,
+        quantity=1.0, stop_loss=95.0, take_profit=110.0,
+        unrealized_pnl=0, status=PositionStatus.OPEN,
+    )
+    db_session.add(position)
+    await db_session.commit()
+
+    with (
+        patch("app.modules.trading.bot_worker._create_client") as mock_create,
+        patch("app.modules.trading.bot_worker.get_engine") as mock_engine,
+        _patch_new_candle(),
+        patch("app.modules.trading.bot_worker._sync_positions", new_callable=AsyncMock),
+    ):
+        mock_client = MagicMock()
+        mock_create.return_value = mock_client
+        mock_client.get_klines.return_value = _make_flat_candles()
+        mock_client.klines_to_arrays.return_value = _make_flat_arrays()
+
+        # place_order вызовется дважды: close + open
+        mock_client.place_order.return_value = {"orderId": "test-order"}
+        mock_client.get_wallet_balance.return_value = {
+            "coin": "USDT", "available": 1000.0,
+            "wallet_balance": 1000.0, "equity": 1000.0,
+            "unrealized_pnl": 0.0,
+        }
+        mock_client.get_symbol_info.return_value = SymbolInfo(
+            symbol="BTCUSDT", tick_size=0.01, qty_step=0.001,
+            min_qty=0.001, max_qty=100.0, min_notional=5.0,
+            max_leverage=100.0,
+        )
+        mock_client.get_ticker.return_value = Ticker(
+            symbol="BTCUSDT", last_price=100.0, mark_price=100.0,
+            index_price=100.0, volume_24h=1000000.0,
+            turnover_24h=100000000.0, high_24h=105.0,
+            low_24h=95.0, funding_rate=0.0001,
+            open_interest=50000.0, bid1_price=99.99,
+            ask1_price=100.01,
+        )
+
+        mock_engine.return_value = MagicMock(
+            generate_signals=MagicMock(return_value=_make_strategy_result("short")),
+        )
+
+        result = await run_bot_cycle(
+            bot_with_deps.id, session_factory=test_session,
+        )
+
+    # Reverse: close + open
+    assert result["status"] == "ok"
+    assert result["order"]["side"] == "Sell"  # SHORT
+    # place_order вызван минимум 2 раза (close + open)
+    assert mock_client.place_order.call_count >= 2
+
+
+@pytest.mark.asyncio
+async def test_same_direction_signal_no_reverse(
+    bot_with_deps: Bot, db_session: AsyncSession,
+) -> None:
+    """Сигнал в том же направлении что позиция - не реверс, обычный manage."""
+    from app.modules.trading.models import Position, PositionSide, PositionStatus
+
+    position = Position(
+        bot_id=bot_with_deps.id, symbol="BTCUSDT",
+        side=PositionSide.LONG, entry_price=100.0,
+        quantity=1.0, stop_loss=95.0, take_profit=110.0,
+        unrealized_pnl=0, status=PositionStatus.OPEN,
+    )
+    db_session.add(position)
+    await db_session.commit()
+
+    with (
+        patch("app.modules.trading.bot_worker._create_client") as mock_create,
+        patch("app.modules.trading.bot_worker.get_engine") as mock_engine,
+        _patch_new_candle(),
+        patch("app.modules.trading.bot_worker._sync_positions", new_callable=AsyncMock),
+        patch("app.modules.trading.bot_worker._manage_position", new_callable=AsyncMock) as mock_manage,
+    ):
+        mock_client = MagicMock()
+        mock_create.return_value = mock_client
+        mock_client.get_klines.return_value = _make_flat_candles()
+        mock_client.klines_to_arrays.return_value = _make_flat_arrays()
+
+        # LONG сигнал при LONG позиции - не реверс
+        mock_engine.return_value = MagicMock(
+            generate_signals=MagicMock(return_value=_make_strategy_result("long")),
+        )
+
+        result = await run_bot_cycle(
+            bot_with_deps.id, session_factory=test_session,
+        )
+
+    assert result["status"] == "managing"
+    mock_manage.assert_called_once()

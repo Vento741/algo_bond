@@ -24,7 +24,7 @@ celery.conf.update(
 celery.conf.beat_schedule = {
     "run-active-bots": {
         "task": "trading.run_active_bots",
-        "schedule": 300.0,  # каждые 5 минут
+        "schedule": 60.0,  # каждую минуту (smart skip внутри bot_worker)
     },
     "sync-trading-pairs": {
         "task": "market.sync_trading_pairs",

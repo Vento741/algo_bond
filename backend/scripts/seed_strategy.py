@@ -110,6 +110,7 @@ STRATEGIES = [
             "live": {
                 "order_size": 30,
                 "leverage": 1,
+                "on_reverse": "ignore",
             },
         },
     },
@@ -173,6 +174,7 @@ STRATEGIES = [
             "live": {
                 "order_size": 30,
                 "leverage": 1,
+                "on_reverse": "ignore",
             },
         },
     },
