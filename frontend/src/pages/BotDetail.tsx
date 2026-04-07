@@ -14,7 +14,6 @@ import {
   TrendingUp,
   TrendingDown,
   Activity,
-  Clock,
   ChevronDown,
   ChevronUp,
   RefreshCw,
@@ -27,8 +26,6 @@ import {
   AlertCircle,
   Hash,
   BarChart3,
-  Crosshair,
-  ArrowDownRight,
   Wifi,
   WifiOff,
   Target,
@@ -776,151 +773,95 @@ export function BotDetail() {
         </div>
       </div>
 
-      {/* ---- Stats Grid (6 cards: 3 cols x 2 rows) ---- */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        {/* 1. Total P&L */}
-        <Card className="border-white/5 bg-white/[0.02]">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              {Number(bot.total_pnl) >= 0 ? (
-                <TrendingUp className="h-4 w-4 text-brand-profit" />
+      {/* ---- Stats Strip ---- */}
+      <Card className="border-white/5 bg-white/[0.02]">
+        <CardContent className="px-5 py-3">
+          <div className="flex items-center justify-between gap-6">
+            {/* P&L */}
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <div className={`w-1.5 h-1.5 rounded-full ${Number(bot.total_pnl) >= 0 ? 'bg-brand-profit' : 'bg-brand-loss'} animate-pulse`} />
+                <span className="text-[10px] text-gray-500 uppercase tracking-wider">P&L</span>
+              </div>
+              <span className={`text-lg font-bold font-mono ${Number(bot.total_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+                {formatPnl(bot.total_pnl)}
+              </span>
+              <span className="text-[10px] font-mono text-gray-600">| пик: {formatPnl(bot.max_pnl)}</span>
+            </div>
+
+            <div className="w-px h-8 bg-white/5" />
+
+            {/* Unrealized P&L */}
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-brand-accent" />
+                <span className="text-[10px] text-gray-500 uppercase tracking-wider">Unrealized</span>
+              </div>
+              {openPosition ? (
+                <>
+                  <span className={`text-lg font-bold font-mono ${Number(openPosition.unrealized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+                    {formatPnl(openPosition.unrealized_pnl)}
+                  </span>
+                  <div className="flex gap-2 text-[10px] font-mono">
+                    <span className="text-brand-profit/50">{formatPnl(openPosition.max_pnl)}</span>
+                    <span className="text-brand-loss/50">{formatPnl(openPosition.min_pnl)}</span>
+                  </div>
+                </>
               ) : (
-                <TrendingDown className="h-4 w-4 text-brand-loss" />
+                <span className="text-lg font-bold font-mono text-gray-600">--</span>
               )}
-              <p className="text-xs text-gray-400 uppercase tracking-wider">
-                P&L
-              </p>
             </div>
-            <p
-              className={`text-2xl font-bold font-mono ${
-                Number(bot.total_pnl) >= 0
-                  ? 'text-brand-profit'
-                  : 'text-brand-loss'
-              }`}
-            >
-              {formatPnl(bot.total_pnl)}
-            </p>
-            <p className="text-[10px] text-gray-600 font-mono mt-1">
-              пик: {formatPnl(bot.max_pnl)}
-            </p>
-          </CardContent>
-        </Card>
 
-        {/* 2. Unrealized P&L (from open position) */}
-        <Card className="border-white/5 bg-white/[0.02]">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Crosshair className="h-4 w-4 text-brand-accent" />
-              <p className="text-xs text-gray-400 uppercase tracking-wider">
-                Нереализ. P&L
-              </p>
-            </div>
-            {openPosition ? (
-              <>
-                <p
-                  className={`text-2xl font-bold font-mono ${
-                    Number(openPosition.unrealized_pnl) >= 0
-                      ? 'text-brand-profit'
-                      : 'text-brand-loss'
-                  }`}
-                >
-                  {formatPnl(openPosition.unrealized_pnl)}
-                </p>
-                <p className="text-[10px] text-gray-600 font-mono mt-1">
-                  <span className="text-brand-profit/60">
-                    max {formatPnl(openPosition.max_pnl)}
-                  </span>
-                  {' / '}
-                  <span className="text-brand-loss/60">
-                    min {formatPnl(openPosition.min_pnl)}
-                  </span>
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-2xl font-bold font-mono text-gray-600">
-                  —
-                </p>
-                <p className="text-[10px] text-gray-600 mt-1">
-                  нет открытых позиций
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+            <div className="w-px h-8 bg-white/5" />
 
-        {/* 3. Win Rate */}
-        <Card className="border-white/5 bg-white/[0.02]">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <BarChart3 className="h-4 w-4 text-brand-premium" />
-              <p className="text-xs text-gray-400 uppercase tracking-wider">
-                Win Rate
-              </p>
+            {/* Win Rate + mini bar */}
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider">Win</span>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold font-mono text-white">
+                  {Number(bot.win_rate).toFixed(1)}%
+                </span>
+                <div className="w-16 h-1 rounded-full bg-white/5 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-brand-premium transition-all duration-500"
+                    style={{ width: `${Math.min(Number(bot.win_rate), 100)}%` }}
+                  />
+                </div>
+              </div>
             </div>
-            <p className="text-2xl font-bold font-mono text-white">
-              {Number(bot.win_rate).toFixed(1)}%
-            </p>
-            <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-brand-premium transition-all duration-500"
-                style={{
-                  width: `${Math.min(Number(bot.win_rate), 100)}%`,
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* 4. Total Trades */}
-        <Card className="border-white/5 bg-white/[0.02]">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Hash className="h-4 w-4 text-brand-accent" />
-              <p className="text-xs text-gray-400 uppercase tracking-wider">
-                Сделки
-              </p>
-            </div>
-            <p className="text-2xl font-bold font-mono text-white">
-              {bot.total_trades}
-            </p>
-          </CardContent>
-        </Card>
+            <div className="w-px h-8 bg-white/5" />
 
-        {/* 5. Max Drawdown */}
-        <Card className="border-white/5 bg-white/[0.02]">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <ArrowDownRight className="h-4 w-4 text-brand-loss" />
-              <p className="text-xs text-gray-400 uppercase tracking-wider">
-                Макс. просадка
-              </p>
+            {/* Trades */}
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider">Trades</span>
+              <span className="text-lg font-bold font-mono text-white">{bot.total_trades}</span>
             </div>
-            <p className="text-2xl font-bold font-mono text-brand-loss">
-              {Number(bot.max_drawdown) !== 0
-                ? `-$${Math.abs(Number(bot.max_drawdown)).toFixed(2)}`
-                : '$0.00'}
-            </p>
-          </CardContent>
-        </Card>
 
-        {/* 6. Uptime */}
-        <Card className="border-white/5 bg-white/[0.02]">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Clock className="h-4 w-4 text-gray-400" />
-              <p className="text-xs text-gray-400 uppercase tracking-wider">
-                Аптайм
-              </p>
+            <div className="w-px h-8 bg-white/5" />
+
+            {/* Drawdown */}
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider">DD</span>
+              <span className="text-lg font-bold font-mono text-brand-loss">
+                {Number(bot.max_drawdown) !== 0
+                  ? `-$${Math.abs(Number(bot.max_drawdown)).toFixed(2)}`
+                  : '$0.00'}
+              </span>
             </div>
-            <p className="text-2xl font-bold font-mono text-white">
-              {bot.status === 'running'
-                ? formatUptime(bot.started_at)
-                : 'Остановлен'}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+
+            <div className="w-px h-8 bg-white/5" />
+
+            {/* Uptime */}
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider">Uptime</span>
+              <span className="text-lg font-bold font-mono text-white">
+                {bot.status === 'running' ? formatUptime(bot.started_at) : 'Stopped'}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ---- Live Position Card ---- */}
       {openPosition && (
@@ -1420,6 +1361,46 @@ function PositionExpandableCard({ position: p }: { position: PositionResponse })
   );
 }
 
+/** Sine wave fill for SL-TP bar */
+function SineWaveFill({ fillLeft, fillWidth, isProfit }: { fillLeft: number; fillWidth: number; isProfit: boolean }) {
+  const color = isProfit ? '#00E676' : '#FF1744';
+  if (fillWidth < 0.5) return null;
+
+  return (
+    <div
+      className="absolute inset-y-0 overflow-hidden z-[2]"
+      style={{ left: `${fillLeft}%`, width: `${fillWidth}%` }}
+    >
+      {/* Base fill */}
+      <div className="absolute inset-0" style={{ background: `${color}10` }} />
+      {/* Wave layer 1 */}
+      <svg
+        className="absolute bottom-0 h-full animate-[wave-move_6s_linear_infinite]"
+        style={{ width: '200%', opacity: 0.15 }}
+        viewBox="0 0 1200 36"
+        preserveAspectRatio="none"
+      >
+        <path
+          d="M0,20 C100,10 200,30 300,20 C400,10 500,30 600,20 C700,10 800,30 900,20 C1000,10 1100,30 1200,20 L1200,36 L0,36 Z"
+          fill={color}
+        />
+      </svg>
+      {/* Wave layer 2 (slower, offset) */}
+      <svg
+        className="absolute bottom-0 h-full animate-[wave-move_8s_linear_infinite]"
+        style={{ width: '200%', opacity: 0.08, animationDelay: '-2s' }}
+        viewBox="0 0 1200 36"
+        preserveAspectRatio="none"
+      >
+        <path
+          d="M0,24 C150,14 250,34 400,24 C550,14 650,34 800,24 C950,14 1050,34 1200,24 L1200,36 L0,36 Z"
+          fill={color}
+        />
+      </svg>
+    </div>
+  );
+}
+
 /** Live position card — prominent display of the open position */
 function LivePositionCard({ position }: { position: PositionResponse }) {
   const entryPrice = Number(position.entry_price);
@@ -1439,7 +1420,6 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
   const maxPnl = Number(position.max_pnl);
   const minPnl = Number(position.min_pnl);
   const quantity = Number(position.quantity);
-  const originalQty = Number(position.original_quantity ?? position.quantity);
   const trailingStop = position.trailing_stop
     ? Number(position.trailing_stop)
     : null;
@@ -1477,229 +1457,146 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
   return (
     <Card className="border-white/5 bg-white/[0.02] overflow-hidden">
       <CardContent className="p-0">
-        {/* Top accent line */}
-        <div
-          className={`h-0.5 ${
-            isProfit ? 'bg-brand-profit' : 'bg-brand-loss'
-          }`}
-        />
+        {/* Top accent */}
+        <div className={`h-[2px] ${isProfit ? 'bg-gradient-to-r from-brand-profit via-brand-profit/60 to-transparent' : 'bg-gradient-to-r from-brand-loss via-brand-loss/60 to-transparent'}`} />
 
-        <div className="p-5 space-y-4">
-          {/* Row 1: Symbol + Side + Duration */}
-          <div className="flex items-center justify-between">
+        <div className="px-5 py-3">
+          {/* Row 1: Header strip */}
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <Target className="h-5 w-5 text-brand-accent" />
-              <span className="text-lg font-bold font-mono text-white">
-                {position.symbol}
-              </span>
+              <Target className="h-4 w-4 text-brand-accent" />
+              <span className="text-base font-bold font-mono text-white">{position.symbol}</span>
               <Badge variant={position.side === 'long' ? 'profit' : 'loss'}>
                 {position.side === 'long' ? 'LONG' : 'SHORT'}
               </Badge>
+              <span className="text-[10px] font-mono text-gray-500">qty {formatQty(quantity)}</span>
             </div>
-            <span className="text-xs text-gray-400">
-              Открыта {formatDuration(position.opened_at)}
-            </span>
-          </div>
-
-          {/* Row 2: Prices */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                Вход
-              </p>
-              <p className="text-sm font-mono text-white font-medium">
-                {formatPrice(entryPrice)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                Текущая
-              </p>
-              <p
-                className={`text-sm font-mono font-medium ${
-                  isProfit ? 'text-brand-profit' : 'text-brand-loss'
-                }`}
-              >
-                {formatPrice(currentPrice)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                Изменение
-              </p>
-              <p
-                className={`text-sm font-mono font-medium ${
-                  isProfit ? 'text-brand-profit' : 'text-brand-loss'
-                }`}
-              >
-                {formatPct(changePct)}
-              </p>
+            <div className="flex items-center gap-4">
+              <span className={`text-2xl font-bold font-mono ${isProfit ? 'text-brand-profit' : 'text-brand-loss'}`}>
+                {formatPnl(unrealizedPnl)}
+              </span>
+              <span className={`text-xs font-mono ${roiPct >= 0 ? 'text-brand-profit/70' : 'text-brand-loss/70'}`}>
+                {formatPct(roiPct)}
+              </span>
+              <span className="text-[10px] text-gray-500">{formatDuration(position.opened_at)}</span>
             </div>
           </div>
 
-          {/* Row 3: SL — Entry — TP visual bar */}
+          {/* Row 2: Price metrics strip */}
+          <div className="flex items-center gap-6 text-xs mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 uppercase text-[9px] tracking-wider">Вход</span>
+              <span className="font-mono text-white">{formatPrice(entryPrice)}</span>
+            </div>
+            <div className="w-px h-4 bg-white/5" />
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 uppercase text-[9px] tracking-wider">Тек.</span>
+              <span className={`font-mono ${isProfit ? 'text-brand-profit' : 'text-brand-loss'}`}>{formatPrice(currentPrice)}</span>
+            </div>
+            <div className="w-px h-4 bg-white/5" />
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 uppercase text-[9px] tracking-wider">SL</span>
+              <span className="font-mono text-brand-loss/70">{formatPrice(stopLoss)}</span>
+            </div>
+            <div className="w-px h-4 bg-white/5" />
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 uppercase text-[9px] tracking-wider">{activeTpLabel}</span>
+              <span className="font-mono text-brand-profit/70">{formatPrice(takeProfit)}</span>
+            </div>
+            <div className="w-px h-4 bg-white/5" />
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 uppercase text-[9px] tracking-wider">Trail</span>
+              <span className="font-mono text-white/60">{trailingStop !== null ? formatPrice(trailingStop) : '--'}</span>
+            </div>
+            <div className="flex-1" />
+            <div className="flex items-center gap-2 text-[10px] font-mono">
+              <span className="text-brand-profit/40">max {formatPnl(maxPnl)}</span>
+              <span className="text-gray-700">/</span>
+              <span className="text-brand-loss/40">min {formatPnl(minPnl)}</span>
+            </div>
+          </div>
+
+          {/* Row 3: SL-TP Bar with sine wave */}
           <div className="space-y-2">
-            <div className="relative h-8 rounded-md bg-white/[0.03] border border-white/5 overflow-hidden">
+            <div className="relative h-9 rounded-md bg-[#080812] border border-white/[0.04] overflow-hidden">
               {/* Loss zone (SL to Entry) */}
               <div
-                className="absolute top-0 bottom-0 bg-brand-loss/8 border-r border-brand-loss/20"
-                style={{
-                  left: '0%',
-                  width: `${entryPctClamped}%`,
-                }}
+                className="absolute top-0 bottom-0 bg-brand-loss/[0.06]"
+                style={{ left: '0%', width: `${entryPctClamped}%` }}
               />
               {/* Profit zone (Entry to TP) */}
               <div
-                className="absolute top-0 bottom-0 bg-brand-profit/8"
-                style={{
-                  left: `${entryPctClamped}%`,
-                  width: `${100 - entryPctClamped}%`,
-                }}
+                className="absolute top-0 bottom-0 bg-brand-profit/[0.03]"
+                style={{ left: `${entryPctClamped}%`, width: `${100 - entryPctClamped}%` }}
               />
 
-              {/* Current price marker */}
-              <div
-                className="absolute top-0 bottom-0 w-0.5 z-10 transition-all duration-300"
-                style={{
-                  left: `${currentPctClamped}%`,
-                  backgroundColor: isProfit ? '#00E676' : '#FF1744',
-                }}
-              >
-                <div
-                  className={`absolute -top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full ${
-                    isProfit ? 'bg-brand-profit' : 'bg-brand-loss'
-                  }`}
-                />
-              </div>
+              {/* Sine wave fill from entry to current price */}
+              <SineWaveFill
+                fillLeft={Math.min(entryPctClamped, currentPctClamped)}
+                fillWidth={Math.abs(entryPctClamped - currentPctClamped)}
+                isProfit={isProfit}
+              />
 
               {/* Entry marker */}
-              <div
-                className="absolute top-0 bottom-0 w-px bg-white/30 z-[5]"
-                style={{ left: `${entryPctClamped}%` }}
-              />
+              <div className="absolute top-0 bottom-0 w-px bg-white/20 z-[5]" style={{ left: `${entryPctClamped}%` }} />
 
-              {/* TP1 marker on bar (if TP1 exists and is between SL and TP2) */}
+              {/* TP1 marker (if TP1 hit and exists) */}
               {tp1Pct != null && position.tp1_hit && (
                 <div
                   className="absolute top-0 bottom-0 w-px bg-brand-profit/30 z-[3]"
                   style={{ left: `${clamp(tp1Pct, 1, 99)}%` }}
-                >
-                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-[7px] font-mono text-brand-profit/40">
-                    TP1
-                  </span>
-                </div>
+                />
               )}
 
+              {/* Current price marker with heartbeat */}
+              <div
+                className="absolute top-0 bottom-0 w-0.5 z-10 transition-all duration-300"
+                style={{ left: `${currentPctClamped}%`, backgroundColor: isProfit ? '#00E676' : '#FF1744' }}
+              >
+                <div className={`absolute -top-0.5 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full ${isProfit ? 'bg-brand-profit animate-[heartbeat-profit_1.5s_ease-in-out_infinite]' : 'bg-brand-loss animate-[heartbeat-loss_1.5s_ease-in-out_infinite]'}`} />
+              </div>
+
               {/* Labels on the bar */}
-              <div className="absolute inset-0 flex items-center justify-between px-3">
-                <span className="text-[9px] font-mono text-brand-loss/70 z-[1]">
-                  SL {formatPrice(stopLoss)}
-                </span>
-                <span className="text-[9px] font-mono text-white/40 z-[1]">
-                  {formatPrice(entryPrice)}
-                </span>
-                <span className="text-[9px] font-mono text-brand-profit/70 z-[1]">
-                  {activeTpLabel} {formatPrice(takeProfit)}
-                </span>
+              <div className="absolute inset-0 flex items-center justify-between px-3 z-20 pointer-events-none">
+                <span className="text-[9px] font-mono text-brand-loss/60">SL {formatPrice(stopLoss)}</span>
+                <span className="text-[9px] font-mono text-white/25">{formatPrice(entryPrice)}</span>
+                <span className="text-[9px] font-mono text-brand-profit/60">{activeTpLabel} {formatPrice(takeProfit)}</span>
               </div>
             </div>
           </div>
 
-          {/* Row 4: P&L details + position info */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                Нереализ. P&L
-              </p>
-              <p
-                className={`text-sm font-mono font-bold ${
-                  isProfit ? 'text-brand-profit' : 'text-brand-loss'
-                }`}
-              >
-                {formatPnl(unrealizedPnl)}
-              </p>
-              <p className="text-[10px] text-gray-600 font-mono mt-0.5">
-                <span className="text-brand-profit/50">
-                  пик {formatPnl(maxPnl)}
-                </span>
-                {' / '}
-                <span className="text-brand-loss/50">
-                  дно {formatPnl(minPnl)}
-                </span>
-              </p>
-            </div>
-            {position.realized_pnl != null && Number(position.realized_pnl) !== 0 && (
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                  Реализ. P&L
-                </p>
-                <p
-                  className={`text-sm font-mono font-bold ${
-                    Number(position.realized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'
-                  }`}
-                >
-                  {formatPnl(position.realized_pnl)}
-                </p>
-                {position.tp1_hit && (
-                  <p className="text-[10px] text-brand-profit/50 mt-0.5">TP1 исполнен</p>
-                )}
-              </div>
-            )}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                Размер
-              </p>
-              <p className="text-sm font-mono text-white">
-                {formatQty(quantity)}
-                {originalQty !== quantity && (
-                  <span className="text-gray-400">
-                    {' / '}
-                    {formatQty(originalQty)}
-                  </span>
-                )}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                Trail
-              </p>
-              <p className="text-sm font-mono text-white">
-                {trailingStop !== null ? formatPrice(trailingStop) : '—'}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                ROI
-              </p>
-              <p
-                className={`text-sm font-mono font-bold ${
-                  roiPct >= 0 ? 'text-brand-profit' : 'text-brand-loss'
-                }`}
-              >
-                {formatPct(roiPct)}
-              </p>
-            </div>
-          </div>
-
-          {/* Row 5: TP levels (if multi-TP) */}
+          {/* Row 4: TP levels (if multi-TP) */}
           {tp1Price && (
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                  TP1 {position.tp1_hit ? '(исполнен)' : '(активен)'}
-                </p>
-                <p className={`text-sm font-mono ${position.tp1_hit ? 'text-brand-profit/50 line-through' : 'text-brand-accent'}`}>
+            <div className="flex items-center gap-4 mt-2 text-[10px]">
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-500">TP1:</span>
+                <span className={`font-mono ${position.tp1_hit ? 'text-brand-profit/50 line-through' : 'text-brand-accent'}`}>
                   {formatPrice(tp1Price)}
-                </p>
+                </span>
+                {position.tp1_hit && <span className="text-brand-profit/40">исполнен</span>}
               </div>
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                  TP2 {position.tp1_hit ? '(активен)' : '(следующий)'}
-                </p>
-                <p className={`text-sm font-mono ${position.tp1_hit ? 'text-brand-accent' : 'text-gray-400'}`}>
-                  {tp2Price ? formatPrice(tp2Price) : '—'}
-                </p>
-              </div>
+              {tp2Price && (
+                <>
+                  <div className="w-px h-3 bg-white/5" />
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-gray-500">TP2:</span>
+                    <span className={`font-mono ${position.tp1_hit ? 'text-brand-accent' : 'text-gray-400'}`}>
+                      {formatPrice(tp2Price)}
+                    </span>
+                  </div>
+                </>
+              )}
+              {position.realized_pnl != null && Number(position.realized_pnl) !== 0 && (
+                <>
+                  <div className="w-px h-3 bg-white/5" />
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-gray-500">Реализ.:</span>
+                    <span className={`font-mono ${Number(position.realized_pnl) >= 0 ? 'text-brand-profit/60' : 'text-brand-loss/60'}`}>
+                      {formatPnl(position.realized_pnl)}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
