@@ -427,9 +427,7 @@ async def _handle_position_event(
                         tp_val = float(take_profit_ex)
                         if tp_val > 0:
                             position.take_profit = Decimal(take_profit_ex)
-                        else:
-                            # TP=0 означает TP снят (partial TP сработал)
-                            position.take_profit = Decimal("0")
+                        # TP=0 от биржи при Partial mode - не затирать DB значение
                     if trailing_stop_ex and float(trailing_stop_ex) > 0:
                         position.trailing_stop = Decimal(trailing_stop_ex)
 
