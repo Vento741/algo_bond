@@ -354,6 +354,17 @@ async def _place_order(
         qty = position_value / ticker.last_price
         qty = round(qty // symbol_info.qty_step * symbol_info.qty_step, 8)
 
+        await _log(db, bot.id, "info", f"Расчёт позиции: avail={available:.2f} size={order_size_pct*100:.0f}% lev={leverage}x price={ticker.last_price} qty={qty}", {
+            "wallet_balance": balance["wallet_balance"],
+            "available": available,
+            "equity": balance["equity"],
+            "order_size_pct": order_size_pct,
+            "leverage": leverage,
+            "margin_value": margin_value,
+            "position_value": position_value,
+            "price": float(ticker.last_price),
+        })
+
         if qty < symbol_info.min_qty:
             await _log(db, bot.id, "warn", f"Объём мал: {qty} < {symbol_info.min_qty}")
             await db.commit()

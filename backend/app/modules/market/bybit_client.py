@@ -322,18 +322,26 @@ class BybitClient:
         """Получить баланс кошелька."""
         try:
             result = self._session.get_wallet_balance(accountType="UNIFIED", coin=coin)
-            coins = result["result"]["list"][0]["coin"]
+            account = result["result"]["list"][0]
+            # account-level totalAvailableBalance - самый надёжный источник
+            account_available = float(account.get("totalAvailableBalance") or 0)
+
+            coins = account["coin"]
             for c in coins:
                 if c["coin"] == coin:
-                    # availableToWithdraw может быть пустым на demo — fallback на walletBalance
-                    available = float(c.get("availableToWithdraw") or 0)
-                    if available == 0:
-                        available = float(c.get("totalAvailableBalance") or c.get("walletBalance") or 0)
+                    wallet_balance = float(c.get("walletBalance") or 0)
+                    equity = float(c.get("equity") or 0)
+                    # Приоритет: account-level totalAvailableBalance > coin availableToWithdraw > equity
+                    available = account_available
+                    if available <= 0:
+                        available = float(c.get("availableToWithdraw") or 0)
+                    if available <= 0:
+                        available = equity or wallet_balance
                     return {
                         "coin": coin,
-                        "wallet_balance": float(c.get("walletBalance") or 0),
+                        "wallet_balance": wallet_balance,
                         "available": available,
-                        "equity": float(c.get("equity") or 0),
+                        "equity": equity,
                         "unrealized_pnl": float(c.get("unrealisedPnl") or 0),
                     }
             return {"coin": coin, "wallet_balance": 0, "available": 0, "equity": 0, "unrealized_pnl": 0}
