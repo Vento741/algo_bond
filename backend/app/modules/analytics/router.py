@@ -43,7 +43,6 @@ async def ingest_events(
     cf_ip = request.headers.get("cf-connecting-ip", "")
     client_host = request.client.host if request.client else "0.0.0.0"
     ip = cf_ip or xff.split(",")[0].strip() or xri or client_host
-    print(f"[ANALYTICS IP] cf={cf_ip!r} xff={xff!r} xri={xri!r} client={client_host!r} -> {ip!r}", flush=True)
     user_agent = request.headers.get("user-agent", "")
 
     service = AnalyticsService(db)
