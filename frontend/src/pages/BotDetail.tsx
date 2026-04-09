@@ -1473,16 +1473,6 @@ function RiskRewardCard({
 
   const rrRatio = rewardActive / risk;
 
-  // Bar percentages
-  const totalRange = risk + rewardActive;
-  const riskPct = totalRange > 0 ? (risk / totalRange) * 100 : 50;
-  const rewardPct = 100 - riskPct;
-
-  // TP1 position on bar (for multi-TP marker)
-  const tp1BarPct = hasMultiTp && tp1Hit && rewardTp2 != null && totalRange > 0
-    ? ((risk + rewardTp1) / (risk + rewardTp2)) * 100
-    : null;
-
   return (
     <Card className="border-white/5 bg-white/[0.02]">
       <CardContent className="px-5 py-4">
@@ -1572,38 +1562,11 @@ function RiskRewardCard({
           </div>
         </div>
 
-        {/* R/R visual bar */}
-        <div>
-          <div className="relative">
-            <div className="flex h-[6px] rounded-full overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-brand-loss to-brand-loss/50"
-                style={{ width: `${riskPct}%` }}
-              />
-              <div
-                className="bg-gradient-to-r from-brand-profit/50 to-brand-profit"
-                style={{ width: `${rewardPct}%` }}
-              />
-            </div>
-            {/* TP1 marker on bar (multi-TP only) */}
-            {tp1BarPct != null && (
-              <div
-                className="absolute top-[-2px] w-[2px] h-[10px] bg-brand-profit/40 rounded-sm"
-                style={{ left: `${tp1BarPct}%` }}
-              />
-            )}
-          </div>
-          <div className="flex justify-between mt-1">
-            <span className="text-[8px] font-mono text-brand-loss/40">SL</span>
-            <span className="text-[8px] font-mono text-brand-profit/50">
-              {hasMultiTp && rewardTp2 != null ? 'TP2' : 'TP'}
-            </span>
-          </div>
-          <div className="text-center mt-1">
-            <span className="text-[9px] text-gray-600">
-              $1 риска &rarr; ${rrRatio.toFixed(2)} прибыли
-            </span>
-          </div>
+        {/* R/R summary */}
+        <div className="text-center">
+          <span className="text-[9px] text-gray-600">
+            $1 риска &rarr; ${rrRatio.toFixed(2)} прибыли
+          </span>
         </div>
       </CardContent>
     </Card>
