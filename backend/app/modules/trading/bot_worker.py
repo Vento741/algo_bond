@@ -224,6 +224,7 @@ async def run_bot_cycle(
                     "stop_loss": latest_signal.stop_loss,
                     "take_profit": latest_signal.take_profit,
                     "signal_type": latest_signal.signal_type,
+                    **(latest_signal.indicators or {}),
                 },
                 was_executed=False,
             )
