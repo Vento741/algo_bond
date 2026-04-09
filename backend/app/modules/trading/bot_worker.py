@@ -9,7 +9,9 @@
 6. Записать все в БД
 """
 
+import json as json_module
 import logging
+import time as time_module
 import traceback
 import uuid
 from datetime import datetime, timezone
@@ -229,6 +231,29 @@ async def run_bot_cycle(
                 was_executed=False,
             )
             db.add(trade_signal)
+
+            # --- 7.1 Опубликовать SSE событие о новом сигнале ---
+            try:
+                redis_client = get_redis()
+                await redis_client.publish(
+                    f"trading:{bot.user_id}",
+                    json_module.dumps({
+                        "type": "signal_created",
+                        "data": {
+                            "bot_id": str(bot.id),
+                            "config_id": str(strategy_config.id),
+                            "symbol": symbol,
+                            "direction": direction.value,
+                            "signal_strength": float(latest_signal.confluence_score),
+                            "knn_class": knn_class,
+                            "time": int(ohlcv.timestamps[latest_signal.bar_index] / 1000) if ohlcv.timestamps is not None else int(time_module.time()),
+                            "entry_price": float(latest_signal.entry_price),
+                        },
+                    }),
+                )
+                await redis_client.aclose()
+            except Exception:
+                logger.warning("Не удалось опубликовать SSE событие для бота %s", bot.id)
 
             # --- 8. Разместить ордер ---
             return await _place_order(db, bot, client, latest_signal, config, trade_signal, symbol)

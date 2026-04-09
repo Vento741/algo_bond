@@ -1,14 +1,17 @@
 """Тесты CRUD модуля strategy."""
 
+import json
 import uuid
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import numpy as np
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.models import User
-from app.modules.strategy.models import Strategy
+from app.modules.strategy.models import Strategy, StrategyConfig
 
 
 @pytest_asyncio.fixture
@@ -216,3 +219,144 @@ async def test_delete_config(
         headers=auth_headers,
     )
     assert resp.status_code == 404
+
+
+# === Chart Signals endpoint ===
+
+
+def _make_fake_candles(count: int = 100) -> list[dict]:
+    """Сгенерировать фейковые свечи для тестов."""
+    base_time = 1700000000000  # миллисекунды
+    candles = []
+    price = 100.0
+    for i in range(count):
+        candles.append({
+            "timestamp": base_time + i * 300000,
+            "open": price,
+            "high": price + 1.0,
+            "low": price - 1.0,
+            "close": price + 0.5,
+            "volume": 1000.0 + i,
+        })
+        price += 0.1
+    return candles
+
+
+@pytest.mark.asyncio
+async def test_evaluate_signals_success(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_strategy: Strategy,
+    db_session: AsyncSession,
+    test_user: User,
+) -> None:
+    """Оценка сигналов - успешный сценарий."""
+    # Создать конфиг
+    config = StrategyConfig(
+        id=uuid.uuid4(),
+        user_id=test_user.id,
+        strategy_id=test_strategy.id,
+        name="Test Config",
+        symbol="BTCUSDT",
+        timeframe="5",
+        config={"knn": {"neighbors": 8}},
+    )
+    db_session.add(config)
+    await db_session.commit()
+
+    fake_candles = _make_fake_candles(200)
+
+    with (
+        patch("app.modules.strategy.service.MarketService") as mock_market_cls,
+        patch("app.modules.strategy.service.redis_pool") as mock_redis,
+    ):
+        mock_market = MagicMock()
+        mock_market.get_klines = AsyncMock(return_value=fake_candles)
+        mock_market_cls.return_value = mock_market
+
+        mock_redis.get = AsyncMock(return_value=None)
+        mock_redis.set = AsyncMock(return_value=True)
+
+        resp = await client.get(
+            f"/api/strategies/configs/{config.id}/signals",
+            headers=auth_headers,
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["config_id"] == str(config.id)
+    assert data["symbol"] == "BTCUSDT"
+    assert data["timeframe"] == "5"
+    assert data["cached"] is False
+    assert isinstance(data["signals"], list)
+    assert data["evaluated_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_evaluate_signals_cached(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_strategy: Strategy,
+    db_session: AsyncSession,
+    test_user: User,
+) -> None:
+    """Оценка сигналов - результат из кэша Redis."""
+    config = StrategyConfig(
+        id=uuid.uuid4(),
+        user_id=test_user.id,
+        strategy_id=test_strategy.id,
+        name="Cached Config",
+        symbol="ETHUSDT",
+        timeframe="15",
+        config={},
+    )
+    db_session.add(config)
+    await db_session.commit()
+
+    cached_data = json.dumps({
+        "config_id": str(config.id),
+        "symbol": "ETHUSDT",
+        "timeframe": "15",
+        "signals": [],
+        "cached": False,
+        "evaluated_at": "2026-04-10T00:00:00+00:00",
+    })
+
+    with patch("app.modules.strategy.service.redis_pool") as mock_redis:
+        mock_redis.get = AsyncMock(return_value=cached_data)
+
+        resp = await client.get(
+            f"/api/strategies/configs/{config.id}/signals",
+            headers=auth_headers,
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["cached"] is True
+    assert data["signals"] == []
+
+
+@pytest.mark.asyncio
+async def test_evaluate_signals_not_found(
+    client: AsyncClient,
+    auth_headers: dict,
+) -> None:
+    """Оценка сигналов - конфиг не найден."""
+    fake_id = uuid.uuid4()
+    resp = await client.get(
+        f"/api/strategies/configs/{fake_id}/signals",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_evaluate_signals_unauthorized(
+    client: AsyncClient,
+) -> None:
+    """Оценка сигналов - без авторизации."""
+    fake_id = uuid.uuid4()
+    resp = await client.get(
+        f"/api/strategies/configs/{fake_id}/signals",
+    )
+    assert resp.status_code == 401

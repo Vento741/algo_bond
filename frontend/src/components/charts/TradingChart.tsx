@@ -16,6 +16,7 @@ import type {
 } from 'lightweight-charts';
 import type { KlineData } from '@/lib/chart-types';
 import { CHART_COLORS } from '@/lib/chart-constants';
+import { useChartStore } from '@/stores/chart';
 
 // Re-export KlineData для обратной совместимости
 export type { KlineData } from '@/lib/chart-types';
@@ -32,6 +33,8 @@ interface TradingChartProps {
   }) => void;
   /** Callback при создании/удалении chart API */
   onChartReady?: (chart: IChartApi | null) => void;
+  /** Callback при создании/удалении candle series (для маркеров сигналов) */
+  onCandleSeriesReady?: (series: ISeriesApi<'Candlestick'> | null) => void;
 }
 
 /** Конвертация Unix-секунд в формат lightweight-charts */
@@ -66,7 +69,9 @@ export function TradingChart({
   lastKline,
   onCrosshairMove,
   onChartReady,
+  onCandleSeriesReady,
 }: TradingChartProps) {
+  const timezone = useChartStore((s) => s.timezone);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -76,6 +81,8 @@ export function TradingChart({
   onCrosshairMoveRef.current = onCrosshairMove;
   const onChartReadyRef = useRef(onChartReady);
   onChartReadyRef.current = onChartReady;
+  const onCandleSeriesReadyRef = useRef(onCandleSeriesReady);
+  onCandleSeriesReadyRef.current = onCandleSeriesReady;
 
   // Создание графика (один раз)
   useEffect(() => {
@@ -109,6 +116,18 @@ export function TradingChart({
         timeVisible: true,
         secondsVisible: false,
       },
+      localization: {
+        timeFormatter: (time: number) => {
+          const date = new Date(time * 1000);
+          return date.toLocaleString('ru-RU', {
+            timeZone: timezone,
+            day: '2-digit',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        },
+      },
       handleScale: { axisPressedMouseMove: { time: true, price: true } },
       handleScroll: { vertTouchDrag: true },
     });
@@ -124,6 +143,7 @@ export function TradingChart({
       wickDownColor: CHART_COLORS.down,
     });
     candleSeriesRef.current = candleSeries;
+    onCandleSeriesReadyRef.current?.(candleSeries);
 
     const volumeSeries = chart.addSeries(HistogramSeries, {
       priceFormat: { type: 'volume' },
@@ -177,6 +197,7 @@ export function TradingChart({
       candleSeriesRef.current = null;
       volumeSeriesRef.current = null;
       onChartReadyRef.current?.(null);
+      onCandleSeriesReadyRef.current?.(null);
       createdRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,6 +213,25 @@ export function TradingChart({
     chartRef.current?.priceScale('right').applyOptions({ autoScale: true });
     chartRef.current?.timeScale().fitContent();
   }, [initialData]);
+
+  // Обновление timezone без пересоздания chart
+  useEffect(() => {
+    if (!chartRef.current) return;
+    chartRef.current.applyOptions({
+      localization: {
+        timeFormatter: (time: number) => {
+          const date = new Date(time * 1000);
+          return date.toLocaleString('ru-RU', {
+            timeZone: timezone,
+            day: '2-digit',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        },
+      },
+    });
+  }, [timezone]);
 
   // Real-time обновление последней свечи (без сброса зума)
   useEffect(() => {

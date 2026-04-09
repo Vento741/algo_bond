@@ -79,3 +79,31 @@ class StrategyConfigResponse(BaseModel):
     timeframe: str
     config: dict
     created_at: datetime
+
+
+# === Chart Signals ===
+
+class ChartSignalResponse(BaseModel):
+    """Сигнал для отображения на графике."""
+    time: int  # Unix timestamp (секунды) - для маркера на графике
+    direction: str  # "long" или "short"
+    entry_price: float
+    stop_loss: float | None = None
+    take_profit: float | None = None
+    tp1_price: float | None = None
+    tp2_price: float | None = None
+    signal_strength: float  # Confluence score 0-100
+    knn_class: str  # "BULL", "BEAR", "NEUTRAL"
+    knn_confidence: float
+    was_executed: bool = False  # False для evaluate-only
+
+
+class ChartSignalsListResponse(BaseModel):
+    """Список сигналов для графика."""
+    config_id: str
+    symbol: str
+    timeframe: str
+    signals: list[ChartSignalResponse]
+    cached: bool  # Результат из кэша?
+    evaluated_at: str  # ISO timestamp
+    error: str | None = None

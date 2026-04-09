@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { SymbolSearch } from '@/components/ui/symbol-search';
 import { IndicatorSelector } from './IndicatorSelector';
 import { ConfigSelector } from './ConfigSelector';
+import { TimezoneSelector } from './TimezoneSelector';
 import { INTERVALS } from '@/lib/chart-constants';
 import type { StrategyConfig } from '@/types/api';
 
@@ -15,6 +16,8 @@ interface ChartToolbarProps {
   onIntervalChange: (interval: string) => void;
   onToggleFullscreen: () => void;
   onConfigSelect?: (config: StrategyConfig) => void;
+  onConfigUnlink?: () => void;
+  linkedConfigId?: string | null;
 }
 
 /** Тулбар графика: символ, таймфрейм, индикаторы, статус, fullscreen */
@@ -27,6 +30,8 @@ export function ChartToolbar({
   onIntervalChange,
   onToggleFullscreen,
   onConfigSelect,
+  onConfigUnlink,
+  linkedConfigId,
 }: ChartToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-3 px-1">
@@ -58,13 +63,16 @@ export function ChartToolbar({
       {onConfigSelect && (
         <ConfigSelector
           onSelect={onConfigSelect}
-          currentSymbol={symbol}
-          currentInterval={interval}
+          onUnlink={onConfigUnlink}
+          linkedConfigId={linkedConfigId ?? null}
         />
       )}
 
       {/* Индикаторы */}
       <IndicatorSelector />
+
+      {/* Часовой пояс */}
+      <TimezoneSelector />
 
       {/* Статус соединения */}
       <div className="flex items-center gap-1.5 ml-auto">

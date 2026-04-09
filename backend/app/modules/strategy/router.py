@@ -9,6 +9,7 @@ from app.database import get_db
 from app.modules.auth.dependencies import get_admin_user, get_current_user
 from app.modules.auth.models import User
 from app.modules.strategy.schemas import (
+    ChartSignalsListResponse,
     StrategyConfigCreate,
     StrategyConfigResponse,
     StrategyConfigUpdate,
@@ -113,3 +114,20 @@ async def delete_config(
     """Удалить конфигурацию."""
     service = StrategyService(db)
     await service.delete_config(config_id, user.id)
+
+
+# === Chart Signals ===
+
+@router.get("/configs/{config_id}/signals", response_model=ChartSignalsListResponse)
+async def evaluate_config_signals(
+    config_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ChartSignalsListResponse:
+    """Оценить сигналы стратегии для отображения на графике.
+
+    Загружает 500 свечей, прогоняет движок, кэширует результат на 5 минут.
+    Не создает записей в БД - только evaluate.
+    """
+    service = StrategyService(db)
+    return await service.evaluate_signals(config_id, user.id)

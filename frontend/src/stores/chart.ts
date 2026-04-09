@@ -5,8 +5,10 @@ import type { IndicatorState } from '@/lib/chart-types';
 
 interface ChartStore {
   indicators: Record<string, IndicatorState>;
+  timezone: string; // IANA timezone e.g. 'Europe/Moscow'
   toggleIndicator: (id: string) => void;
   updateIndicatorParams: (id: string, params: Record<string, number>) => void;
+  setTimezone: (tz: string) => void;
 }
 
 /** Начальные состояния индикаторов (все выключены) */
@@ -25,6 +27,9 @@ export const useChartStore = create<ChartStore>()(
   persist(
     (set) => ({
       indicators: getDefaultIndicators(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+
+      setTimezone: (tz: string) => set({ timezone: tz }),
 
       toggleIndicator: (id: string) =>
         set((state) => {

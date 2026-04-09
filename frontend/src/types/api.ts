@@ -245,6 +245,31 @@ export interface BotLogResponse {
   created_at: string;
 }
 
+/* ---- Chart Signals ---- */
+
+export interface ChartSignal {
+  time: number;
+  direction: 'long' | 'short';
+  entry_price: number;
+  stop_loss: number | null;
+  take_profit: number | null;
+  tp1_price: number | null;
+  tp2_price: number | null;
+  signal_strength: number;
+  knn_class: string;
+  knn_confidence: number;
+  was_executed: boolean;
+}
+
+export interface ChartSignalsResponse {
+  config_id: string;
+  symbol: string;
+  timeframe: string;
+  signals: ChartSignal[];
+  cached: boolean;
+  evaluated_at: string;
+}
+
 /* ---- Market: Trading Pairs ---- */
 
 export interface TradingPair {

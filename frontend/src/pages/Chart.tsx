@@ -4,12 +4,18 @@ import {
   Loader2,
   TrendingUp,
   TrendingDown,
+  ArrowUpRight,
+  ArrowDownRight,
+  Activity,
+  Target,
+  ShieldAlert,
 } from 'lucide-react';
-import type { IChartApi } from 'lightweight-charts';
+import type { IChartApi, ISeriesApi } from 'lightweight-charts';
 import { TradingChart } from '@/components/charts/TradingChart';
 import { ChartToolbar } from '@/components/charts/ChartToolbar';
 import { useMarketStream } from '@/hooks/useMarketStream';
 import { useIndicators } from '@/hooks/useIndicators';
+import { useChartSignals } from '@/hooks/useChartSignals';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import api from '@/lib/api';
@@ -26,6 +32,7 @@ export function Chart() {
   const [loading, setLoading] = useState(true);
   const [isDemo, setIsDemo] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [linkedConfigId, setLinkedConfigId] = useState<string | null>(null);
   const [crosshair, setCrosshair] = useState<{
     time: number | null;
     price: number | null;
@@ -38,22 +45,38 @@ export function Chart() {
   const [chartApi, setChartApi] = useState<IChartApi | null>(null);
   const chartApiRef = useRef<IChartApi | null>(null);
 
+  // Candle series для маркеров сигналов
+  const [candleSeries, setCandleSeries] = useState<ISeriesApi<'Candlestick'> | null>(null);
+
   // Callback вызывается из TradingChart при создании chart
   const handleChartReady = useCallback((chart: IChartApi | null) => {
     chartApiRef.current = chart;
     setChartApi(chart);
   }, []);
 
+  // Callback при создании candle series
+  const handleCandleSeriesReady = useCallback((series: ISeriesApi<'Candlestick'> | null) => {
+    setCandleSeries(series);
+  }, []);
+
   // Индикаторы
   useIndicators({ chart: chartApi, klines });
 
-  // Загрузка исторических данных
+  // Сигналы на графике
+  const { latestSignal, signalsCount } = useChartSignals({
+    configId: linkedConfigId,
+    candleSeries,
+  });
+
+  // Загрузка исторических данных с отменой предыдущего запроса
   useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
     setIsDemo(false);
     api
       .get(`/market/klines/${symbol}`, {
         params: { interval, limit: 500 },
+        signal: controller.signal,
       })
       .then(({ data }) => {
         const mapped: KlineData[] = (data as Record<string, unknown>[]).map(
@@ -73,11 +96,14 @@ export function Chart() {
         setKlines(mapped);
       })
       .catch(() => {
-        // Генерируем демо-данные если API недоступен
+        if (controller.signal.aborted) return;
         setKlines(generateDemoKlines(symbol));
         setIsDemo(true);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, [symbol, interval]);
 
   const handleSymbolChange = useCallback(
@@ -98,10 +124,15 @@ export function Chart() {
       setKlines([]);
       setSymbol(config.symbol);
       setInterval(config.timeframe);
+      setLinkedConfigId(config.id);
       navigate(`/chart/${config.symbol}`, { replace: true });
     },
     [navigate],
   );
+
+  const handleConfigUnlink = useCallback(() => {
+    setLinkedConfigId(null);
+  }, []);
 
   const displayPrice = crosshair.price ?? lastPrice ?? klines[klines.length - 1]?.close ?? null;
   const prevClose = klines.length >= 2 ? klines[klines.length - 2].close : null;
@@ -122,6 +153,8 @@ export function Chart() {
         onIntervalChange={handleIntervalChange}
         onToggleFullscreen={toggleFullscreen}
         onConfigSelect={handleConfigSelect}
+        onConfigUnlink={handleConfigUnlink}
+        linkedConfigId={linkedConfigId}
       />
 
       {/* Price display */}
@@ -170,6 +203,7 @@ export function Chart() {
               lastKline={lastKline}
               onCrosshairMove={setCrosshair}
               onChartReady={handleChartReady}
+              onCandleSeriesReady={handleCandleSeriesReady}
             />
           )}
         </div>
@@ -177,18 +211,81 @@ export function Chart() {
         {/* Side panel - hidden in fullscreen & mobile */}
         {!isFullscreen && (
           <div className="hidden xl:flex flex-col gap-3 w-64">
+            {/* Сигнал */}
             <Card className="border-white/5 bg-white/[0.02]">
               <CardContent className="p-4 space-y-3">
                 <div className="text-xs text-gray-400 font-medium uppercase tracking-wider">
                   Сигнал
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-gray-500" />
-                  <span className="text-sm text-gray-300">Нет активных сигналов</span>
-                </div>
+                {latestSignal ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      {latestSignal.direction === 'long' ? (
+                        <ArrowUpRight className="h-4 w-4 text-brand-profit" />
+                      ) : (
+                        <ArrowDownRight className="h-4 w-4 text-brand-loss" />
+                      )}
+                      <span
+                        className={`font-mono text-sm font-bold ${
+                          latestSignal.direction === 'long' ? 'text-brand-profit' : 'text-brand-loss'
+                        }`}
+                      >
+                        {latestSignal.direction === 'long' ? 'LONG' : 'SHORT'}
+                      </span>
+                      {latestSignal.wasExecuted && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-brand-premium/30 text-brand-premium">
+                          Исполнен
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
+                      <span className="text-gray-500 flex items-center gap-1">
+                        <Target className="h-3 w-3" /> Вход
+                      </span>
+                      <span className="text-white text-right">{latestSignal.entryPrice.toFixed(4)}</span>
+                      {latestSignal.stopLoss !== null && (
+                        <>
+                          <span className="text-gray-500 flex items-center gap-1">
+                            <ShieldAlert className="h-3 w-3" /> SL
+                          </span>
+                          <span className="text-brand-loss text-right">{latestSignal.stopLoss.toFixed(4)}</span>
+                        </>
+                      )}
+                      {latestSignal.tp1Price !== null && (
+                        <>
+                          <span className="text-gray-500">TP1</span>
+                          <span className="text-brand-profit text-right">{latestSignal.tp1Price.toFixed(4)}</span>
+                        </>
+                      )}
+                      {latestSignal.tp2Price !== null && (
+                        <>
+                          <span className="text-gray-500">TP2</span>
+                          <span className="text-brand-profit text-right">{latestSignal.tp2Price.toFixed(4)}</span>
+                        </>
+                      )}
+                      {latestSignal.takeProfit !== null && latestSignal.tp1Price === null && (
+                        <>
+                          <span className="text-gray-500">TP</span>
+                          <span className="text-brand-profit text-right">{latestSignal.takeProfit.toFixed(4)}</span>
+                        </>
+                      )}
+                    </div>
+                    {signalsCount > 0 && (
+                      <div className="text-[10px] text-gray-500 pt-1">
+                        Всего сигналов: {signalsCount}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-gray-500" />
+                    <span className="text-sm text-gray-300">Нет активных сигналов</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
+            {/* OHLCV */}
             <Card className="border-white/5 bg-white/[0.02]">
               <CardContent className="p-4 space-y-3">
                 <div className="text-xs text-gray-400 font-medium uppercase tracking-wider">
@@ -207,27 +304,65 @@ export function Chart() {
               </CardContent>
             </Card>
 
+            {/* KNN класс */}
             <Card className="border-white/5 bg-white/[0.02]">
               <CardContent className="p-4 space-y-3">
                 <div className="text-xs text-gray-400 font-medium uppercase tracking-wider">
                   KNN класс
                 </div>
-                <div className="font-mono text-lg text-white">--</div>
+                {latestSignal ? (
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-brand-accent" />
+                    <span className="font-mono text-lg text-white">{latestSignal.knnClass}</span>
+                    <span className="font-mono text-xs text-gray-400">
+                      {(latestSignal.knnConfidence * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                ) : (
+                  <div className="font-mono text-lg text-white">--</div>
+                )}
               </CardContent>
             </Card>
 
+            {/* Confluence Score */}
             <Card className="border-white/5 bg-white/[0.02]">
               <CardContent className="p-4 space-y-3">
                 <div className="text-xs text-gray-400 font-medium uppercase tracking-wider">
                   Confluence Score
                 </div>
-                <div className="font-mono text-lg text-white">--</div>
-                <div className="w-full bg-white/5 rounded-full h-1.5">
-                  <div className="bg-brand-premium h-1.5 rounded-full" style={{ width: '0%' }} />
-                </div>
+                {latestSignal ? (
+                  <>
+                    <div className="font-mono text-lg text-white">
+                      {Math.round(latestSignal.signalStrength)}
+                      <span className="text-xs text-gray-500 ml-1">/ 100</span>
+                    </div>
+                    <div className="w-full bg-white/5 rounded-full h-1.5">
+                      <div
+                        className="h-1.5 rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.min(latestSignal.signalStrength, 100)}%`,
+                          backgroundColor:
+                            latestSignal.signalStrength >= 70
+                              ? '#00E676'
+                              : latestSignal.signalStrength >= 40
+                                ? '#FFD700'
+                                : '#FF1744',
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="font-mono text-lg text-white">--</div>
+                    <div className="w-full bg-white/5 rounded-full h-1.5">
+                      <div className="bg-brand-premium h-1.5 rounded-full" style={{ width: '0%' }} />
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
+            {/* Volume (24h) */}
             <Card className="border-white/5 bg-white/[0.02]">
               <CardContent className="p-4 space-y-3">
                 <div className="text-xs text-gray-400 font-medium uppercase tracking-wider">

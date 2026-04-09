@@ -1,25 +1,27 @@
 import { useState, useEffect, useRef } from 'react';
-import { Settings2, ChevronDown, Bot } from 'lucide-react';
+import { Settings2, ChevronDown, Bot, Unlink } from 'lucide-react';
 import api from '@/lib/api';
 import type { StrategyConfig } from '@/types/api';
 
 interface ConfigSelectorProps {
   onSelect: (config: StrategyConfig) => void;
-  currentSymbol: string;
-  currentInterval: string;
+  onUnlink?: () => void;
+  /** ID привязанного конфига (null если отвязан) */
+  linkedConfigId: string | null;
 }
 
 /** Выбор конфига стратегии - переключает символ + таймфрейм */
-export function ConfigSelector({ onSelect, currentSymbol, currentInterval }: ConfigSelectorProps) {
+export function ConfigSelector({
+  onSelect,
+  onUnlink,
+  linkedConfigId,
+}: ConfigSelectorProps) {
   const [configs, setConfigs] = useState<StrategyConfig[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Определяем активный конфиг по текущему символу + таймфрейму
-  const activeConfig = configs.find(
-    (c) => c.symbol === currentSymbol && c.timeframe === currentInterval,
-  );
+  const linkedConfig = linkedConfigId ? configs.find((c) => c.id === linkedConfigId) : null;
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -43,23 +45,35 @@ export function ConfigSelector({ onSelect, currentSymbol, currentInterval }: Con
   }, [isOpen, configs.length]);
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative flex items-center gap-1">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer border ${
-          activeConfig
+          linkedConfig
             ? 'border-brand-premium/30 bg-brand-premium/10 text-brand-premium'
             : 'border-white/10 bg-white/5 text-gray-400 hover:text-white hover:border-white/20'
         }`}
       >
         <Settings2 className="h-3.5 w-3.5" />
-        <span>{activeConfig?.name ?? 'Конфиг'}</span>
+        <span>{linkedConfig?.name ?? 'Конфиг'}</span>
         <ChevronDown className="h-3 w-3" />
       </button>
 
+      {/* Кнопка отвязки */}
+      {linkedConfig && onUnlink && (
+        <button
+          type="button"
+          onClick={onUnlink}
+          title="Отвязать конфиг"
+          className="p-1 text-gray-500 hover:text-brand-loss transition-colors rounded"
+        >
+          <Unlink className="h-3.5 w-3.5" />
+        </button>
+      )}
+
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-64 bg-[#1a1a2e] border border-white/10 rounded-md shadow-lg overflow-hidden">
+        <div className="absolute z-50 mt-1 top-full left-0 w-64 bg-[#1a1a2e] border border-white/10 rounded-md shadow-lg overflow-hidden">
           <div className="px-3 py-2 border-b border-white/10">
             <span className="text-[10px] uppercase tracking-wider text-gray-500">
               Мои конфиги
@@ -75,7 +89,7 @@ export function ConfigSelector({ onSelect, currentSymbol, currentInterval }: Con
               </div>
             ) : (
               configs.map((cfg) => {
-                const isActive = cfg.symbol === currentSymbol && cfg.timeframe === currentInterval;
+                const isLinked = cfg.id === linkedConfigId;
                 return (
                   <button
                     key={cfg.id}
@@ -85,7 +99,7 @@ export function ConfigSelector({ onSelect, currentSymbol, currentInterval }: Con
                       setIsOpen(false);
                     }}
                     className={`flex items-center gap-2.5 w-full px-3 py-2 text-left transition-colors ${
-                      isActive
+                      isLinked
                         ? 'bg-brand-premium/10 text-brand-premium'
                         : 'text-white hover:bg-white/5'
                     }`}
@@ -99,7 +113,7 @@ export function ConfigSelector({ onSelect, currentSymbol, currentInterval }: Con
                         <span>{cfg.timeframe}m</span>
                       </div>
                     </div>
-                    {isActive && (
+                    {isLinked && (
                       <div className="h-1.5 w-1.5 rounded-full bg-brand-premium flex-shrink-0" />
                     )}
                   </button>
