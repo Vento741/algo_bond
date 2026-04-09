@@ -925,17 +925,19 @@ function ConfigEditorDialog({
             title="Торговля"
             description="Плечо, размеры ордеров, режим реверса"
           >
-            {/* Общие параметры (влияют на бэктест И live) */}
-            <div className="grid grid-cols-2 gap-3">
-              <NumberField
-                label="Кредитное плечо"
-                value={config.live.leverage}
-                onChange={(v) => updateSection('live', { leverage: v })}
-                min={1}
-                max={100}
-                suffix="×"
-              />
-              <div className="space-y-1.5">
+            {/* Плечо + Реверс - компактно в одну строку */}
+            <div className="flex items-end gap-3">
+              <div className="w-24 shrink-0">
+                <NumberField
+                  label="Плечо"
+                  value={config.live.leverage}
+                  onChange={(v) => updateSection('live', { leverage: v })}
+                  min={1}
+                  max={100}
+                  suffix="×"
+                />
+              </div>
+              <div className="flex-1 space-y-1.5">
                 <Label className="text-xs text-gray-400">При обратном сигнале</Label>
                 <Select
                   options={ON_REVERSE_OPTIONS}
@@ -945,18 +947,17 @@ function ConfigEditorDialog({
               </div>
             </div>
 
-            {/* Разделитель */}
-            <div className="grid grid-cols-2 gap-3 pt-3 mt-3 border-t border-white/5">
-              {/* Бэктест */}
-              <div className="space-y-2">
+            {/* Бэктест / Live - бок о бок */}
+            <div className="grid grid-cols-2 gap-4 pt-3 mt-3 border-t border-white/5">
+              <div className="space-y-2.5">
                 <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Бэктест</span>
                 <NumberField
-                  label="Размер ордера"
+                  label="Ордер"
                   value={config.backtest.order_size}
                   onChange={(v) => updateSection('backtest', { order_size: v })}
                   min={1}
                   max={100}
-                  suffix="% от баланса"
+                  suffix="%"
                 />
                 <NumberField
                   label="Комиссия"
@@ -967,16 +968,15 @@ function ConfigEditorDialog({
                   suffix="%"
                 />
               </div>
-              {/* Live */}
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Live / Demo</span>
                 <NumberField
-                  label="Размер ордера"
+                  label="Ордер"
                   value={config.live.order_size}
                   onChange={(v) => updateSection('live', { order_size: v })}
                   min={1}
                   max={100}
-                  suffix="% от баланса"
+                  suffix="%"
                 />
               </div>
             </div>
