@@ -6,6 +6,7 @@ import type {
   SeriesMarkerBar,
   Time,
 } from 'lightweight-charts';
+import axios from 'axios';
 import api from '@/lib/api';
 import { CHART_COLORS } from '@/lib/chart-constants';
 import type { ChartSignal, ChartSignalsResponse } from '@/types/api';
@@ -126,17 +127,11 @@ export function useChartSignals({
       } catch (err: unknown) {
         if (controller.signal.aborted) return;
 
-        // 404 - конфиг не найден, 403 - нет доступа
-        if (err && typeof err === 'object' && 'response' in err) {
-          const axiosErr = err as { response?: { status?: number } };
-          const status = axiosErr.response?.status;
-          if (status === 404) {
-            setError('Конфиг не найден');
-          } else if (status === 403) {
-            setError('Нет доступа к конфигу');
-          } else {
-            setError('Ошибка загрузки сигналов');
-          }
+        if (axios.isAxiosError(err)) {
+          const status = err.response?.status;
+          if (status === 404) setError('Конфиг не найден');
+          else if (status === 403) setError('Нет доступа к конфигу');
+          else setError('Ошибка загрузки сигналов');
         } else {
           setError('Ошибка загрузки сигналов');
         }
@@ -169,9 +164,9 @@ export function useChartSignals({
       if (!controller.signal.aborted) setLoading(false);
     });
 
-    // Поллинг каждые 60 секунд
+    // Поллинг каждые 60 секунд (пауза в скрытой вкладке)
     const pollTimer = setInterval(() => {
-      if (!controller.signal.aborted) {
+      if (!controller.signal.aborted && document.visibilityState === 'visible') {
         fetchSignals(configId, candleSeries, controller);
       }
     }, POLL_INTERVAL);

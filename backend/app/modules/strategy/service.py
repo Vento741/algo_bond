@@ -5,7 +5,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-import numpy as np
+import asyncio
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -155,6 +155,17 @@ class StrategyService:
 
     # === Chart Signals Evaluation ===
 
+    @staticmethod
+    def _empty_signals(
+        config_id: uuid.UUID, symbol: str, timeframe: str,
+        evaluated_at: str, error: str,
+    ) -> ChartSignalsListResponse:
+        """Пустой ответ с ошибкой."""
+        return ChartSignalsListResponse(
+            config_id=str(config_id), symbol=symbol, timeframe=timeframe,
+            signals=[], cached=False, evaluated_at=evaluated_at, error=error,
+        )
+
     async def evaluate_signals(
         self, config_id: uuid.UUID, user_id: uuid.UUID
     ) -> ChartSignalsListResponse:
@@ -192,36 +203,22 @@ class StrategyService:
             logger.warning("Redis cache read failed for %s", cache_key)
 
         # 3. Загрузить свечи через MarketService
-        market_service = MarketService(BybitClient())
+        client = BybitClient()
+        market_service = MarketService(client)
         try:
             candles = await market_service.get_klines(
                 symbol=symbol, interval=timeframe, limit=500
             )
         except Exception as e:
             logger.error("Ошибка загрузки свечей %s/%s: %s", symbol, timeframe, e)
-            return ChartSignalsListResponse(
-                config_id=str(config_id),
-                symbol=symbol,
-                timeframe=timeframe,
-                signals=[],
-                cached=False,
-                evaluated_at=now_iso,
-                error=f"Ошибка загрузки рыночных данных: {str(e)[:200]}",
-            )
+            return self._empty_signals(config_id, symbol, timeframe, now_iso,
+                                       f"Ошибка загрузки рыночных данных: {str(e)[:200]}")
 
         if len(candles) < 50:
-            return ChartSignalsListResponse(
-                config_id=str(config_id),
-                symbol=symbol,
-                timeframe=timeframe,
-                signals=[],
-                cached=False,
-                evaluated_at=now_iso,
-                error=f"Недостаточно свечей: {len(candles)}/50",
-            )
+            return self._empty_signals(config_id, symbol, timeframe, now_iso,
+                                       f"Недостаточно свечей: {len(candles)}/50")
 
         # 4. Конвертировать в OHLCV массивы
-        client = BybitClient()
         arrays = client.klines_to_arrays(candles)
         ohlcv = OHLCV(
             open=arrays["open"],
@@ -237,18 +234,11 @@ class StrategyService:
         strategy_config = config.config or config.strategy.default_config or {}
         try:
             engine = get_engine(engine_type, strategy_config)
-            strategy_result = engine.generate_signals(ohlcv)
+            strategy_result = await asyncio.to_thread(engine.generate_signals, ohlcv)
         except Exception as e:
             logger.error("Ошибка движка %s: %s", engine_type, e)
-            return ChartSignalsListResponse(
-                config_id=str(config_id),
-                symbol=symbol,
-                timeframe=timeframe,
-                signals=[],
-                cached=False,
-                evaluated_at=now_iso,
-                error=f"Ошибка стратегии: {str(e)[:200]}",
-            )
+            return self._empty_signals(config_id, symbol, timeframe, now_iso,
+                                       f"Ошибка стратегии: {str(e)[:200]}")
 
         # 6. Конвертировать сигналы в chart-friendly формат
         signals: list[ChartSignalResponse] = []

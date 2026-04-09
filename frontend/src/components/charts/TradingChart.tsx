@@ -116,18 +116,6 @@ export function TradingChart({
         timeVisible: true,
         secondsVisible: false,
       },
-      localization: {
-        timeFormatter: (time: number) => {
-          const date = new Date(time * 1000);
-          return date.toLocaleString('ru-RU', {
-            timeZone: timezone,
-            day: '2-digit',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit',
-          });
-        },
-      },
       handleScale: { axisPressedMouseMove: { time: true, price: true } },
       handleScroll: { vertTouchDrag: true },
     });
