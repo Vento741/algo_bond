@@ -641,6 +641,15 @@ export function BotDetail() {
     [positions],
   );
 
+  // Extract leverage from strategy config
+  const leverage = useMemo(() => {
+    if (!config?.config) return null;
+    const live = (config.config as Record<string, unknown>).live as Record<string, unknown> | undefined;
+    const bt = (config.config as Record<string, unknown>).backtest as Record<string, unknown> | undefined;
+    const lev = live?.leverage ?? bt?.leverage;
+    return typeof lev === 'number' ? lev : null;
+  }, [config]);
+
   /* ---- Loading state ---- */
 
   if (loading) {
@@ -1048,7 +1057,7 @@ export function BotDetail() {
           ) : (
             <div className="space-y-2">
               {positions.map((p) => (
-                <PositionExpandableCard key={p.id} position={p} />
+                <PositionExpandableCard key={p.id} position={p} leverage={leverage} />
               ))}
             </div>
           )}
@@ -1217,162 +1226,182 @@ function SseIndicator({ status }: { status: SseStatus }) {
 }
 
 /** Expandable position card — click to see all details */
-function PositionExpandableCard({ position: p }: { position: PositionResponse }) {
+function PositionExpandableCard({ position: p, leverage }: { position: PositionResponse; leverage: number | null }) {
   const [expanded, setExpanded] = useState(false);
   const isClosed = p.status === 'closed';
   const pnlValue = isClosed ? Number(p.realized_pnl ?? 0) : Number(p.unrealized_pnl ?? 0);
   const pnlColor = pnlValue >= 0 ? 'text-brand-profit' : 'text-brand-loss';
-  const duration = p.opened_at && p.closed_at
-    ? (() => {
-        const ms = new Date(p.closed_at).getTime() - new Date(p.opened_at).getTime();
-        const h = Math.floor(ms / 3600000);
-        const m = Math.floor((ms % 3600000) / 60000);
-        return h > 0 ? `${h}ч ${m}м` : `${m}м`;
-      })()
-    : null;
+  const entryPrice = Number(p.entry_price);
+  const currentPrice = Number(p.current_price ?? entryPrice);
+  const qty = Number(p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) ? p.original_quantity : p.quantity);
+  const entryAmount = entryPrice * qty;
+
+  // Change percentage
+  const changePct = entryPrice !== 0
+    ? ((currentPrice - entryPrice) / entryPrice) * 100
+    : 0;
+  const roiPct = p.side === 'short' ? -changePct : changePct;
+
+  // Duration
+  const durationText = (() => {
+    const start = new Date(p.opened_at).getTime();
+    const end = p.closed_at ? new Date(p.closed_at).getTime() : Date.now();
+    const ms = end - start;
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    return h > 0 ? `${h}ч ${m}м` : `${m}м`;
+  })();
 
   return (
     <Card
-      className={`border-white/5 bg-white/[0.02] overflow-hidden cursor-pointer transition-all hover:border-white/10 ${
-        expanded ? 'ring-1 ring-brand-premium/20' : ''
-      }`}
+      className={`overflow-hidden cursor-pointer transition-all hover:border-white/10 ${
+        isClosed
+          ? 'border-white/[0.04] bg-white/[0.01]'
+          : 'border-brand-profit/[0.08] bg-white/[0.02]'
+      } ${expanded ? 'ring-1 ring-brand-premium/20' : ''}`}
       onClick={() => setExpanded(!expanded)}
     >
+      {/* Top accent for open positions */}
+      {!isClosed && (
+        <div className="h-[2px] bg-gradient-to-r from-brand-profit to-transparent" />
+      )}
+
       {/* Summary row */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Badge variant={p.side === 'long' ? 'profit' : 'loss'}>
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <Badge variant={p.side === 'long' ? 'profit' : 'loss'}
+            className={isClosed ? 'opacity-60' : ''}>
             {p.side === 'long' ? 'LONG' : 'SHORT'}
           </Badge>
-          <span className="font-mono text-white font-medium">{p.symbol}</span>
-          <span className="text-xs text-gray-400">qty {formatQty(p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) ? p.original_quantity : p.quantity)}</span>
+          <span className={`font-mono font-semibold ${isClosed ? 'text-white/60' : 'text-white'}`}>
+            {p.symbol}
+          </span>
+          <span className={`text-[10px] font-mono ${isClosed ? 'text-gray-600' : 'text-gray-500'}`}>
+            {formatQty(qty)}
+          </span>
+          <div className="w-px h-4 bg-white/5" />
+          <span className={`text-[10px] font-mono ${isClosed ? 'text-white/[0.12]' : 'text-white/[0.25]'}`}>
+            {formatPrice(entryPrice)} &rarr; {formatPrice(currentPrice)}
+          </span>
         </div>
-        <div className="flex items-center gap-4">
-          <span className={`font-mono font-bold ${pnlColor}`}>{formatPnl(pnlValue)}</span>
-          {isClosed ? (
-            <Badge variant="default">Закрыта</Badge>
+        <div className="flex items-center gap-2.5">
+          <div className="text-right">
+            <span className={`font-mono font-bold text-[15px] ${pnlColor}`}>
+              {formatPnl(pnlValue)}
+            </span>
+            <span className={`text-[9px] font-mono ml-1.5 ${roiPct >= 0 ? 'text-brand-profit/40' : 'text-brand-loss/40'}`}>
+              {formatPct(roiPct)}
+            </span>
+          </div>
+          <div className="w-px h-6 bg-white/5" />
+          {!isClosed ? (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-brand-profit/[0.06] rounded">
+              <div className="w-[5px] h-[5px] rounded-full bg-brand-profit shadow-[0_0_4px_rgba(0,230,118,0.4)] animate-pulse" />
+              <span className="text-brand-profit text-[10px]">{durationText}</span>
+            </div>
           ) : (
-            <Badge variant="profit">Открыта</Badge>
+            <span className="text-gray-600 text-[10px]">{durationText}</span>
           )}
-          <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </div>
       </div>
 
       {/* Expanded details */}
       {expanded && (
-        <div className="border-t border-white/5 px-4 py-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Entry */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">Цена входа</p>
-              <p className="font-mono text-white">{formatPrice(p.entry_price)}</p>
+        <div className="border-t border-white/5 px-4 py-3">
+          {/* Prices row */}
+          <div className="flex gap-[2px] mb-3">
+            <div className="flex-1 px-2.5 py-2 bg-white/[0.02] rounded-l-md">
+              <p className="text-[8px] text-gray-600 uppercase tracking-wider">Вход</p>
+              <p className="font-mono text-white text-sm font-semibold">{formatPrice(entryPrice)}</p>
             </div>
-            {/* Exit / Current */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">
-                {isClosed ? 'Цена закрытия' : 'Текущая цена'}
-              </p>
-              <p className="font-mono text-white">
-                {p.current_price ? formatPrice(p.current_price) : '—'}
+            <div className="flex-1 px-2.5 py-2 bg-white/[0.02]">
+              <p className="text-[8px] text-gray-600 uppercase tracking-wider">{isClosed ? 'Выход' : 'Текущая'}</p>
+              <p className={`font-mono text-sm font-semibold ${pnlValue >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+                {formatPrice(currentPrice)}
               </p>
             </div>
-            {/* SL */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">Stop Loss</p>
-              <p className="font-mono text-brand-loss">{formatPrice(p.stop_loss)}</p>
+            <div className="flex-1 px-2.5 py-2 bg-brand-loss/[0.03]">
+              <p className="text-[8px] text-gray-600 uppercase tracking-wider">SL</p>
+              <p className="font-mono text-brand-loss text-sm font-semibold">{formatPrice(p.stop_loss)}</p>
             </div>
-            {/* TP */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">
-                {p.tp1_price ? (p.tp1_hit ? (isClosed ? 'TP2 (исполнен)' : 'TP2 (активен)') : 'TP1') : 'Take Profit'}
+            <div className="flex-1 px-2.5 py-2 bg-brand-profit/[0.03]">
+              <p className="text-[8px] text-gray-600 uppercase tracking-wider">
+                {p.tp1_price ? (p.tp1_hit ? 'TP2' : 'TP1') : 'TP'}
               </p>
-              <p className="font-mono text-brand-profit">{formatPrice(p.take_profit)}</p>
-              {p.tp1_price && (
-                <p className={`text-[10px] mt-0.5 ${p.tp1_hit ? 'text-brand-profit/50 line-through' : 'text-gray-400'}`}>
-                  TP1: {formatPrice(p.tp1_price)} {p.tp1_hit ? '(исполнен)' : ''}
-                </p>
+              <p className="font-mono text-brand-profit text-sm font-semibold">{formatPrice(p.take_profit)}</p>
+              {p.tp1_price && p.tp1_hit && (
+                <p className="text-[8px] text-brand-profit/40 line-through">TP1: {formatPrice(p.tp1_price)}</p>
               )}
             </div>
-            {/* Trailing */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">Trailing Stop</p>
-              <p className="font-mono text-white">
-                {p.trailing_stop ? formatPrice(p.trailing_stop) : '—'}
+            {leverage != null && (
+              <div className="px-2.5 py-2 bg-brand-premium/[0.03] min-w-[56px]">
+                <p className="text-[8px] text-gray-600 uppercase tracking-wider">Плечо</p>
+                <p className="font-mono text-brand-premium text-sm font-bold">{leverage}x</p>
+              </div>
+            )}
+            <div className="px-2.5 py-2 bg-white/[0.02] rounded-r-md min-w-[72px]">
+              <p className="text-[8px] text-gray-600 uppercase tracking-wider">Сумма</p>
+              <p className="font-mono text-white/70 text-sm font-semibold">${entryAmount.toFixed(2)}</p>
+            </div>
+          </div>
+
+          {/* P&L row */}
+          <div className="flex gap-[2px] mb-3">
+            <div className="flex-1 px-2.5 py-2 bg-white/[0.02] rounded-l-md">
+              <p className="text-[8px] text-gray-600 uppercase tracking-wider">Нереализ.</p>
+              <p className={`font-mono text-sm font-bold ${Number(p.unrealized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+                {isClosed ? '—' : formatPnl(p.unrealized_pnl)}
               </p>
             </div>
-            {/* Qty */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">Количество</p>
-              <p className="font-mono text-white">{formatQty(p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) ? p.original_quantity : p.quantity)}</p>
-              {p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) && (
-                <p className="text-[10px] text-gray-400">
-                  Остаток: {formatQty(p.quantity)}
-                </p>
-              )}
-            </div>
-            {/* Realized PnL */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">Реализ. P&L</p>
-              <p className={`font-mono font-bold ${(Number(p.realized_pnl ?? 0)) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+            <div className="flex-1 px-2.5 py-2 bg-white/[0.02]">
+              <p className="text-[8px] text-gray-600 uppercase tracking-wider">Реализ.</p>
+              <p className={`font-mono text-sm font-bold ${(Number(p.realized_pnl ?? 0)) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
                 {p.realized_pnl != null && Number(p.realized_pnl) !== 0
                   ? formatPnl(p.realized_pnl)
                   : isClosed ? formatPnl(0) : '—'}
               </p>
               {!isClosed && p.tp1_hit && p.realized_pnl != null && Number(p.realized_pnl) !== 0 && (
-                <p className="text-[10px] text-brand-profit/50">от TP1</p>
+                <p className="text-[8px] text-brand-profit/40">от TP1</p>
               )}
             </div>
-            {/* Unrealized PnL */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">Нереализ. P&L</p>
-              <p className={`font-mono ${Number(p.unrealized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
-                {formatPnl(p.unrealized_pnl)}
-              </p>
+            <div className="flex-1 px-2.5 py-2 bg-brand-profit/[0.02]">
+              <p className="text-[8px] text-gray-600 uppercase tracking-wider">Пик</p>
+              <p className="font-mono text-brand-profit text-sm">{formatPnl(p.max_pnl)}</p>
+            </div>
+            <div className="flex-1 px-2.5 py-2 bg-brand-loss/[0.02] rounded-r-md">
+              <p className="text-[8px] text-gray-600 uppercase tracking-wider">Мин</p>
+              <p className="font-mono text-brand-loss text-sm">{formatPnl(p.min_pnl)}</p>
             </div>
           </div>
 
-          {/* Second row: peaks and times */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/5">
-            {/* Max PnL */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">Пик P&L</p>
-              <p className="font-mono text-brand-profit">{formatPnl(p.max_pnl)}</p>
-            </div>
-            {/* Min PnL */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">Мин P&L</p>
-              <p className="font-mono text-brand-loss">{formatPnl(p.min_pnl)}</p>
-            </div>
-            {/* Max Price */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">Макс. цена</p>
-              <p className="font-mono text-white">{p.max_price ? formatPrice(p.max_price) : '—'}</p>
-            </div>
-            {/* Min Price */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">Мин. цена</p>
-              <p className="font-mono text-white">{p.min_price ? formatPrice(p.min_price) : '—'}</p>
-            </div>
-            {/* Opened */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">Открыта</p>
-              <p className="text-xs text-white">{formatDatetime(p.opened_at)}</p>
-            </div>
-            {/* Closed */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">Закрыта</p>
-              <p className="text-xs text-white">{p.closed_at ? formatDatetime(p.closed_at) : '—'}</p>
-            </div>
-            {/* Duration */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">Длительность</p>
-              <p className="text-xs text-white font-mono">{duration ?? '—'}</p>
-            </div>
-            {/* Position ID */}
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase mb-1">ID</p>
-              <p className="text-[10px] text-gray-400 font-mono">{p.id.slice(0, 8)}</p>
-            </div>
+          {/* Meta row */}
+          <div className="flex items-center gap-3 text-[10px] text-gray-600">
+            {p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) && (
+              <>
+                <span>Остаток: <span className="text-white/40 font-mono">{formatQty(p.quantity)}</span></span>
+                <span className="text-white/5">|</span>
+              </>
+            )}
+            {p.trailing_stop && (
+              <>
+                <span>Trail: <span className="text-white/40 font-mono">{formatPrice(p.trailing_stop)}</span></span>
+                <span className="text-white/5">|</span>
+              </>
+            )}
+            <span>Макс: <span className="text-white/40 font-mono">{p.max_price ? formatPrice(p.max_price) : '—'}</span></span>
+            <span className="text-white/5">|</span>
+            <span>Мин: <span className="text-white/40 font-mono">{p.min_price ? formatPrice(p.min_price) : '—'}</span></span>
+            <span className="text-white/5">|</span>
+            <span>Открыта: <span className="text-white/40">{formatDatetime(p.opened_at)}</span></span>
+            {p.closed_at && (
+              <>
+                <span className="text-white/5">|</span>
+                <span>Закрыта: <span className="text-white/40">{formatDatetime(p.closed_at)}</span></span>
+              </>
+            )}
+            <span className="text-white/5">|</span>
+            <span className="text-gray-700 font-mono">{p.id.slice(0, 8)}</span>
           </div>
         </div>
       )}
