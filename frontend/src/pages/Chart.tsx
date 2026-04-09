@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import api from '@/lib/api';
 import type { KlineData } from '@/lib/chart-types';
+import type { StrategyConfig } from '@/types/api';
 
 export function Chart() {
   const { symbol: paramSymbol } = useParams<{ symbol: string }>();
@@ -92,6 +93,16 @@ export function Chart() {
     setInterval(val);
   }, []);
 
+  const handleConfigSelect = useCallback(
+    (config: StrategyConfig) => {
+      setKlines([]);
+      setSymbol(config.symbol);
+      setInterval(config.timeframe);
+      navigate(`/chart/${config.symbol}`, { replace: true });
+    },
+    [navigate],
+  );
+
   const displayPrice = crosshair.price ?? lastPrice ?? klines[klines.length - 1]?.close ?? null;
   const prevClose = klines.length >= 2 ? klines[klines.length - 2].close : null;
   const priceChange =
@@ -110,6 +121,7 @@ export function Chart() {
         onSymbolChange={handleSymbolChange}
         onIntervalChange={handleIntervalChange}
         onToggleFullscreen={toggleFullscreen}
+        onConfigSelect={handleConfigSelect}
       />
 
       {/* Price display */}

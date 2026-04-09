@@ -2,7 +2,9 @@ import { Maximize2, Minimize2, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SymbolSearch } from '@/components/ui/symbol-search';
 import { IndicatorSelector } from './IndicatorSelector';
+import { ConfigSelector } from './ConfigSelector';
 import { INTERVALS } from '@/lib/chart-constants';
+import type { StrategyConfig } from '@/types/api';
 
 interface ChartToolbarProps {
   symbol: string;
@@ -12,6 +14,7 @@ interface ChartToolbarProps {
   onSymbolChange: (symbol: string) => void;
   onIntervalChange: (interval: string) => void;
   onToggleFullscreen: () => void;
+  onConfigSelect?: (config: StrategyConfig) => void;
 }
 
 /** Тулбар графика: символ, таймфрейм, индикаторы, статус, fullscreen */
@@ -23,6 +26,7 @@ export function ChartToolbar({
   onSymbolChange,
   onIntervalChange,
   onToggleFullscreen,
+  onConfigSelect,
 }: ChartToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-3 px-1">
@@ -49,6 +53,15 @@ export function ChartToolbar({
           </button>
         ))}
       </div>
+
+      {/* Конфиг стратегии */}
+      {onConfigSelect && (
+        <ConfigSelector
+          onSelect={onConfigSelect}
+          currentSymbol={symbol}
+          currentInterval={interval}
+        />
+      )}
 
       {/* Индикаторы */}
       <IndicatorSelector />
