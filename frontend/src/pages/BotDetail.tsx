@@ -47,10 +47,13 @@ import {
 } from '@/components/ui/table';
 import {
   createChart,
-  type IChartApi,
+  AreaSeries,
   ColorType,
   LineStyle,
-  type Time,
+} from 'lightweight-charts';
+import type {
+  IChartApi,
+  Time,
 } from 'lightweight-charts';
 import api from '@/lib/api';
 import type {
@@ -919,72 +922,7 @@ export function BotDetail() {
           ) : signals.length === 0 ? (
             <EmptyState message="Нет сигналов" />
           ) : (
-            <Card className="border-white/5 bg-white/[0.02] overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Время</TableHead>
-                    <TableHead>Направление</TableHead>
-                    <TableHead>Сила</TableHead>
-                    <TableHead>KNN класс</TableHead>
-                    <TableHead>KNN уверенность</TableHead>
-                    <TableHead>Confluence</TableHead>
-                    <TableHead>Исполнен</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {signals.map((s) => (
-                    <TableRow key={s.id}>
-                      <TableCell className="text-xs whitespace-nowrap">
-                        {formatDatetime(s.created_at)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            s.direction === 'long' ? 'profit' : 'loss'
-                          }
-                        >
-                          {s.direction === 'long' ? 'LONG' : 'SHORT'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono">
-                        {Number(s.signal_strength).toFixed(2)}
-                      </TableCell>
-                      <TableCell className="font-mono">
-                        {s.knn_class}
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-mono">
-                          {Number(s.knn_confidence).toFixed(1)}%
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-16 rounded-full bg-white/5 overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-brand-accent transition-all"
-                              style={{
-                                width: `${Math.min((Math.abs(Number(s.signal_strength)) / 5.5) * 100, 100)}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="font-mono text-xs">
-                            {Number(s.signal_strength).toFixed(2)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {s.was_executed ? (
-                          <Badge variant="profit">Да</Badge>
-                        ) : (
-                          <Badge variant="default">Нет</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
+            <SignalsList signals={signals} />
           )}
         </TabsContent>
 
@@ -1221,6 +1159,225 @@ function SseIndicator({ status }: { status: SseStatus }) {
       <span className="text-[10px] font-medium hidden sm:inline">
         {c.label}
       </span>
+    </div>
+  );
+}
+
+type SignalFilter = 'all' | 'long' | 'short';
+
+function SignalsList({ signals }: { signals: TradeSignalResponse[] }) {
+  const [filter, setFilter] = useState<SignalFilter>('all');
+
+  const filtered = useMemo(() => {
+    if (filter === 'all') return signals;
+    return signals.filter((s) => s.direction === filter);
+  }, [signals, filter]);
+
+  const longCount = signals.filter((s) => s.direction === 'long').length;
+  const shortCount = signals.filter((s) => s.direction === 'short').length;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-3 py-1 rounded-full text-[10px] border transition-colors ${
+              filter === 'all'
+                ? 'bg-white/[0.05] text-white border-white/[0.08]'
+                : 'bg-transparent text-gray-500 border-transparent hover:border-white/[0.05]'
+            }`}
+          >
+            Все ({signals.length})
+          </button>
+          <button
+            onClick={() => setFilter('short')}
+            className={`px-3 py-1 rounded-full text-[10px] border transition-colors ${
+              filter === 'short'
+                ? 'bg-brand-loss/[0.06] text-brand-loss border-brand-loss/15'
+                : 'bg-transparent text-gray-500 border-transparent hover:border-brand-loss/10'
+            }`}
+          >
+            SHORT ({shortCount})
+          </button>
+          <button
+            onClick={() => setFilter('long')}
+            className={`px-3 py-1 rounded-full text-[10px] border transition-colors ${
+              filter === 'long'
+                ? 'bg-brand-profit/[0.06] text-brand-profit border-brand-profit/15'
+                : 'bg-transparent text-gray-500 border-transparent hover:border-brand-profit/10'
+            }`}
+          >
+            LONG ({longCount})
+          </button>
+        </div>
+        <span className="text-[9px] text-gray-600">
+          Исполнено: <span className="text-brand-premium font-mono">{signals.filter((s) => s.was_executed).length}/{signals.length}</span>
+        </span>
+      </div>
+      <div className="space-y-1">
+        {filtered.map((s) => (
+          <SignalCard key={s.id} signal={s} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
+  const [expanded, setExpanded] = useState(false);
+  const snap = s.indicators_snapshot as Record<string, unknown>;
+
+  const entry = Number(snap.entry_price ?? 0);
+  const sl = Number(snap.stop_loss ?? 0);
+  const tp = Number(snap.take_profit ?? 0);
+  const rrRatio = Math.abs(sl - entry) > 0
+    ? Math.abs(tp - entry) / Math.abs(sl - entry)
+    : 0;
+
+  const knnColor = s.knn_class === 'BULL' ? 'text-blue-400' : s.knn_class === 'BEAR' ? 'text-brand-loss' : 'text-gray-500';
+
+  const Pill = ({ label, value, state }: { label: string; value: string; state: 'bull' | 'bear' | 'neutral' }) => {
+    const colors = {
+      bull: 'bg-brand-profit/[0.06] border-brand-profit/10',
+      bear: 'bg-brand-loss/[0.06] border-brand-loss/10',
+      neutral: 'bg-white/[0.03] border-white/[0.06]',
+    };
+    const dotColor = { bull: 'bg-brand-profit', bear: 'bg-brand-loss', neutral: 'bg-gray-500' };
+    const textColor = { bull: 'text-brand-profit', bear: 'text-brand-loss', neutral: 'text-white/60' };
+    return (
+      <span className={`inline-flex items-center gap-1 px-2 py-[3px] rounded border text-[10px] ${colors[state]}`}>
+        <span className={`w-[5px] h-[5px] rounded-full ${dotColor[state]}`} />
+        <span className="text-white/50">{label}</span>
+        <span className={`font-mono ${textColor[state]}`}>{value}</span>
+      </span>
+    );
+  };
+
+  const emaTrend = snap.ema_trend as string | undefined;
+  const ribbon = snap.ribbon as string | undefined;
+  const adx = snap.adx as number | undefined;
+  const rsiVal = snap.rsi as number | undefined;
+  const volSpike = snap.volume_spike as boolean | undefined;
+  const volRatio = snap.volume_ratio as number | undefined;
+  const bbPos = snap.bb_position as string | undefined;
+  const vwapPos = snap.vwap_position as string | undefined;
+  const cvd = snap.cvd as string | undefined;
+  const smc = snap.smc as string | undefined;
+  const atrVal = snap.atr as number | undefined;
+  const signalType = snap.signal_type as string | undefined;
+  const hasIndicators = emaTrend != null || adx != null;
+
+  return (
+    <div
+      className={`flex overflow-hidden rounded-md cursor-pointer transition-all hover:bg-white/[0.015] ${expanded ? 'ring-1 ring-brand-premium/20' : ''}`}
+      onClick={() => setExpanded(!expanded)}
+    >
+      <div className={`w-[3px] shrink-0 ${s.direction === 'long' ? 'bg-brand-profit' : 'bg-brand-loss'}`} />
+      <div className="flex-1">
+        <div className="flex items-center justify-between px-3 py-2 bg-white/[0.02]">
+          <div className="flex items-center gap-2.5">
+            <span className={`font-bold text-[11px] min-w-[42px] ${s.direction === 'long' ? 'text-brand-profit' : 'text-brand-loss'}`}>
+              {s.direction === 'long' ? 'LONG' : 'SHORT'}
+            </span>
+            <span className={`font-mono text-[11px] ${knnColor}`}>
+              {s.knn_class} <span className="text-white/25">{Number(s.knn_confidence).toFixed(1)}%</span>
+            </span>
+            {entry > 0 && (
+              <>
+                <div className="w-px h-3 bg-white/5" />
+                <span className="text-white/30 font-mono text-[10px]">{formatPrice(entry)}</span>
+              </>
+            )}
+            {rrRatio > 0 && (
+              <span className="text-brand-premium font-mono text-[10px]">R/R 1:{rrRatio.toFixed(1)}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {s.was_executed ? (
+              <span className="text-brand-profit text-[9px]">&#10003;</span>
+            ) : (
+              <span className="text-gray-600 text-[9px]">-</span>
+            )}
+            <span className="text-gray-600 text-[10px]">{formatDatetime(s.created_at)}</span>
+            <ChevronDown className={`h-3.5 w-3.5 text-gray-600 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          </div>
+        </div>
+
+        {expanded && (
+          <div className="px-3 py-2.5 border-t border-white/5">
+            {entry > 0 && (
+              <div className="flex gap-[2px] mb-2.5">
+                <div className="flex-1 px-2 py-1.5 bg-white/[0.02] rounded-l">
+                  <p className="text-[7px] text-gray-600 uppercase">Entry</p>
+                  <p className="font-mono text-white text-xs">{formatPrice(entry)}</p>
+                </div>
+                <div className="flex-1 px-2 py-1.5 bg-brand-loss/[0.03]">
+                  <p className="text-[7px] text-gray-600 uppercase">SL</p>
+                  <p className="font-mono text-brand-loss text-xs">{formatPrice(sl)}</p>
+                </div>
+                <div className="flex-1 px-2 py-1.5 bg-brand-profit/[0.03]">
+                  <p className="text-[7px] text-gray-600 uppercase">TP</p>
+                  <p className="font-mono text-brand-profit text-xs">{formatPrice(tp)}</p>
+                </div>
+                <div className="flex-1 px-2 py-1.5 bg-brand-premium/[0.02] rounded-r">
+                  <p className="text-[7px] text-gray-600 uppercase">R/R</p>
+                  <p className="font-mono text-brand-premium text-xs">1:{rrRatio.toFixed(1)}</p>
+                </div>
+              </div>
+            )}
+
+            {hasIndicators && (
+              <div className="space-y-2">
+                <div>
+                  <p className="text-[8px] text-gray-700 uppercase tracking-wider mb-1">Тренд</p>
+                  <div className="flex flex-wrap gap-1">
+                    {emaTrend != null && <Pill label="EMA" value={emaTrend === 'bull' ? '↑' : '↓'} state={emaTrend === 'bull' ? 'bull' : 'bear'} />}
+                    {ribbon != null && <Pill label="Ribbon" value={ribbon === 'bull' ? 'BULL' : 'BEAR'} state={ribbon === 'bull' ? 'bull' : 'bear'} />}
+                    {adx != null && <Pill label="ADX" value={String(adx)} state={adx > 20 ? 'bull' : 'neutral'} />}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[8px] text-gray-700 uppercase tracking-wider mb-1">Осцилляторы</p>
+                  <div className="flex flex-wrap gap-1">
+                    {rsiVal != null && <Pill label="RSI" value={String(rsiVal)} state={rsiVal < 30 ? 'bull' : rsiVal > 70 ? 'bear' : 'neutral'} />}
+                    {volSpike != null && <Pill label="Vol" value={volSpike ? `↑${volRatio != null ? ` ${volRatio}x` : ''}` : '-'} state={volSpike ? 'bull' : 'neutral'} />}
+                    {bbPos != null && <Pill label="BB" value={bbPos} state={bbPos === 'lower' ? 'bull' : bbPos === 'upper' ? 'bear' : 'neutral'} />}
+                  </div>
+                </div>
+                {(vwapPos != null || cvd != null || smc != null) && (
+                  <div>
+                    <p className="text-[8px] text-gray-700 uppercase tracking-wider mb-1">Order Flow</p>
+                    <div className="flex flex-wrap gap-1">
+                      {vwapPos != null && <Pill label="VWAP" value={vwapPos === 'above' ? '↑' : '↓'} state={vwapPos === 'above' ? 'bull' : 'bear'} />}
+                      {cvd != null && <Pill label="CVD" value={cvd} state={cvd === 'bull' ? 'bull' : 'bear'} />}
+                      {smc != null && <Pill label="SMC" value={smc} state={smc === 'bull' ? 'bull' : 'bear'} />}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2.5 mt-2 pt-1.5 border-t border-white/[0.03] text-[9px] text-gray-600">
+              <span>KNN: <span className={knnColor}>{s.knn_class} {Number(s.knn_confidence).toFixed(1)}%</span></span>
+              <span className="text-white/5">|</span>
+              <span>Confluence: <span className="text-white font-mono">{Number(s.signal_strength).toFixed(2)}</span><span className="text-gray-700">/6</span></span>
+              {signalType && (
+                <>
+                  <span className="text-white/5">|</span>
+                  <span>Тип: <span className="text-white/40">{signalType}</span></span>
+                </>
+              )}
+              {atrVal != null && (
+                <>
+                  <span className="text-white/5">|</span>
+                  <span>ATR: <span className="text-white/40 font-mono">{atrVal.toFixed(4)}</span></span>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1982,7 +2139,7 @@ function BotEquityChart({ data }: { data: EquityDataPoint[] }) {
       ? 'rgba(0,230,118,0.0)'
       : 'rgba(255,23,68,0.0)';
 
-    const areaSeries = chart.addAreaSeries({
+    const areaSeries = chart.addSeries(AreaSeries, {
       lineColor,
       topColor,
       bottomColor,
