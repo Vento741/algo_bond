@@ -920,45 +920,13 @@ function ConfigEditorDialog({
             </div>
           </CollapsibleSection>
 
-          {/* Секция 10: Backtest */}
+          {/* Секция 10: Общие параметры торговли */}
           <CollapsibleSection
-            title="Бэктест"
-            description="Параметры бэктестинга"
+            title="Торговля"
+            description="Плечо, размеры ордеров, режим реверса"
           >
+            {/* Общие параметры (влияют на бэктест И live) */}
             <div className="grid grid-cols-2 gap-3">
-              <NumberField
-                label="Размер ордера"
-                value={config.backtest.order_size}
-                onChange={(v) => updateSection('backtest', { order_size: v })}
-                min={1}
-                max={100}
-                suffix="% от баланса"
-              />
-              <NumberField
-                label="Комиссия"
-                value={config.backtest.commission}
-                onChange={(v) => updateSection('backtest', { commission: v })}
-                min={0}
-                step={0.01}
-                suffix="%"
-              />
-            </div>
-          </CollapsibleSection>
-
-          {/* Секция 11: Live Trading */}
-          <CollapsibleSection
-            title="Live Trading"
-            description="Параметры для реальной/демо торговли"
-          >
-            <div className="grid grid-cols-2 gap-3">
-              <NumberField
-                label="Размер ордера"
-                value={config.live.order_size}
-                onChange={(v) => updateSection('live', { order_size: v })}
-                min={1}
-                max={100}
-                suffix="% от баланса"
-              />
               <NumberField
                 label="Кредитное плечо"
                 value={config.live.leverage}
@@ -967,14 +935,50 @@ function ConfigEditorDialog({
                 max={100}
                 suffix="×"
               />
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-400">При обратном сигнале</Label>
+                <Select
+                  options={ON_REVERSE_OPTIONS}
+                  value={config.live.on_reverse}
+                  onChange={(v) => updateSection('live', { on_reverse: v })}
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-gray-400">При обратном сигнале</Label>
-              <Select
-                options={ON_REVERSE_OPTIONS}
-                value={config.live.on_reverse}
-                onChange={(v) => updateSection('live', { on_reverse: v })}
-              />
+
+            {/* Разделитель */}
+            <div className="grid grid-cols-2 gap-3 pt-3 mt-3 border-t border-white/5">
+              {/* Бэктест */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Бэктест</span>
+                <NumberField
+                  label="Размер ордера"
+                  value={config.backtest.order_size}
+                  onChange={(v) => updateSection('backtest', { order_size: v })}
+                  min={1}
+                  max={100}
+                  suffix="% от баланса"
+                />
+                <NumberField
+                  label="Комиссия"
+                  value={config.backtest.commission}
+                  onChange={(v) => updateSection('backtest', { commission: v })}
+                  min={0}
+                  step={0.01}
+                  suffix="%"
+                />
+              </div>
+              {/* Live */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Live / Demo</span>
+                <NumberField
+                  label="Размер ордера"
+                  value={config.live.order_size}
+                  onChange={(v) => updateSection('live', { order_size: v })}
+                  min={1}
+                  max={100}
+                  suffix="% от баланса"
+                />
+              </div>
             </div>
           </CollapsibleSection>
 
