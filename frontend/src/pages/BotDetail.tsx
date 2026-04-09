@@ -67,8 +67,8 @@ import type {
 
 /* ---- Constants ---- */
 
-const REFRESH_INTERVAL_MS = 30_000;
-const REFRESH_INTERVAL_SSE_MS = 60_000;
+const REFRESH_INTERVAL_MS = 10_000;
+const REFRESH_INTERVAL_SSE_MS = 30_000;
 
 const STATUS_CONFIG: Record<
   BotStatus,
@@ -1455,9 +1455,6 @@ function RiskRewardCard({
   const riskPerUnit = side === 'long'
     ? entryPrice - stopLoss
     : stopLoss - entryPrice;
-  const rewardTp1PerUnit = tp1Price != null
-    ? (side === 'long' ? tp1Price - entryPrice : entryPrice - tp1Price)
-    : (side === 'long' ? singleTp - entryPrice : entryPrice - singleTp);
   const rewardTp2PerUnit = tp2Price != null
     ? (side === 'long' ? tp2Price - entryPrice : entryPrice - tp2Price)
     : null;
@@ -1466,7 +1463,6 @@ function RiskRewardCard({
     : entryPrice - activeTpPrice;
 
   const risk = Math.abs(riskPerUnit * quantity);
-  const rewardTp1 = Math.abs(rewardTp1PerUnit * quantity);
   const rewardTp2 = rewardTp2PerUnit != null ? Math.abs(rewardTp2PerUnit * quantity) : null;
   const rewardActive = Math.abs(rewardActivePerUnit * quantity);
 
@@ -1475,100 +1471,85 @@ function RiskRewardCard({
 
   const rrRatio = rewardActive / risk;
 
+  // Active TP label and price for display
+  const activeTpLabel = hasMultiTp
+    ? (tp1Hit ? 'TP2' : 'TP1')
+    : 'TP';
+  const activeTpDisplayPrice = hasMultiTp
+    ? (tp1Hit ? tp2Price ?? tp1Price! : tp1Price!)
+    : singleTp;
+
   return (
-    <Card className="border-white/5 bg-white/[0.02]">
-      <CardContent className="px-5 py-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
+    <Card className="border-brand-premium/[0.06] bg-white/[0.02]">
+      <CardContent className="px-5 py-3">
+        <div className="flex items-center gap-4">
+          {/* R/R Badge */}
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-md bg-gradient-to-br from-brand-premium/15 to-brand-premium/5 flex items-center justify-center">
+              <Shield className="h-3.5 w-3.5 text-brand-premium" />
+            </div>
+            <div>
+              <div className="text-[8px] text-gray-500 uppercase tracking-wider">R/R Ratio</div>
+              <div className="text-lg font-bold font-mono text-brand-premium leading-tight">1:{rrRatio.toFixed(1)}</div>
+            </div>
+          </div>
+
+          <div className="w-px h-8 bg-white/5" />
+
+          {/* Reward */}
           <div className="flex items-center gap-2">
-            <Shield className="h-3.5 w-3.5 text-brand-premium/60" />
-            <span className="text-[10px] text-gray-500 uppercase tracking-wider">Risk / Reward</span>
-            {isLastClosed && (
-              <span className="text-[9px] text-gray-600 bg-white/[0.03] px-2 py-0.5 rounded">
-                Последняя сделка
-              </span>
-            )}
-          </div>
-          <span className="text-[22px] font-bold font-mono text-brand-premium">
-            1 : {rrRatio.toFixed(1)}
-          </span>
-        </div>
-
-        {/* Target cards */}
-        <div className="flex gap-3 mb-3">
-          {/* TP1 card */}
-          <div className={`flex-1 px-3 py-2 rounded-md border ${
-            hasMultiTp
-              ? tp1Hit
-                ? 'bg-white/[0.02] border-white/[0.04]'
-                : 'bg-brand-profit/[0.03] border-brand-profit/[0.08]'
-              : 'bg-brand-profit/[0.03] border-brand-profit/[0.08]'
-          }`}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className={`text-[9px] uppercase ${
-                hasMultiTp
-                  ? tp1Hit ? 'text-gray-500' : 'text-brand-profit'
-                  : 'text-brand-profit'
-              }`}>
-                {hasMultiTp ? 'Цель TP1' : 'Цель (TP)'}
-              </span>
-              {hasMultiTp && (
-                <span className={`text-[8px] font-mono ${tp1Hit ? 'text-brand-profit/40' : 'text-brand-profit/30'}`}>
-                  {tp1Hit ? 'исполнен' : 'активный'}
-                </span>
-              )}
-            </div>
-            <div className={`font-bold text-lg font-mono ${tp1Hit ? 'text-gray-500 line-through' : 'text-brand-profit'}`}>
-              +${rewardTp1.toFixed(2)}
-            </div>
-            <div className={`text-[9px] font-mono ${tp1Hit ? 'text-gray-600' : 'text-brand-profit/30'}`}>
-              &rarr; {formatPrice(hasMultiTp ? tp1Price! : singleTp)}
+            <div className="w-[3px] h-6 rounded-full bg-brand-profit" />
+            <div>
+              <div className="text-[8px] text-gray-500 uppercase">Цель</div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-base font-bold font-mono text-brand-profit">+${rewardActive.toFixed(2)}</span>
+                <span className="text-[9px] font-mono text-brand-profit/30">{activeTpLabel} {formatPrice(activeTpDisplayPrice)}</span>
+              </div>
             </div>
           </div>
 
-          {/* TP2 card (only if multi-TP) */}
-          {hasMultiTp && rewardTp2 != null && tp2Price != null && (
-            <div className={`flex-1 px-3 py-2 rounded-md border ${
-              tp1Hit
-                ? 'bg-brand-profit/[0.03] border-brand-profit/[0.08]'
-                : 'bg-white/[0.02] border-white/[0.04]'
-            }`}>
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className={`text-[9px] uppercase ${tp1Hit ? 'text-brand-profit' : 'text-gray-500'}`}>
-                  Цель TP2
-                </span>
-                <span className={`text-[8px] font-mono ${tp1Hit ? 'text-brand-profit/30' : 'text-white/15'}`}>
-                  {tp1Hit ? 'активный' : 'следующий'}
-                </span>
+          {/* TP2 hint when TP1 active */}
+          {hasMultiTp && !tp1Hit && tp2Price != null && rewardTp2 != null && (
+            <>
+              <div className="w-px h-8 bg-white/5" />
+              <div className="flex items-center gap-2">
+                <div className="w-[3px] h-6 rounded-full bg-brand-profit/30" />
+                <div>
+                  <div className="text-[8px] text-gray-500 uppercase">TP2</div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-base font-bold font-mono text-gray-500">+${rewardTp2.toFixed(2)}</span>
+                    <span className="text-[9px] font-mono text-white/15">{formatPrice(tp2Price)}</span>
+                  </div>
+                </div>
               </div>
-              <div className={`font-bold text-lg font-mono ${tp1Hit ? 'text-brand-profit' : 'text-gray-500'}`}>
-                +${rewardTp2.toFixed(2)}
-              </div>
-              <div className={`text-[9px] font-mono ${tp1Hit ? 'text-brand-profit/30' : 'text-white/20'}`}>
-                &rarr; {formatPrice(tp2Price)}
-              </div>
-            </div>
+            </>
           )}
 
-          {/* Risk card */}
-          <div className="flex-1 px-3 py-2 rounded-md border bg-brand-loss/[0.03] border-brand-loss/[0.08]">
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="text-[9px] text-brand-loss uppercase">Риск (SL)</span>
-            </div>
-            <div className="font-bold text-lg font-mono text-brand-loss">
-              -${risk.toFixed(2)}
-            </div>
-            <div className="text-[9px] font-mono text-brand-loss/30">
-              &rarr; {formatPrice(stopLoss)}
+          <div className="w-px h-8 bg-white/5" />
+
+          {/* Risk */}
+          <div className="flex items-center gap-2">
+            <div className="w-[3px] h-6 rounded-full bg-brand-loss" />
+            <div>
+              <div className="text-[8px] text-gray-500 uppercase">Риск</div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-base font-bold font-mono text-brand-loss">-${risk.toFixed(2)}</span>
+                <span className="text-[9px] font-mono text-brand-loss/30">SL {formatPrice(stopLoss)}</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* R/R summary */}
-        <div className="text-center">
-          <span className="text-[9px] text-gray-600">
-            $1 риска &rarr; ${rrRatio.toFixed(2)} прибыли
-          </span>
+          <div className="flex-1" />
+
+          {/* Summary + badge */}
+          <div className="text-right">
+            {isLastClosed && (
+              <div className="text-[8px] text-gray-600 bg-white/[0.03] px-2 py-0.5 rounded inline-block mb-0.5">
+                Последняя сделка
+              </div>
+            )}
+            <div className="text-[9px] text-gray-600">$1 риска = ${rrRatio.toFixed(2)} прибыли</div>
+          </div>
         </div>
       </CardContent>
     </Card>
