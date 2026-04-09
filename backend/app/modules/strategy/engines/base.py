@@ -51,6 +51,7 @@ class StrategyResult:
     confluence_scores_short: NDArray = field(default_factory=lambda: np.array([]))
     knn_scores: NDArray = field(default_factory=lambda: np.array([]))
     knn_classes: NDArray = field(default_factory=lambda: np.array([]))
+    knn_confidence: NDArray = field(default_factory=lambda: np.array([]))
 
 
 class BaseStrategy(ABC):

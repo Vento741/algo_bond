@@ -550,4 +550,5 @@ class LorentzianKNNStrategy(BaseStrategy):
             confluence_scores_short=score_short,
             knn_scores=knn_smooth,
             knn_classes=knn_classes,
+            knn_confidence=knn_conf,
         )

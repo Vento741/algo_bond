@@ -218,7 +218,7 @@ async def run_bot_cycle(
                 symbol=symbol, direction=direction,
                 signal_strength=latest_signal.confluence_score,
                 knn_class=knn_class,
-                knn_confidence=float(result.knn_scores[-1]) * 100 if result.knn_scores[-1] else 50.0,
+                knn_confidence=float(result.knn_confidence[-1]) if len(result.knn_confidence) > 0 else 50.0,
                 indicators_snapshot={
                     "entry_price": latest_signal.entry_price,
                     "stop_loss": latest_signal.stop_loss,
@@ -512,7 +512,7 @@ async def _check_reverse_signal(
             symbol=symbol, direction=direction,
             signal_strength=latest_signal.confluence_score,
             knn_class=knn_class,
-            knn_confidence=float(strategy_result.knn_scores[-1]) * 100 if strategy_result.knn_scores[-1] else 50.0,
+            knn_confidence=float(strategy_result.knn_confidence[-1]) if len(strategy_result.knn_confidence) > 0 else 50.0,
             indicators_snapshot={
                 "entry_price": latest_signal.entry_price,
                 "stop_loss": latest_signal.stop_loss,
