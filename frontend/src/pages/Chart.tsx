@@ -1,31 +1,19 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Maximize2,
-  Minimize2,
   Loader2,
-  Wifi,
-  WifiOff,
   TrendingUp,
   TrendingDown,
 } from 'lucide-react';
-import { TradingChart, type KlineData } from '@/components/charts/TradingChart';
+import type { IChartApi } from 'lightweight-charts';
+import { TradingChart } from '@/components/charts/TradingChart';
+import { ChartToolbar } from '@/components/charts/ChartToolbar';
 import { useMarketStream } from '@/hooks/useMarketStream';
-import { SymbolSearch } from '@/components/ui/symbol-search';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { useIndicators } from '@/hooks/useIndicators';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import api from '@/lib/api';
-
-/** Доступные интервалы */
-const INTERVALS = [
-  { value: '1', label: '1m' },
-  { value: '5', label: '5m' },
-  { value: '15', label: '15m' },
-  { value: '60', label: '1h' },
-  { value: '240', label: '4h' },
-  { value: 'D', label: '1D' },
-];
+import type { KlineData } from '@/lib/chart-types';
 
 export function Chart() {
   const { symbol: paramSymbol } = useParams<{ symbol: string }>();
@@ -35,6 +23,7 @@ export function Chart() {
   const [interval, setInterval] = useState('5');
   const [klines, setKlines] = useState<KlineData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDemo, setIsDemo] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [crosshair, setCrosshair] = useState<{
     time: number | null;
@@ -44,9 +33,23 @@ export function Chart() {
 
   const { lastPrice, lastKline, isConnected } = useMarketStream(symbol, interval);
 
+  // Chart API для индикаторов - state чтобы хук перерисовывался при создании chart
+  const [chartApi, setChartApi] = useState<IChartApi | null>(null);
+  const chartApiRef = useRef<IChartApi | null>(null);
+
+  // Callback вызывается из TradingChart при создании chart
+  const handleChartReady = useCallback((chart: IChartApi | null) => {
+    chartApiRef.current = chart;
+    setChartApi(chart);
+  }, []);
+
+  // Индикаторы
+  useIndicators({ chart: chartApi, klines });
+
   // Загрузка исторических данных
   useEffect(() => {
     setLoading(true);
+    setIsDemo(false);
     api
       .get(`/market/klines/${symbol}`, {
         params: { interval, limit: 500 },
@@ -54,7 +57,6 @@ export function Chart() {
       .then(({ data }) => {
         const mapped: KlineData[] = (data as Record<string, unknown>[]).map(
           (d: Record<string, unknown>) => {
-            // Bybit отдаёт timestamp в миллисекундах, lightweight-charts ожидает секунды
             const rawTs = Number(d.timestamp ?? d.time ?? d.open_time ?? d.t);
             const timeSec = rawTs > 1e12 ? Math.floor(rawTs / 1000) : rawTs;
             return {
@@ -72,74 +74,50 @@ export function Chart() {
       .catch(() => {
         // Генерируем демо-данные если API недоступен
         setKlines(generateDemoKlines(symbol));
+        setIsDemo(true);
       })
       .finally(() => setLoading(false));
   }, [symbol, interval]);
 
-  // lastKline передаётся напрямую в TradingChart через prop (без setKlines)
-
   const handleSymbolChange = useCallback(
     (val: string) => {
-      setKlines([]); // Очистка старых данных — предотвращает смешивание при загрузке
+      setKlines([]);
       setSymbol(val);
       navigate(`/chart/${val}`, { replace: true });
     },
     [navigate],
   );
 
+  const handleIntervalChange = useCallback((val: string) => {
+    setInterval(val);
+  }, []);
+
   const displayPrice = crosshair.price ?? lastPrice ?? klines[klines.length - 1]?.close ?? null;
   const prevClose = klines.length >= 2 ? klines[klines.length - 2].close : null;
   const priceChange =
     displayPrice && prevClose ? ((displayPrice - prevClose) / prevClose) * 100 : null;
 
-  const toggleFullscreen = () => setIsFullscreen((v) => !v);
+  const toggleFullscreen = useCallback(() => setIsFullscreen((v) => !v), []);
 
   return (
     <div className={isFullscreen ? 'fixed inset-0 z-50 bg-brand-bg p-2' : 'space-y-4'}>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <SymbolSearch
-          value={symbol}
-          onChange={handleSymbolChange}
-          className="w-48"
-        />
-        <div className="flex items-center rounded-lg bg-white/5 p-0.5">
-          {INTERVALS.map((iv) => (
-            <button
-              key={iv.value}
-              onClick={() => setInterval(iv.value)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                interval === iv.value
-                  ? 'bg-brand-premium/10 text-brand-premium'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {iv.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Connection indicator */}
-        <div className="flex items-center gap-1.5 ml-auto">
-          {isConnected ? (
-            <Wifi className="h-3.5 w-3.5 text-brand-profit" />
-          ) : (
-            <WifiOff className="h-3.5 w-3.5 text-brand-loss" />
-          )}
-          <span className={`text-xs ${isConnected ? 'text-brand-profit' : 'text-brand-loss'}`}>
-            {isConnected ? 'Live' : 'Offline'}
-          </span>
-        </div>
-
-        <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="text-gray-400 hover:text-white h-8 w-8">
-          {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-        </Button>
-      </div>
+      <ChartToolbar
+        symbol={symbol}
+        interval={interval}
+        isConnected={isConnected}
+        isFullscreen={isFullscreen}
+        onSymbolChange={handleSymbolChange}
+        onIntervalChange={handleIntervalChange}
+        onToggleFullscreen={toggleFullscreen}
+      />
 
       {/* Price display */}
       <div className="flex items-center gap-4">
-        <div className="font-mono text-2xl font-bold text-white">
-          {displayPrice !== null ? `$${displayPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}` : '--'}
+        <div className="font-mono text-lg sm:text-2xl font-bold text-white">
+          {displayPrice !== null
+            ? `$${displayPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`
+            : '--'}
         </div>
         {priceChange !== null && (
           <Badge variant={priceChange >= 0 ? 'profit' : 'loss'} className="flex items-center gap-1">
@@ -154,12 +132,23 @@ export function Chart() {
       </div>
 
       {/* Chart + Side panel */}
-      <div className="flex gap-4" style={{ height: isFullscreen ? 'calc(100vh - 130px)' : '65vh' }}>
+      <div className="flex gap-4 flex-1" style={{ height: isFullscreen ? 'calc(100vh - 130px)' : 'calc(100vh - 260px)', minHeight: '400px' }}>
         {/* Chart */}
-        <div className="flex-1 rounded-lg border border-white/5 overflow-hidden bg-brand-bg">
+        <div className="relative flex-1 rounded-lg border border-white/5 overflow-hidden bg-brand-bg">
+          {/* Demo data warning */}
+          {isDemo && (
+            <div className="absolute top-12 left-1/2 -translate-x-1/2 z-10 bg-yellow-500/20 border border-yellow-500/50 text-yellow-400 px-3 py-1 rounded text-sm font-mono">
+              Demo data - API unavailable
+            </div>
+          )}
+
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-brand-premium" />
+            </div>
+          ) : !klines.length ? (
+            <div className="flex items-center justify-center h-full text-gray-500 font-mono text-sm">
+              Нет данных для отображения
             </div>
           ) : (
             <TradingChart
@@ -168,11 +157,12 @@ export function Chart() {
               initialData={klines}
               lastKline={lastKline}
               onCrosshairMove={setCrosshair}
+              onChartReady={handleChartReady}
             />
           )}
         </div>
 
-        {/* Side panel — hidden in fullscreen & mobile */}
+        {/* Side panel - hidden in fullscreen & mobile */}
         {!isFullscreen && (
           <div className="hidden xl:flex flex-col gap-3 w-64">
             <Card className="border-white/5 bg-white/[0.02]">
@@ -181,9 +171,27 @@ export function Chart() {
                   Сигнал
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-brand-profit animate-pulse" />
+                  <div className="h-2 w-2 rounded-full bg-gray-500" />
                   <span className="text-sm text-gray-300">Нет активных сигналов</span>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-white/5 bg-white/[0.02]">
+              <CardContent className="p-4 space-y-3">
+                <div className="text-xs text-gray-400 font-medium uppercase tracking-wider">
+                  OHLCV
+                </div>
+                {crosshair.price !== null ? (
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
+                    <span className="text-gray-500">Цена</span>
+                    <span className="text-white text-right">{crosshair.price?.toFixed(4)}</span>
+                    <span className="text-gray-500">Объем</span>
+                    <span className="text-white text-right">{crosshair.volume?.toFixed(2)}</span>
+                  </div>
+                ) : (
+                  <div className="font-mono text-sm text-gray-500">--</div>
+                )}
               </CardContent>
             </Card>
 
@@ -232,7 +240,6 @@ function generateDemoKlines(symbol: string): KlineData[] {
   const step = 300; // 5 min
   const count = 500;
 
-  // Стартовая цена зависит от символа
   let price =
     symbol.startsWith('BTC')
       ? 65000

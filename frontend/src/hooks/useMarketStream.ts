@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import type { KlineData } from '@/components/charts/TradingChart';
+import { useEffect, useRef, useState } from 'react';
+import type { KlineData } from '@/lib/chart-types';
 
 /** Сообщение из WebSocket потока маркет-данных */
 interface MarketMessage {
@@ -21,6 +21,9 @@ function getReconnectDelay(attempt: number): number {
 /**
  * Хук для подключения к WebSocket потоку маркет-данных.
  * ws://host/ws/market/{symbol}?interval={interval}
+ *
+ * Исправлен баг ghost-соединений: при смене symbol/interval cancelled-флаг
+ * предотвращает переподключение устаревшего WS.
  */
 export function useMarketStream(
   symbol: string | null,
@@ -30,96 +33,90 @@ export function useMarketStream(
   const [lastKline, setLastKline] = useState<KlineData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  const wsRef = useRef<WebSocket | null>(null);
-  const attemptRef = useRef(0);
-  const unmountedRef = useRef(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Текущий символ — защита от stale WS сообщений */
-  const symbolRef = useRef(symbol);
 
   // Сброс состояния при смене символа/интервала
   useEffect(() => {
-    symbolRef.current = symbol;
     setLastKline(null);
     setLastPrice(null);
   }, [symbol, interval]);
 
-  const connect = useCallback(() => {
-    if (!symbol || unmountedRef.current) return;
-
-    // Определяем WS URL
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const host = window.location.host;
-    const url = `${proto}://${host}/ws/market/${symbol}?interval=${interval}`;
-
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      if (unmountedRef.current) return;
-      setIsConnected(true);
-      attemptRef.current = 0;
-    };
-
-    ws.onmessage = (event) => {
-      if (unmountedRef.current) return;
-      // Игнорируем сообщения от старого символа (race condition при переключении)
-      if (symbolRef.current !== symbol) return;
-      try {
-        const msg: MarketMessage = JSON.parse(event.data);
-        if (msg.type === 'kline') {
-          const d = msg.data;
-          // Bybit WS может отдавать timestamp в ms — конвертируем в секунды
-          const rawTs = Number(d.timestamp ?? d.time ?? d.start);
-          const timeSec = rawTs > 1e12 ? Math.floor(rawTs / 1000) : rawTs;
-          const kline: KlineData = {
-            time: timeSec,
-            open: Number(d.open),
-            high: Number(d.high),
-            low: Number(d.low),
-            close: Number(d.close),
-            volume: Number(d.volume),
-          };
-          setLastKline(kline);
-          setLastPrice(kline.close);
-        } else if (msg.type === 'ticker') {
-          const d = msg.data;
-          setLastPrice(Number(d.last_price ?? d.price ?? 0));
-        }
-      } catch {
-        // Некорректное сообщение — игнорируем
-      }
-    };
-
-    ws.onclose = () => {
-      if (unmountedRef.current) return;
-      setIsConnected(false);
-      wsRef.current = null;
-      // Reconnect с backoff
-      const delay = getReconnectDelay(attemptRef.current);
-      attemptRef.current += 1;
-      reconnectTimer.current = setTimeout(connect, delay);
-    };
-
-    ws.onerror = () => {
-      ws.close();
-    };
-  }, [symbol, interval]);
-
   useEffect(() => {
-    unmountedRef.current = false;
+    if (!symbol) return;
+
+    let cancelled = false;
+    let attempt = 0;
+    let ws: WebSocket | null = null;
+
+    function connect() {
+      if (cancelled || !symbol) return;
+
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const host = window.location.host;
+      const url = `${proto}://${host}/ws/market/${symbol}?interval=${interval}`;
+
+      ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        if (cancelled) return;
+        setIsConnected(true);
+        attempt = 0;
+      };
+
+      ws.onmessage = (event) => {
+        if (cancelled) return;
+        try {
+          const msg: MarketMessage = JSON.parse(event.data as string);
+          if (msg.type === 'kline') {
+            const d = msg.data;
+            // Bybit WS может отдавать timestamp в ms - конвертируем в секунды
+            const rawTs = Number(d.timestamp ?? d.time ?? d.start);
+            const timeSec = rawTs > 1e12 ? Math.floor(rawTs / 1000) : rawTs;
+            const kline: KlineData = {
+              time: timeSec,
+              open: Number(d.open),
+              high: Number(d.high),
+              low: Number(d.low),
+              close: Number(d.close),
+              volume: Number(d.volume),
+            };
+            setLastKline(kline);
+            setLastPrice(kline.close);
+          } else if (msg.type === 'ticker') {
+            const d = msg.data;
+            setLastPrice(Number(d.last_price ?? d.price ?? 0));
+          }
+        } catch {
+          // Некорректное сообщение - игнорируем
+        }
+      };
+
+      ws.onclose = () => {
+        if (cancelled) return;
+        setIsConnected(false);
+        ws = null;
+        // Reconnect с backoff
+        const delay = getReconnectDelay(attempt);
+        attempt += 1;
+        reconnectTimer.current = setTimeout(connect, delay);
+      };
+
+      ws.onerror = () => {
+        ws?.close();
+      };
+    }
+
     connect();
 
     return () => {
-      unmountedRef.current = true;
+      cancelled = true;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      // Закрываем WebSocket в любом состоянии (CONNECTING или OPEN)
-      if (wsRef.current && wsRef.current.readyState <= WebSocket.OPEN) {
-        wsRef.current.close();
+      if (ws && ws.readyState <= WebSocket.OPEN) {
+        ws.close();
       }
-      wsRef.current = null;
+      ws = null;
     };
-  }, [connect]);
+  }, [symbol, interval]);
 
   return { lastPrice, lastKline, isConnected };
 }

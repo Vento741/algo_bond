@@ -1,25 +1,24 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   createChart,
-  type IChartApi,
-  type ISeriesApi,
-  type CandlestickData,
-  type HistogramData,
-  type MouseEventParams,
+  CandlestickSeries,
+  HistogramSeries,
   ColorType,
   CrosshairMode,
-  type Time,
 } from 'lightweight-charts';
+import type {
+  IChartApi,
+  ISeriesApi,
+  CandlestickData,
+  HistogramData,
+  MouseEventParams,
+  Time,
+} from 'lightweight-charts';
+import type { KlineData } from '@/lib/chart-types';
+import { CHART_COLORS } from '@/lib/chart-constants';
 
-/** Формат свечи, приходящей из REST / WebSocket */
-export interface KlineData {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
+// Re-export KlineData для обратной совместимости
+export type { KlineData } from '@/lib/chart-types';
 
 interface TradingChartProps {
   symbol: string;
@@ -31,6 +30,8 @@ interface TradingChartProps {
     price: number | null;
     volume: number | null;
   }) => void;
+  /** Callback при создании/удалении chart API */
+  onChartReady?: (chart: IChartApi | null) => void;
 }
 
 /** Конвертация Unix-секунд в формат lightweight-charts */
@@ -38,7 +39,7 @@ function toChartTime(ts: number): Time {
   return ts as Time;
 }
 
-/** Маппинг KlineData → CandlestickData */
+/** Маппинг KlineData -> CandlestickData */
 function toCandlestick(k: KlineData): CandlestickData<Time> {
   return {
     time: toChartTime(k.time),
@@ -49,12 +50,12 @@ function toCandlestick(k: KlineData): CandlestickData<Time> {
   };
 }
 
-/** Маппинг KlineData → HistogramData (volume) */
+/** Маппинг KlineData -> HistogramData (volume) */
 function toVolume(k: KlineData): HistogramData<Time> {
   return {
     time: toChartTime(k.time),
     value: k.volume,
-    color: k.close >= k.open ? 'rgba(0,230,118,0.35)' : 'rgba(255,23,68,0.35)',
+    color: k.close >= k.open ? CHART_COLORS.volumeUp : CHART_COLORS.volumeDown,
   };
 }
 
@@ -64,18 +65,80 @@ export function TradingChart({
   initialData,
   lastKline,
   onCrosshairMove,
+  onChartReady,
 }: TradingChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const createdRef = useRef(false);
+  const onCrosshairMoveRef = useRef(onCrosshairMove);
+  onCrosshairMoveRef.current = onCrosshairMove;
+  const onChartReadyRef = useRef(onChartReady);
+  onChartReadyRef.current = onChartReady;
 
-  // Обработчик crosshair
-  const handleCrosshair = useCallback(
-    (param: MouseEventParams<Time>) => {
-      if (!onCrosshairMove) return;
+  // Создание графика (один раз)
+  useEffect(() => {
+    if (!containerRef.current) return;
+    // React 18 StrictMode guard - предотвращаем двойное создание
+    if (createdRef.current) return;
+    createdRef.current = true;
+
+    const chart = createChart(containerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: CHART_COLORS.bg },
+        textColor: CHART_COLORS.text,
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 11,
+      },
+      grid: {
+        vertLines: { color: CHART_COLORS.grid },
+        horzLines: { color: CHART_COLORS.grid },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: { color: CHART_COLORS.crosshair, width: 1, style: 3, labelBackgroundColor: CHART_COLORS.crosshair },
+        horzLine: { color: CHART_COLORS.crosshair, width: 1, style: 3, labelBackgroundColor: CHART_COLORS.crosshair },
+      },
+      rightPriceScale: {
+        borderColor: CHART_COLORS.border,
+        scaleMargins: { top: 0.1, bottom: 0.25 },
+      },
+      timeScale: {
+        borderColor: CHART_COLORS.border,
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      handleScale: { axisPressedMouseMove: { time: true, price: true } },
+      handleScroll: { vertTouchDrag: true },
+    });
+
+    chartRef.current = chart;
+
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: CHART_COLORS.up,
+      downColor: CHART_COLORS.down,
+      borderUpColor: CHART_COLORS.up,
+      borderDownColor: CHART_COLORS.down,
+      wickUpColor: CHART_COLORS.up,
+      wickDownColor: CHART_COLORS.down,
+    });
+    candleSeriesRef.current = candleSeries;
+
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: 'volume' },
+      priceScaleId: '',
+    });
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+    volumeSeriesRef.current = volumeSeries;
+
+    function handleCrosshair(param: MouseEventParams<Time>) {
+      const cb = onCrosshairMoveRef.current;
+      if (!cb) return;
       if (!param.time || !param.seriesData) {
-        onCrosshairMove({ time: null, price: null, volume: null });
+        cb({ time: null, price: null, volume: null });
         return;
       }
       const candleData = candleSeriesRef.current
@@ -86,70 +149,16 @@ export function TradingChart({
         : undefined;
       const candle = candleData as CandlestickData<Time> | undefined;
       const vol = volData as HistogramData<Time> | undefined;
-      onCrosshairMove({
+      cb({
         time: param.time as number,
         price: candle?.close ?? null,
         volume: vol?.value ?? null,
       });
-    },
-    [onCrosshairMove],
-  );
-
-  // Создание графика
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const chart = createChart(containerRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: '#0d0d1a' },
-        textColor: '#666',
-        fontFamily: "'JetBrains Mono', monospace",
-        fontSize: 11,
-      },
-      grid: {
-        vertLines: { color: '#1a1a2e' },
-        horzLines: { color: '#1a1a2e' },
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: { color: '#FFD700', width: 1, style: 3, labelBackgroundColor: '#FFD700' },
-        horzLine: { color: '#FFD700', width: 1, style: 3, labelBackgroundColor: '#FFD700' },
-      },
-      rightPriceScale: {
-        borderColor: '#2a2a3e',
-        scaleMargins: { top: 0.1, bottom: 0.25 },
-      },
-      timeScale: {
-        borderColor: '#2a2a3e',
-        timeVisible: true,
-        secondsVisible: false,
-      },
-      handleScale: { axisPressedMouseMove: { time: true, price: true } },
-      handleScroll: { vertTouchDrag: true },
-    });
-
-    chartRef.current = chart;
-
-    const candleSeries = chart.addCandlestickSeries({
-      upColor: '#00E676',
-      downColor: '#FF1744',
-      borderUpColor: '#00E676',
-      borderDownColor: '#FF1744',
-      wickUpColor: '#00E676',
-      wickDownColor: '#FF1744',
-    });
-    candleSeriesRef.current = candleSeries;
-
-    const volumeSeries = chart.addHistogramSeries({
-      priceFormat: { type: 'volume' },
-      priceScaleId: '',
-    });
-    volumeSeries.priceScale().applyOptions({
-      scaleMargins: { top: 0.8, bottom: 0 },
-    });
-    volumeSeriesRef.current = volumeSeries;
+    }
 
     chart.subscribeCrosshairMove(handleCrosshair);
+
+    onChartReadyRef.current?.(chart);
 
     // ResizeObserver для адаптивности
     const ro = new ResizeObserver((entries) => {
@@ -167,8 +176,11 @@ export function TradingChart({
       chartRef.current = null;
       candleSeriesRef.current = null;
       volumeSeriesRef.current = null;
+      onChartReadyRef.current?.(null);
+      createdRef.current = false;
     };
-  }, [handleCrosshair]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Загрузка исторических данных (только при смене symbol/interval)
   useEffect(() => {
@@ -176,7 +188,7 @@ export function TradingChart({
     const sorted = [...initialData].sort((a, b) => a.time - b.time);
     candleSeriesRef.current?.setData(sorted.map(toCandlestick));
     volumeSeriesRef.current?.setData(sorted.map(toVolume));
-    // Принудительный autoScale по оси Y — сбрасывает ручное масштабирование
+    // Принудительный autoScale по оси Y
     chartRef.current?.priceScale('right').applyOptions({ autoScale: true });
     chartRef.current?.timeScale().fitContent();
   }, [initialData]);

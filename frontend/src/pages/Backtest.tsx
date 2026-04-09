@@ -23,9 +23,15 @@ import {
 } from 'lucide-react';
 import {
   createChart,
-  type IChartApi,
+  AreaSeries,
+  CandlestickSeries,
+  HistogramSeries,
   ColorType,
-  type Time,
+  createSeriesMarkers,
+} from 'lightweight-charts';
+import type {
+  IChartApi,
+  Time,
 } from 'lightweight-charts';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -75,6 +81,7 @@ interface BacktestResult {
     exit_price: number;
     pnl: number;
     pnl_pct: number;
+    exit_reason: string;
   }[];
 }
 
@@ -125,6 +132,7 @@ function mapBackendResultToUI(
       exit_price: t.exit_price,
       pnl: t.pnl,
       pnl_pct: t.pnl_pct,
+      exit_reason: t.exit_reason,
     }),
   );
 
@@ -744,7 +752,7 @@ function EquityChart({ data }: { data: { time: number; equity: number }[] }) {
     });
     chartRef.current = chart;
 
-    const lineSeries = chart.addAreaSeries({
+    const lineSeries = chart.addSeries(AreaSeries, {
       lineColor: '#FFD700',
       topColor: 'rgba(255,215,0,0.15)',
       bottomColor: 'rgba(255,215,0,0.0)',
@@ -863,7 +871,7 @@ function TradesChart({
       chartRef.current = chart;
 
       // Candlestick series
-      const candleSeries = chart.addCandlestickSeries({
+      const candleSeries = chart.addSeries(CandlestickSeries, {
         upColor: '#00E676',
         downColor: '#FF1744',
         borderUpColor: '#00E676',
@@ -874,7 +882,7 @@ function TradesChart({
       candleSeries.setData(candles);
 
       // Volume
-      const volumeSeries = chart.addHistogramSeries({
+      const volumeSeries = chart.addSeries(HistogramSeries, {
         priceFormat: { type: 'volume' },
         priceScaleId: '',
       });
@@ -940,17 +948,31 @@ function TradesChart({
             position: trade.side === 'long' ? 'belowBar' : 'aboveBar',
             color: trade.side === 'long' ? '#00E676' : '#FF1744',
             shape: trade.side === 'long' ? 'arrowUp' : 'arrowDown',
-            text: `${trade.side === 'long' ? 'BUY' : 'SELL'} $${trade.entry_price.toFixed(4)}`,
+            text: `${trade.side === 'long' ? 'LONG' : 'SHORT'} $${trade.entry_price.toFixed(4)}`,
           });
         }
 
         if (bestExitTime && bestExitTime !== bestEntryTime) {
+          // Маппинг exit_reason в понятные лейблы
+          const reasonLabels: Record<string, string> = {
+            stop_loss: 'SL',
+            take_profit: 'TP',
+            take_profit_1: 'TP1',
+            take_profit_2: 'TP2',
+            trailing_stop: 'TRAIL',
+            breakeven: 'BE',
+            signal: 'REVERSE',
+            end_of_data: 'END',
+          };
+          const reasonLabel = reasonLabels[trade.exit_reason] || trade.exit_reason?.toUpperCase() || 'EXIT';
+          const pnlStr = `${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}`;
+
           markers.push({
             time: bestExitTime,
             position: trade.side === 'long' ? 'aboveBar' : 'belowBar',
             color: trade.pnl >= 0 ? '#FFD700' : '#FF6D00',
             shape: 'circle',
-            text: `EXIT ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}`,
+            text: `${reasonLabel} ${pnlStr}`,
           });
         }
       }
@@ -966,7 +988,7 @@ function TradesChart({
 
       uniqueMarkers.sort((a, b) => (a.time as number) - (b.time as number));
       if (uniqueMarkers.length > 0) {
-        candleSeries.setMarkers(uniqueMarkers);
+        createSeriesMarkers(candleSeries, uniqueMarkers);
       }
 
       chart.timeScale().fitContent();
@@ -1047,18 +1069,25 @@ function TradesChart({
       )}
       <div ref={containerRef} className="w-full" style={{ minHeight: 450 }} />
       {!loading && trades.length > 0 && (
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-white/5 text-xs text-gray-400">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-t border-white/5 text-xs text-gray-400">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 bg-brand-profit rounded-sm" /> Long вход
+            <span className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-b-[6px] border-transparent border-b-brand-profit" /> LONG
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 bg-brand-loss rounded-sm" /> Short вход
+            <span className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-t-[6px] border-transparent border-t-brand-loss" /> SHORT
+          </span>
+          <span className="text-gray-600">|</span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 bg-brand-premium rounded-full" /> SL - стоп-лосс
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 bg-brand-premium rounded-full" /> Выход (profit)
+            <span className="inline-block w-2 h-2 bg-brand-premium rounded-full" /> TP - тейк-профит
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 bg-orange-500 rounded-full" /> Выход (loss)
+            <span className="inline-block w-2 h-2 bg-orange-500 rounded-full" /> TRAIL - трейлинг
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 bg-orange-500 rounded-full" /> REVERSE - обратный сигнал
           </span>
         </div>
       )}
@@ -1464,6 +1493,7 @@ function generateDemoResult(capital: number): BacktestResult {
       exit_price: +exitPrice.toFixed(2),
       pnl: +pnl.toFixed(2),
       pnl_pct: +pnlPct.toFixed(2),
+      exit_reason: Math.random() > 0.5 ? 'TP' : 'SL',
     });
 
     equityCurve.push({
