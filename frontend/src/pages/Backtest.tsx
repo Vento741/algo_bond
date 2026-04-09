@@ -82,6 +82,8 @@ interface BacktestResult {
     pnl: number;
     pnl_pct: number;
     exit_reason: string;
+    entry_bar: number;
+    exit_bar: number;
   }[];
 }
 
@@ -133,6 +135,8 @@ function mapBackendResultToUI(
       pnl: t.pnl,
       pnl_pct: t.pnl_pct,
       exit_reason: t.exit_reason,
+      entry_bar: t.entry_bar,
+      exit_bar: t.exit_bar,
     }),
   );
 
@@ -900,19 +904,7 @@ function TradesChart({
         })),
       );
 
-      // Trade markers — price lines for entry/exit levels
-      // Build price map for fast lookup: price → closest candle time
-      const priceTimeMap = new Map<number, Time>();
-      for (const c of candles) {
-        const roundedPrice = Math.round(c.close * 100) / 100;
-        if (!priceTimeMap.has(roundedPrice)) {
-          priceTimeMap.set(roundedPrice, c.time);
-        }
-      }
-
-      // Limit markers to avoid performance issues
-      const recentTrades = trades.slice(-100);
-
+      // Trade markers — привязка по bar_index (точное время)
       type MarkerItem = {
         time: Time;
         position: 'belowBar' | 'aboveBar';
@@ -922,29 +914,26 @@ function TradesChart({
       };
       const markers: MarkerItem[] = [];
 
-      for (const trade of recentTrades) {
-        // Find closest price in candle data
-        let bestEntryTime: Time | null = null;
-        let bestEntryDist = Infinity;
-        let bestExitTime: Time | null = null;
-        let bestExitDist = Infinity;
+      // Маппинг exit_reason
+      const reasonLabels: Record<string, string> = {
+        stop_loss: 'SL',
+        take_profit: 'TP',
+        take_profit_1: 'TP1',
+        take_profit_2: 'TP2',
+        trailing_stop: 'TRAIL',
+        breakeven: 'BE',
+        signal: 'REVERSE',
+        end_of_data: 'END',
+      };
 
-        for (const c of candles) {
-          const entryDist = Math.abs(c.close - trade.entry_price);
-          if (entryDist < bestEntryDist) {
-            bestEntryDist = entryDist;
-            bestEntryTime = c.time;
-          }
-          const exitDist = Math.abs(c.close - trade.exit_price);
-          if (exitDist < bestExitDist) {
-            bestExitDist = exitDist;
-            bestExitTime = c.time;
-          }
-        }
+      for (const trade of trades) {
+        // Привязка по bar_index - точное соответствие бэктесту
+        const entryCandle = candles[trade.entry_bar];
+        const exitCandle = candles[trade.exit_bar];
 
-        if (bestEntryTime) {
+        if (entryCandle) {
           markers.push({
-            time: bestEntryTime,
+            time: entryCandle.time,
             position: trade.side === 'long' ? 'belowBar' : 'aboveBar',
             color: trade.side === 'long' ? '#00E676' : '#FF1744',
             shape: trade.side === 'long' ? 'arrowUp' : 'arrowDown',
@@ -952,23 +941,12 @@ function TradesChart({
           });
         }
 
-        if (bestExitTime && bestExitTime !== bestEntryTime) {
-          // Маппинг exit_reason в понятные лейблы
-          const reasonLabels: Record<string, string> = {
-            stop_loss: 'SL',
-            take_profit: 'TP',
-            take_profit_1: 'TP1',
-            take_profit_2: 'TP2',
-            trailing_stop: 'TRAIL',
-            breakeven: 'BE',
-            signal: 'REVERSE',
-            end_of_data: 'END',
-          };
+        if (exitCandle && trade.exit_bar !== trade.entry_bar) {
           const reasonLabel = reasonLabels[trade.exit_reason] || trade.exit_reason?.toUpperCase() || 'EXIT';
           const pnlStr = `${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}`;
 
           markers.push({
-            time: bestExitTime,
+            time: exitCandle.time,
             position: trade.side === 'long' ? 'aboveBar' : 'belowBar',
             color: trade.pnl >= 0 ? '#FFD700' : '#FF6D00',
             shape: 'circle',
@@ -977,18 +955,12 @@ function TradesChart({
         }
       }
 
-      // Deduplicate markers on the same time (lightweight-charts requires unique times)
-      const seen = new Set<number>();
-      const uniqueMarkers = markers.filter((m) => {
-        const t = m.time as number;
-        if (seen.has(t)) return false;
-        seen.add(t);
-        return true;
-      });
+      // Сортировка по времени (lightweight-charts требует)
+      // Не дедуплицируем - несколько маркеров на одной свече допустимы
 
-      uniqueMarkers.sort((a, b) => (a.time as number) - (b.time as number));
-      if (uniqueMarkers.length > 0) {
-        createSeriesMarkers(candleSeries, uniqueMarkers);
+      markers.sort((a, b) => (a.time as number) - (b.time as number));
+      if (markers.length > 0) {
+        createSeriesMarkers(candleSeries, markers);
       }
 
       chart.timeScale().fitContent();
@@ -1493,7 +1465,9 @@ function generateDemoResult(capital: number): BacktestResult {
       exit_price: +exitPrice.toFixed(2),
       pnl: +pnl.toFixed(2),
       pnl_pct: +pnlPct.toFixed(2),
-      exit_reason: Math.random() > 0.5 ? 'TP' : 'SL',
+      exit_reason: ['stop_loss', 'take_profit', 'trailing_stop', 'signal'][Math.floor(Math.random() * 4)],
+      entry_bar: i * 10,
+      exit_bar: i * 10 + 5 + Math.floor(Math.random() * 10),
     });
 
     equityCurve.push({
