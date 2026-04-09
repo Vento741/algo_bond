@@ -284,14 +284,65 @@ async def _sync_positions(
         if exchange_size == 0:
             # Позиция закрыта на бирже (SL/TP/trailing сработал)
             pos.status = PositionStatus.CLOSED
+            pos.closed_at = datetime.now(timezone.utc)
             pos.unrealized_pnl = Decimal("0")
 
-            # Обновить PnL бота
-            realized = float(ep.get("cumRealisedPnl", "0")) if exchange_positions else 0.0
-            bot.total_pnl = Decimal(str(float(bot.total_pnl or 0) + realized))
+            # Получить realized PnL из closed PnL API (точные данные с комиссиями)
+            try:
+                closed_pnl_records = client.get_closed_pnl(symbol, limit=5)
+                entry_db = round(float(pos.entry_price), 3)
+                for rec in closed_pnl_records:
+                    entry_bybit = round(float(rec.get("avgEntryPrice", "0")), 3)
+                    if entry_db == entry_bybit:
+                        pos.realized_pnl = Decimal(rec["closedPnl"])
+                        break
+                else:
+                    # Fallback: рассчитать вручную по последнему mark_price
+                    if exchange_entry > 0:
+                        entry = float(pos.entry_price)
+                        qty = float(pos.quantity)
+                        side_val = pos.side.value if hasattr(pos.side, "value") else str(pos.side)
+                        if side_val == "long":
+                            pos.realized_pnl = Decimal(str(round((exchange_entry - entry) * qty, 4)))
+                        else:
+                            pos.realized_pnl = Decimal(str(round((entry - exchange_entry) * qty, 4)))
+            except Exception as e:
+                logger.warning("Bot %s: get_closed_pnl failed: %s", bot.id, e)
 
-            await _log(db, bot.id, "info", "Позиция закрыта биржей", {
-                "symbol": symbol, "realized_pnl": realized,
+            # Пересчитать total_pnl из ВСЕХ закрытых позиций (как делает listener)
+            all_closed = await db.execute(
+                select(Position).where(
+                    Position.bot_id == bot.id,
+                    Position.status == PositionStatus.CLOSED,
+                )
+            )
+            bot.total_pnl = sum(
+                (p.realized_pnl or Decimal("0")) for p in all_closed.scalars().all()
+            )
+
+            # Пересчитать win_rate
+            all_closed2 = await db.execute(
+                select(Position).where(
+                    Position.bot_id == bot.id,
+                    Position.status == PositionStatus.CLOSED,
+                )
+            )
+            closed_list = all_closed2.scalars().all()
+            total_closed = len(closed_list)
+            if total_closed > 0:
+                wins = sum(1 for p in closed_list if (p.realized_pnl or Decimal("0")) > 0)
+                bot.win_rate = Decimal(str(round(wins / total_closed * 100, 2)))
+            bot.total_trades = total_closed
+
+            # Трекинг пиков
+            if bot.total_pnl > bot.max_pnl:
+                bot.max_pnl = bot.total_pnl
+            current_dd = bot.max_pnl - bot.total_pnl
+            if current_dd > bot.max_drawdown:
+                bot.max_drawdown = current_dd
+
+            await _log(db, bot.id, "info", "Позиция закрыта биржей (sync)", {
+                "symbol": symbol, "realized_pnl": str(pos.realized_pnl),
             })
 
         elif exchange_size < db_qty * 0.95:
@@ -433,11 +484,60 @@ async def _close_position_market(
         db.add(order)
         position.status = PositionStatus.CLOSED
         position.closed_at = datetime.now(timezone.utc)
+
+        # Рассчитать realized_pnl через closed PnL API (с комиссиями)
+        try:
+            closed_records = client.get_closed_pnl(symbol, limit=3)
+            entry_db = round(float(position.entry_price), 3)
+            for rec in closed_records:
+                entry_bybit = round(float(rec.get("avgEntryPrice", "0")), 3)
+                if entry_db == entry_bybit:
+                    prior_pnl = position.realized_pnl or Decimal("0")
+                    position.realized_pnl = prior_pnl + Decimal(rec["closedPnl"])
+                    break
+            else:
+                # Fallback: рассчитать по текущей цене
+                try:
+                    ticker = client.get_ticker(symbol)
+                    last_price = float(ticker.last_price)
+                    entry = float(position.entry_price)
+                    prior_pnl = position.realized_pnl or Decimal("0")
+                    if side_value == "long":
+                        pnl = (last_price - entry) * qty
+                    else:
+                        pnl = (entry - last_price) * qty
+                    position.realized_pnl = prior_pnl + Decimal(str(round(pnl, 4)))
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.warning("Bot %s: closed PnL fetch failed on reverse: %s", bot.id, e)
+
+        # Пересчитать bot stats из всех закрытых позиций
+        all_closed = await db.execute(
+            select(Position).where(
+                Position.bot_id == bot.id,
+                Position.status == PositionStatus.CLOSED,
+            )
+        )
+        closed_list = all_closed.scalars().all()
+        bot.total_pnl = sum((p.realized_pnl or Decimal("0")) for p in closed_list)
+        total_closed = len(closed_list)
+        if total_closed > 0:
+            wins = sum(1 for p in closed_list if (p.realized_pnl or Decimal("0")) > 0)
+            bot.win_rate = Decimal(str(round(wins / total_closed * 100, 2)))
+        bot.total_trades = total_closed
+        if bot.total_pnl > bot.max_pnl:
+            bot.max_pnl = bot.total_pnl
+        current_dd = bot.max_pnl - bot.total_pnl
+        if current_dd > bot.max_drawdown:
+            bot.max_drawdown = current_dd
+
         await db.commit()
 
         await _log(db, bot.id, "info", f"Закрытие позиции {side_value.upper()} {qty} {symbol} (reverse)", {
             "order_id": bybit_result.get("orderId"),
             "reason": "reverse_signal",
+            "realized_pnl": str(position.realized_pnl),
         })
         return True
     except BybitAPIError as e:

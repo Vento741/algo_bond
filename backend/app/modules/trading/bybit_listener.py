@@ -302,7 +302,24 @@ async def _handle_position_event(
                 position = result.scalar_one_or_none()
 
                 if not position:
-                    continue
+                    # Race condition: bot_worker мог закрыть позицию раньше.
+                    # Попробовать найти недавно закрытую позицию без realized_pnl.
+                    if position_closed:
+                        recently_closed = await db.execute(
+                            select(Position).where(
+                                Position.bot_id == bot_id,
+                                Position.symbol == symbol,
+                                Position.status == PositionStatus.CLOSED,
+                                Position.realized_pnl == None,  # noqa: E711
+                            )
+                        )
+                        position = recently_closed.scalar_one_or_none()
+                        if position:
+                            logger.info("Listener: найдена закрытая позиция без PnL (race condition fix)")
+                        else:
+                            continue
+                    else:
+                        continue
 
                 if position_closed:
                     # === Позиция закрыта ===

@@ -140,6 +140,12 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
             # 6. Запустить backtest engine
             backtest_config = merged_config.get("backtest", {})
             risk_config = merged_config.get("risk", {})
+            # Рассчитать timeframe в минутах для Sharpe ratio
+            tf_str = str(run.timeframe)
+            tf_map = {"1": 1, "3": 3, "5": 5, "15": 15, "30": 30,
+                       "60": 60, "120": 120, "240": 240, "D": 1440, "W": 10080}
+            tf_minutes = tf_map.get(tf_str, 15)
+
             metrics = run_backtest(
                 ohlcv=ohlcv,
                 signals=strategy_result.signals,
@@ -150,6 +156,7 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
                 use_multi_tp=risk_config.get("use_multi_tp", False),
                 tp_levels=risk_config.get("tp_levels"),
                 use_breakeven=risk_config.get("use_breakeven", False),
+                timeframe_minutes=tf_minutes,
             )
 
             # 7. Сохранить результат

@@ -48,6 +48,7 @@ def run_backtest(
     use_multi_tp: bool = False,
     tp_levels: list[dict] | None = None,
     use_breakeven: bool = False,
+    timeframe_minutes: int = 15,
 ) -> BacktestMetrics:
     """Запустить бэктест.
 
@@ -100,8 +101,10 @@ def run_backtest(
         else:
             pnl_raw = (position_entry_price - exit_price) * qty
 
-        commission = abs(exit_price * qty) * commission_pct / 100
-        pnl = pnl_raw - commission
+        # Комиссия: вход + выход (как на бирже, closedPnl включает обе)
+        entry_commission = abs(position_entry_price * qty) * commission_pct / 100
+        exit_commission = abs(exit_price * qty) * commission_pct / 100
+        pnl = pnl_raw - entry_commission - exit_commission
         pnl_pct = pnl / equity * 100 if equity > 0 else 0
 
         trades.append(Trade(
@@ -237,9 +240,7 @@ def run_backtest(
                 if qty <= 0:
                     continue
 
-                commission = abs(entry_price * qty) * commission_pct / 100
-                equity -= commission
-
+                # Комиссия учитывается в _record_trade при закрытии (entry + exit)
                 in_position = True
                 position_direction = sig.direction
                 position_entry_price = entry_price
@@ -248,14 +249,9 @@ def run_backtest(
                 position_sl = sig.stop_loss
                 position_tp = sig.take_profit
                 position_trailing = sig.trailing_atr or 0.0
-                if position_trailing > 0:
-                    position_trailing_active = (
-                        entry_price + position_trailing
-                        if sig.direction == "long"
-                        else entry_price - position_trailing
-                    )
-                else:
-                    position_trailing_active = 0.0
+                # Trailing активируется от entry_price (как на Bybit)
+                # trailing_active отслеживает максимум/минимум цены
+                position_trailing_active = entry_price if position_trailing > 0 else 0.0
                 position_entry_bar = i
                 breakeven_active = False
 
@@ -331,7 +327,11 @@ def run_backtest(
         avg_return = float(np.mean(returns))
         std_return = float(np.std(returns, ddof=1))
         if std_return > 0:
-            sharpe = avg_return / std_return * math.sqrt(min(len(returns), 252))
+            # Annualization: баров в году = 365 * 24 * 60 / timeframe_minutes
+            bars_per_year = 365 * 24 * 60 / timeframe_minutes
+            # Используем кол-во сделок, но масштабируем по реальному времени
+            annualization = math.sqrt(min(len(returns), bars_per_year))
+            sharpe = avg_return / std_return * annualization
 
     trades_log = [
         {
