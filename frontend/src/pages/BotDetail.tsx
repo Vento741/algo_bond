@@ -401,6 +401,8 @@ export function BotDetail() {
         }
 
         setSseStatus('connected');
+        // Refresh data immediately on (re)connect
+        refreshAll(true);
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
