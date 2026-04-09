@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Brain,
   ArrowLeft,
@@ -14,6 +14,11 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
+  ClipboardPaste,
+  Download,
+  Upload,
+  Play,
+  CopyPlus,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -413,6 +418,7 @@ function ConfigEditorDialog({
   onSaved,
 }: ConfigEditorDialogProps) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
 
   // Основные поля
@@ -450,6 +456,29 @@ function ConfigEditorDialog({
     }));
   };
 
+  /** Сохранить конфиг, вернуть id. Бросает при ошибке. */
+  const saveConfig = async (): Promise<string> => {
+    if (editingConfig) {
+      const payload: StrategyConfigUpdate = {
+        name: name.trim(),
+        symbol,
+        timeframe,
+        config: config as unknown as Record<string, unknown>,
+      };
+      await api.patch(`/strategies/configs/${editingConfig.id}`, payload);
+      return editingConfig.id;
+    }
+    const payload: StrategyConfigCreate = {
+      strategy_id: strategyId,
+      name: name.trim(),
+      symbol,
+      timeframe,
+      config: config as unknown as Record<string, unknown>,
+    };
+    const { data } = await api.post<StrategyConfig>('/strategies/configs', payload);
+    return data.id;
+  };
+
   const handleSubmit = async () => {
     if (!name.trim()) {
       toast('Введите название конфигурации', 'error');
@@ -458,28 +487,63 @@ function ConfigEditorDialog({
 
     setSaving(true);
     try {
-      if (editingConfig) {
-        const payload: StrategyConfigUpdate = {
-          name: name.trim(),
-          symbol,
-          timeframe,
-          config: config as unknown as Record<string, unknown>,
-        };
-        await api.patch(`/strategies/configs/${editingConfig.id}`, payload);
-        toast('Конфигурация обновлена', 'success');
-      } else {
-        const payload: StrategyConfigCreate = {
-          strategy_id: strategyId,
-          name: name.trim(),
-          symbol,
-          timeframe,
-          config: config as unknown as Record<string, unknown>,
-        };
-        await api.post('/strategies/configs', payload);
-        toast('Конфигурация создана', 'success');
-      }
+      await saveConfig();
+      toast(editingConfig ? 'Конфигурация обновлена' : 'Конфигурация создана', 'success');
       onSaved();
       onClose();
+    } catch {
+      toast('Ошибка сохранения конфигурации', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCopyJson = async () => {
+    const fullConfig = { name, symbol, timeframe, config };
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(fullConfig, null, 2));
+      toast('JSON скопирован в буфер обмена', 'success');
+    } catch {
+      toast('Не удалось скопировать в буфер обмена', 'error');
+    }
+  };
+
+  const handlePasteJson = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const parsed: unknown = JSON.parse(text);
+      if (typeof parsed !== 'object' || parsed === null) {
+        toast('Невалидный JSON: ожидается объект', 'error');
+        return;
+      }
+      const obj = parsed as Record<string, unknown>;
+
+      if ('config' in obj && typeof obj.config === 'object' && obj.config !== null) {
+        if (typeof obj.name === 'string') setName(obj.name);
+        if (typeof obj.symbol === 'string') setSymbol(obj.symbol);
+        if (typeof obj.timeframe === 'string') setTimeframe(obj.timeframe);
+        setConfig(mergeConfig(DEFAULT_CONFIG, obj.config as Record<string, unknown>));
+      } else {
+        setConfig(mergeConfig(DEFAULT_CONFIG, obj));
+      }
+      toast('JSON вставлен из буфера обмена', 'success');
+    } catch {
+      toast('Не удалось прочитать JSON из буфера обмена', 'error');
+    }
+  };
+
+  const handleSaveAndBacktest = async () => {
+    if (!name.trim()) {
+      toast('Введите название конфигурации', 'error');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const configId = await saveConfig();
+      onSaved();
+      onClose();
+      navigate(`/backtest?config_id=${configId}`);
     } catch {
       toast('Ошибка сохранения конфигурации', 'error');
     } finally {
@@ -914,8 +978,32 @@ function ConfigEditorDialog({
             </div>
           </CollapsibleSection>
 
-          {/* Кнопки */}
-          <div className="flex items-center justify-end gap-3 pt-2">
+          {/* JSON-утилиты */}
+          <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyJson}
+              className="text-gray-400 hover:text-brand-accent"
+              title="Скопировать конфиг как JSON"
+            >
+              <Copy className="mr-1.5 h-3.5 w-3.5" />
+              JSON
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handlePasteJson}
+              className="text-gray-400 hover:text-brand-accent"
+              title="Вставить конфиг из JSON"
+            >
+              <ClipboardPaste className="mr-1.5 h-3.5 w-3.5" />
+              Вставить
+            </Button>
+          </div>
+
+          {/* Кнопки действий */}
+          <div className="flex items-center justify-between pt-2">
             <Button
               variant="ghost"
               size="sm"
@@ -925,19 +1013,32 @@ function ConfigEditorDialog({
               <X className="mr-1.5 h-3.5 w-3.5" />
               Отмена
             </Button>
-            <Button
-              variant="premium"
-              size="sm"
-              onClick={handleSubmit}
-              disabled={saving}
-            >
-              {saving ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="mr-1.5 h-3.5 w-3.5" />
-              )}
-              {editingConfig ? 'Сохранить' : 'Создать'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSaveAndBacktest}
+                disabled={saving}
+                className="text-brand-accent hover:text-brand-accent hover:bg-brand-accent/10"
+                title="Сохранить и запустить бэктест"
+              >
+                <Play className="mr-1.5 h-3.5 w-3.5" />
+                Бэктест
+              </Button>
+              <Button
+                variant="premium"
+                size="sm"
+                onClick={handleSubmit}
+                disabled={saving}
+              >
+                {saving ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                {editingConfig ? 'Сохранить' : 'Создать'}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
@@ -953,10 +1054,21 @@ interface ConfigCardProps {
   config: StrategyConfig;
   onEdit: (cfg: StrategyConfig) => void;
   onDelete: (id: string) => void;
+  onDuplicate: (cfg: StrategyConfig) => void;
+  onExport: (cfg: StrategyConfig) => void;
   deleting: boolean;
+  duplicating: boolean;
 }
 
-function ConfigCard({ config: cfg, onEdit, onDelete, deleting }: ConfigCardProps) {
+function ConfigCard({
+  config: cfg,
+  onEdit,
+  onDelete,
+  onDuplicate,
+  onExport,
+  deleting,
+  duplicating,
+}: ConfigCardProps) {
   return (
     <div className="flex items-center justify-between p-3 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
       <div className="min-w-0 flex-1">
@@ -980,8 +1092,32 @@ function ConfigCard({ config: cfg, onEdit, onDelete, deleting }: ConfigCardProps
           size="icon"
           className="h-8 w-8 text-gray-400 hover:text-white"
           onClick={() => onEdit(cfg)}
+          title="Редактировать"
         >
           <Pencil className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-gray-400 hover:text-brand-accent"
+          onClick={() => onDuplicate(cfg)}
+          disabled={duplicating}
+          title="Дублировать"
+        >
+          {duplicating ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <CopyPlus className="h-3.5 w-3.5" />
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-gray-400 hover:text-brand-premium"
+          onClick={() => onExport(cfg)}
+          title="Экспорт в JSON"
+        >
+          <Download className="h-3.5 w-3.5" />
         </Button>
         <Button
           variant="ghost"
@@ -989,6 +1125,7 @@ function ConfigCard({ config: cfg, onEdit, onDelete, deleting }: ConfigCardProps
           className="h-8 w-8 text-gray-400 hover:text-brand-loss"
           onClick={() => onDelete(cfg.id)}
           disabled={deleting}
+          title="Удалить"
         >
           {deleting ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1022,6 +1159,12 @@ export function StrategyDetail() {
   // Диалог редактора
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<StrategyConfig | null>(null);
+
+  // Дублирование
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+
+  // Импорт (скрытый file input)
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   // Загрузка стратегии
   useEffect(() => {
@@ -1087,6 +1230,94 @@ export function StrategyDetail() {
       toast('Ошибка удаления', 'error');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  /* Дублирование конфига */
+  const handleDuplicateConfig = async (cfg: StrategyConfig) => {
+    setDuplicatingId(cfg.id);
+    try {
+      const payload: StrategyConfigCreate = {
+        strategy_id: cfg.strategy_id,
+        name: `${cfg.name} (копия)`,
+        symbol: cfg.symbol,
+        timeframe: cfg.timeframe,
+        config: cfg.config,
+      };
+      await api.post('/strategies/configs', payload);
+      toast('Конфигурация дублирована', 'success');
+      fetchConfigs();
+    } catch {
+      toast('Ошибка дублирования', 'error');
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
+  /* Экспорт конфига в .json файл */
+  const handleExportConfig = (cfg: StrategyConfig) => {
+    const exportData = {
+      name: cfg.name,
+      symbol: cfg.symbol,
+      timeframe: cfg.timeframe,
+      config: cfg.config,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${cfg.name.replace(/[^a-zA-Z0-9а-яА-ЯёЁ_-]/g, '_')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Конфигурация экспортирована', 'success');
+  };
+
+  /* Импорт конфига из .json файла */
+  const handleImportConfig = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !strategy) return;
+
+    try {
+      const text = await file.text();
+      const parsed: unknown = JSON.parse(text);
+      if (typeof parsed !== 'object' || parsed === null) {
+        toast('Невалидный JSON: ожидается объект', 'error');
+        return;
+      }
+
+      const obj = parsed as Record<string, unknown>;
+      const configData =
+        'config' in obj && typeof obj.config === 'object' && obj.config !== null
+          ? (obj.config as Record<string, unknown>)
+          : obj;
+
+      const importName =
+        typeof obj.name === 'string' ? `${obj.name} (импорт)` : `Импорт ${file.name}`;
+      const importSymbol = typeof obj.symbol === 'string' ? obj.symbol : 'BTCUSDT';
+      const importTimeframe = typeof obj.timeframe === 'string' ? obj.timeframe : '5';
+
+      const payload: StrategyConfigCreate = {
+        strategy_id: strategy.id,
+        name: importName,
+        symbol: importSymbol,
+        timeframe: importTimeframe,
+        config: configData,
+      };
+
+      await api.post('/strategies/configs', payload);
+      toast('Конфигурация импортирована', 'success');
+      fetchConfigs();
+    } catch {
+      toast('Ошибка импорта: невалидный JSON файл', 'error');
+    } finally {
+      // Сброс input, чтобы можно было загрузить тот же файл повторно
+      if (importInputRef.current) {
+        importInputRef.current.value = '';
+      }
     }
   };
 
@@ -1172,14 +1403,26 @@ export function StrategyDetail() {
               <CardTitle className="text-base text-white">
                 Мои конфигурации
               </CardTitle>
-              <Button
-                variant="premium"
-                size="sm"
-                onClick={handleCreateConfig}
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Создать конфигурацию
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => importInputRef.current?.click()}
+                  className="text-gray-400 hover:text-brand-premium"
+                  title="Импорт из JSON файла"
+                >
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  Импорт
+                </Button>
+                <Button
+                  variant="premium"
+                  size="sm"
+                  onClick={handleCreateConfig}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Создать
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {configsLoading ? (
@@ -1201,13 +1444,25 @@ export function StrategyDetail() {
                       config={cfg}
                       onEdit={handleEditConfig}
                       onDelete={handleDeleteConfig}
+                      onDuplicate={handleDuplicateConfig}
+                      onExport={handleExportConfig}
                       deleting={deletingId === cfg.id}
+                      duplicating={duplicatingId === cfg.id}
                     />
                   ))}
                 </div>
               )}
             </CardContent>
           </Card>
+
+          {/* Скрытый input для импорта JSON */}
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={handleImportConfig}
+            className="hidden"
+          />
 
           {/* Default config */}
           <Card className="border-white/5 bg-white/[0.02]">

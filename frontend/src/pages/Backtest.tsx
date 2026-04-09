@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   FlaskConical,
   Play,
@@ -157,6 +158,9 @@ function mapBackendResultToUI(
 /* ---- Component ---- */
 
 export function Backtest() {
+  const [searchParams] = useSearchParams();
+  const urlConfigId = searchParams.get('config_id');
+
   // Strategy configs
   const [configs, setConfigs] = useState<StrategyConfig[]>([]);
   const [configsLoading, setConfigsLoading] = useState(true);
@@ -185,6 +189,20 @@ export function Backtest() {
       .get<StrategyConfig[]>('/strategies/configs/my')
       .then(({ data }) => {
         setConfigs(data);
+
+        // Если есть config_id в URL - выбрать его и подтянуть symbol/timeframe
+        if (urlConfigId) {
+          const matched = data.find((c) => c.id === urlConfigId);
+          if (matched) {
+            setSelectedConfigId(matched.id);
+            setSymbol(matched.symbol);
+            // Конвертируем timeframe из бэкенд-формата (5) в UI-формат (5m)
+            const tfLabel = BACKEND_TO_LABEL[matched.timeframe];
+            if (tfLabel) setTimeframe(tfLabel);
+            return;
+          }
+        }
+
         if (data.length > 0) {
           setSelectedConfigId(data[0].id);
         }
@@ -193,7 +211,7 @@ export function Backtest() {
         setConfigs([]);
       })
       .finally(() => setConfigsLoading(false));
-  }, []);
+  }, [urlConfigId]);
 
   // Cleanup polling on unmount
   useEffect(() => {
