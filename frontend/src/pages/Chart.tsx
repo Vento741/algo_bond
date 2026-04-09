@@ -121,13 +121,19 @@ export function Chart() {
 
   const handleConfigSelect = useCallback(
     (config: StrategyConfig) => {
-      setKlines([]);
-      setSymbol(config.symbol);
-      setInterval(config.timeframe);
+      const symbolChanged = config.symbol !== symbol;
+      const intervalChanged = config.timeframe !== interval;
+      if (symbolChanged || intervalChanged) {
+        setKlines([]);
+        setSymbol(config.symbol);
+        setInterval(config.timeframe);
+      }
       setLinkedConfigId(config.id);
-      navigate(`/chart/${config.symbol}`, { replace: true });
+      if (symbolChanged) {
+        navigate(`/chart/${config.symbol}`, { replace: true });
+      }
     },
-    [navigate],
+    [navigate, symbol, interval],
   );
 
   const handleConfigUnlink = useCallback(() => {
