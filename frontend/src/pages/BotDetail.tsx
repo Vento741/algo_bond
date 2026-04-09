@@ -47,7 +47,7 @@ import {
 } from '@/components/ui/table';
 import {
   createChart,
-
+  AreaSeries,
   ColorType,
   LineStyle,
 } from 'lightweight-charts';
@@ -1235,6 +1235,10 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
     ? Math.abs(tp - entry) / Math.abs(sl - entry)
     : 0;
 
+  // SL/TP percentages from entry
+  const slPct = entry > 0 ? ((sl - entry) / entry) * 100 : 0;
+  const tpPct = entry > 0 ? ((tp - entry) / entry) * 100 : 0;
+
   const knnColor = s.knn_class === 'BULL' ? 'text-blue-400' : s.knn_class === 'BEAR' ? 'text-brand-loss' : 'text-gray-500';
 
   const Pill = ({ label, value, state }: { label: string; value: string; state: 'bull' | 'bear' | 'neutral' }) => {
@@ -1275,32 +1279,32 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
     >
       <div className={`w-[3px] shrink-0 ${s.direction === 'long' ? 'bg-brand-profit' : 'bg-brand-loss'}`} />
       <div className="flex-1">
-        <div className="flex items-center justify-between px-3 py-2 bg-white/[0.02]">
-          <div className="flex items-center gap-2.5">
-            <span className={`font-bold text-[11px] min-w-[42px] ${s.direction === 'long' ? 'text-brand-profit' : 'text-brand-loss'}`}>
+        <div className="flex items-center justify-between px-3 py-2.5 bg-white/[0.02]">
+          <div className="flex items-center gap-3">
+            <span className={`font-bold text-xs min-w-[42px] ${s.direction === 'long' ? 'text-brand-profit' : 'text-brand-loss'}`}>
               {s.direction === 'long' ? 'LONG' : 'SHORT'}
             </span>
-            <span className={`font-mono text-[11px] ${knnColor}`}>
+            <span className={`font-mono text-xs ${knnColor}`}>
               {s.knn_class} <span className="text-white/25">{Number(s.knn_confidence).toFixed(1)}%</span>
             </span>
             {entry > 0 && (
               <>
-                <div className="w-px h-3 bg-white/5" />
-                <span className="text-white/30 font-mono text-[10px]">{formatPrice(entry)}</span>
+                <div className="w-px h-4 bg-white/5" />
+                <span className="text-white/30 font-mono text-[11px]">{formatPrice(entry)}</span>
               </>
             )}
             {rrRatio > 0 && (
-              <span className="text-brand-premium font-mono text-[10px]">R/R 1:{rrRatio.toFixed(1)}</span>
+              <span className="text-brand-premium font-mono text-[11px] font-semibold">R/R 1:{rrRatio.toFixed(1)}</span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             {s.was_executed ? (
-              <span className="text-brand-profit text-[9px]">&#10003;</span>
+              <span className="text-brand-profit text-[10px]">&#10003;</span>
             ) : (
-              <span className="text-gray-600 text-[9px]">-</span>
+              <span className="text-gray-600 text-[10px]">-</span>
             )}
-            <span className="text-gray-600 text-[10px]">{formatDatetime(s.created_at)}</span>
-            <ChevronDown className={`h-3.5 w-3.5 text-gray-600 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+            <span className="text-gray-500 text-[11px]">{formatDatetime(s.created_at)}</span>
+            <ChevronDown className={`h-4 w-4 text-gray-600 transition-transform ${expanded ? 'rotate-180' : ''}`} />
           </div>
         </div>
 
@@ -1308,21 +1312,23 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
           <div className="px-3 py-2.5 border-t border-white/5">
             {entry > 0 && (
               <div className="flex gap-[2px] mb-2.5">
-                <div className="flex-1 px-2 py-1.5 bg-white/[0.02] rounded-l">
-                  <p className="text-[7px] text-gray-600 uppercase">Entry</p>
-                  <p className="font-mono text-white text-xs">{formatPrice(entry)}</p>
+                <div className="flex-1 px-2.5 py-2 bg-white/[0.02] rounded-l-md">
+                  <p className="text-[8px] text-gray-600 uppercase">Entry</p>
+                  <p className="font-mono text-white text-sm font-semibold">{formatPrice(entry)}</p>
                 </div>
-                <div className="flex-1 px-2 py-1.5 bg-brand-loss/[0.03]">
-                  <p className="text-[7px] text-gray-600 uppercase">SL</p>
-                  <p className="font-mono text-brand-loss text-xs">{formatPrice(sl)}</p>
+                <div className="flex-1 px-2.5 py-2 bg-brand-loss/[0.03]">
+                  <p className="text-[8px] text-gray-600 uppercase">SL</p>
+                  <p className="font-mono text-brand-loss text-sm font-semibold">{formatPrice(sl)}</p>
+                  <p className="font-mono text-brand-loss/40 text-[9px]">{slPct >= 0 ? '+' : ''}{slPct.toFixed(2)}%</p>
                 </div>
-                <div className="flex-1 px-2 py-1.5 bg-brand-profit/[0.03]">
-                  <p className="text-[7px] text-gray-600 uppercase">TP</p>
-                  <p className="font-mono text-brand-profit text-xs">{formatPrice(tp)}</p>
+                <div className="flex-1 px-2.5 py-2 bg-brand-profit/[0.03]">
+                  <p className="text-[8px] text-gray-600 uppercase">TP</p>
+                  <p className="font-mono text-brand-profit text-sm font-semibold">{formatPrice(tp)}</p>
+                  <p className="font-mono text-brand-profit/40 text-[9px]">{tpPct >= 0 ? '+' : ''}{tpPct.toFixed(2)}%</p>
                 </div>
-                <div className="flex-1 px-2 py-1.5 bg-brand-premium/[0.02] rounded-r">
-                  <p className="text-[7px] text-gray-600 uppercase">R/R</p>
-                  <p className="font-mono text-brand-premium text-xs">1:{rrRatio.toFixed(1)}</p>
+                <div className="flex-1 px-2.5 py-2 bg-brand-premium/[0.02] rounded-r-md">
+                  <p className="text-[8px] text-gray-600 uppercase">R/R</p>
+                  <p className="font-mono text-brand-premium text-sm font-semibold">1:{rrRatio.toFixed(1)}</p>
                 </div>
               </div>
             )}
@@ -2139,7 +2145,7 @@ function BotEquityChart({ data }: { data: EquityDataPoint[] }) {
       ? 'rgba(0,230,118,0.0)'
       : 'rgba(255,23,68,0.0)';
 
-    const areaSeries = chart.addAreaSeries({
+    const areaSeries = chart.addSeries(AreaSeries, {
       lineColor,
       topColor,
       bottomColor,
