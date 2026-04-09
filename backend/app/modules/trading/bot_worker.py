@@ -619,6 +619,7 @@ async def _check_reverse_signal(
                 "take_profit": latest_signal.take_profit,
                 "signal_type": latest_signal.signal_type,
                 "reverse_from": pos_side,
+                **(latest_signal.indicators or {}),
             },
             was_executed=False,
         )

@@ -393,6 +393,69 @@ class LorentzianKNNStrategy(BaseStrategy):
         last_exit_direction: str = ""
         last_exit_was_loss: bool = False
 
+        def _build_indicators(i: int, direction: str) -> dict:
+            """Snapshot индикаторов на баре i."""
+            ema_trend_val = "bull" if (
+                not np.isnan(ema_fast_line[i]) and not np.isnan(ema_slow_line[i])
+                and ema_fast_line[i] > ema_slow_line[i]
+            ) else "bear"
+
+            ribbon_val = None
+            if use_ribbon:
+                ribbon_val = "bull" if ribbon_bull[i] else ("bear" if ribbon_bear[i] else None)
+
+            adx_val = round(float(adx_safe[i]), 1)
+            rsi_val = round(float(np.nan_to_num(rsi_vals[i], nan=50.0)), 1)
+            vol_spike = bool(volume_spike[i])
+            vol_ratio = round(float(data.volume[i] / volume_sma_line[i]), 2) if (
+                not np.isnan(volume_sma_line[i]) and volume_sma_line[i] > 0
+            ) else None
+
+            bb_pos = "mid"
+            if not np.isnan(bb_upper[i]) and not np.isnan(bb_lower[i]):
+                if data.close[i] > bb_upper[i]:
+                    bb_pos = "upper"
+                elif data.close[i] < bb_lower[i]:
+                    bb_pos = "lower"
+
+            vwap_pos = None
+            if use_order_flow:
+                try:
+                    if not np.isnan(vwap_line[i]):
+                        vwap_pos = "above" if data.close[i] > vwap_line[i] else "below"
+                except (NameError, IndexError):
+                    pass
+
+            cvd_val = None
+            if use_order_flow:
+                try:
+                    cvd_val = "bull" if of_filter_long[i] else ("bear" if of_filter_short[i] else None)
+                except (NameError, IndexError):
+                    pass
+
+            smc_val = None
+            if use_smc:
+                try:
+                    smc_val = "bull" if smc_filter_long[i] else ("bear" if smc_filter_short[i] else None)
+                except (NameError, IndexError):
+                    pass
+
+            atr_val = round(float(atr_vals[i]), 6) if not np.isnan(atr_vals[i]) else None
+
+            return {
+                "ema_trend": ema_trend_val,
+                "ribbon": ribbon_val,
+                "adx": adx_val,
+                "rsi": rsi_val,
+                "volume_spike": vol_spike,
+                "volume_ratio": vol_ratio,
+                "bb_position": bb_pos,
+                "vwap_position": vwap_pos,
+                "cvd": cvd_val,
+                "smc": smc_val,
+                "atr": atr_val,
+            }
+
         for i in range(n):
             if np.isnan(atr_vals[i]):
                 continue
@@ -504,6 +567,7 @@ class LorentzianKNNStrategy(BaseStrategy):
                     confluence_score=float(score_long[i]),
                     signal_type=sig_type,
                     tp_levels=sig_tp_levels,
+                    indicators=_build_indicators(i, "long"),
                 ))
                 in_position = True
                 position_side = "long"
@@ -535,6 +599,7 @@ class LorentzianKNNStrategy(BaseStrategy):
                     confluence_score=float(score_short[i]),
                     signal_type=sig_type,
                     tp_levels=sig_tp_levels,
+                    indicators=_build_indicators(i, "short"),
                 ))
                 in_position = True
                 position_side = "short"

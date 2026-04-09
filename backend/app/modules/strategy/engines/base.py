@@ -41,6 +41,7 @@ class Signal:
     confluence_score: float = 0.0
     signal_type: str = ""  # "trend", "breakout", "mean_reversion"
     tp_levels: list[dict] | None = None  # [{"atr_mult": 5, "close_pct": 50}, ...]
+    indicators: dict | None = None  # snapshot of indicator values at signal bar
 
 
 @dataclass
