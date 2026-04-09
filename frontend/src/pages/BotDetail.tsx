@@ -47,7 +47,7 @@ import {
 } from '@/components/ui/table';
 import {
   createChart,
-  AreaSeries,
+
   ColorType,
   LineStyle,
 } from 'lightweight-charts';
@@ -2145,7 +2145,7 @@ function BotEquityChart({ data }: { data: EquityDataPoint[] }) {
       ? 'rgba(0,230,118,0.0)'
       : 'rgba(255,23,68,0.0)';
 
-    const areaSeries = chart.addSeries(AreaSeries, {
+    const areaSeries = chart.addAreaSeries({
       lineColor,
       topColor,
       bottomColor,
