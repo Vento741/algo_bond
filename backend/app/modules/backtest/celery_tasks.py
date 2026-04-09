@@ -146,6 +146,7 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
                        "60": 60, "120": 120, "240": 240, "D": 1440, "W": 10080}
             tf_minutes = tf_map.get(tf_str, 15)
 
+            live_config = merged_config.get("live", {})
             metrics = run_backtest(
                 ohlcv=ohlcv,
                 signals=strategy_result.signals,
@@ -157,6 +158,8 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
                 tp_levels=risk_config.get("tp_levels"),
                 use_breakeven=risk_config.get("use_breakeven", False),
                 timeframe_minutes=tf_minutes,
+                leverage=live_config.get("leverage", 1),
+                on_reverse=live_config.get("on_reverse", "close"),
             )
 
             # 7. Сохранить результат

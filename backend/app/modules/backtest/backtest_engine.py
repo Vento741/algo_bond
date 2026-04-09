@@ -49,6 +49,8 @@ def run_backtest(
     tp_levels: list[dict] | None = None,
     use_breakeven: bool = False,
     timeframe_minutes: int = 15,
+    leverage: int = 1,
+    on_reverse: str = "close",
 ) -> BacktestMetrics:
     """Запустить бэктест.
 
@@ -235,7 +237,7 @@ def run_backtest(
 
             if sig.bar_index == i and not in_position:
                 entry_price = bar_close
-                position_value = equity * order_size_pct / 100
+                position_value = equity * order_size_pct / 100 * leverage
                 qty = position_value / entry_price if entry_price > 0 else 0
                 if qty <= 0:
                     continue
@@ -273,7 +275,9 @@ def run_backtest(
                     position_tp_levels = []
 
             elif sig.bar_index == i and in_position and sig.direction != position_direction:
-                _close_full(bar_close, i, "signal")
+                if on_reverse == "close" or on_reverse == "reverse":
+                    _close_full(bar_close, i, "signal")
+                # on_reverse == "ignore" - пропускаем обратный сигнал
 
         # Записать точку equity
         unrealized = 0.0
