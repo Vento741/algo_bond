@@ -1436,8 +1436,8 @@ function RiskRewardCard({
   const quantity = Number(position.quantity);
   const side = position.side;
 
-  const tp1Price = position.tp1_price ? Number(position.tp1_price) : null;
-  const tp2Price = position.tp2_price ? Number(position.tp2_price) : null;
+  const tp1Price = position.tp1_price != null ? Number(position.tp1_price) : null;
+  const tp2Price = position.tp2_price != null ? Number(position.tp2_price) : null;
   const tp1Hit = position.tp1_hit;
 
   // Single TP fallback
@@ -1479,7 +1479,7 @@ function RiskRewardCard({
   const rewardPct = 100 - riskPct;
 
   // TP1 position on bar (for multi-TP marker)
-  const tp1BarPct = hasMultiTp && rewardTp2 != null && totalRange > 0
+  const tp1BarPct = hasMultiTp && tp1Hit && rewardTp2 != null && totalRange > 0
     ? ((risk + rewardTp1) / (risk + rewardTp2)) * 100
     : null;
 
@@ -1595,9 +1595,6 @@ function RiskRewardCard({
           </div>
           <div className="flex justify-between mt-1">
             <span className="text-[8px] font-mono text-brand-loss/40">SL</span>
-            {tp1BarPct != null && (
-              <span className="text-[8px] font-mono text-brand-profit/30">TP1</span>
-            )}
             <span className="text-[8px] font-mono text-brand-profit/50">
               {hasMultiTp && rewardTp2 != null ? 'TP2' : 'TP'}
             </span>
@@ -1619,8 +1616,8 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
   const currentPrice = Number(position.current_price ?? entryPrice);
   const stopLoss = Number(position.stop_loss);
   const rawTp = Number(position.take_profit);
-  const tp1Price = position.tp1_price ? Number(position.tp1_price) : null;
-  const tp2Price = position.tp2_price ? Number(position.tp2_price) : null;
+  const tp1Price = position.tp1_price != null ? Number(position.tp1_price) : null;
+  const tp2Price = position.tp2_price != null ? Number(position.tp2_price) : null;
   // Эффективный TP для бара: если take_profit=0 (Partial mode), используем tp1 или tp2
   const takeProfit = rawTp > 0 ? rawTp
     : position.tp1_hit ? (tp2Price ?? tp1Price ?? entryPrice)
