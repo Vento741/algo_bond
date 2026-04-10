@@ -283,9 +283,9 @@ export function Settings() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Левая колонка: Профиль + Предпочтения + Уведомления */}
-        <div className="lg:col-span-1 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Левая колонка: Профиль + Предпочтения */}
+        <div className="space-y-6">
           {/* ---- Профиль ---- */}
           <Card className="border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-all duration-300 group">
             <CardHeader className="pb-3">
@@ -458,105 +458,10 @@ export function Settings() {
             </CardContent>
           </Card>
 
-          {/* ---- Уведомления ---- */}
-          <Card className="border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-all duration-300">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base text-white flex items-center gap-2">
-                <BellIcon className="h-4 w-4 text-brand-accent" />
-                Уведомления
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {loadingNotifPrefs ? (
-                <div className="flex items-center justify-center py-6">
-                  <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                </div>
-              ) : (
-                <>
-                  {([
-                    { key: 'positions_enabled', label: 'Позиции', desc: 'Открытие, закрытие, TP/SL', icon: TrendingUp },
-                    { key: 'bots_enabled', label: 'Боты', desc: 'Старт, стоп, ошибки', icon: Bot, critical: true },
-                    { key: 'orders_enabled', label: 'Ордера', desc: 'Исполнение, отмена, ошибки', icon: ClipboardList },
-                    { key: 'backtest_enabled', label: 'Бэктесты', desc: 'Завершение, ошибки', icon: BarChart3 },
-                    { key: 'system_enabled', label: 'Системные', desc: 'Соединение, ошибки сервисов', icon: Cog, critical: true },
-                    { key: 'billing_enabled', label: 'Биллинг', desc: 'Подписки, платежи', icon: CreditCard },
-                  ] as const).map((cat) => {
-                    const Icon = cat.icon;
-                    const enabled = notifPrefs[cat.key];
-                    return (
-                      <div
-                        key={cat.key}
-                        className="flex items-center justify-between gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.03] transition-colors"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <Icon className={`h-4 w-4 flex-shrink-0 ${enabled ? 'text-brand-accent' : 'text-gray-600'} transition-colors`} />
-                          <div className="min-w-0">
-                            <p className="text-sm text-white truncate">{cat.label}</p>
-                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{cat.desc}</p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={enabled}
-                          aria-label={`${cat.label}: ${enabled ? 'включено' : 'выключено'}`}
-                          onClick={() => setNotifPrefs((prev) => ({ ...prev, [cat.key]: !prev[cat.key] }))}
-                          className={`
-                            relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors
-                            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg
-                            ${enabled ? 'bg-brand-profit' : 'bg-gray-600'}
-                          `}
-                        >
-                          <span
-                            className={`
-                              inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform
-                              ${enabled ? 'translate-x-6' : 'translate-x-1'}
-                            `}
-                          />
-                        </button>
-                      </div>
-                    );
-                  })}
-
-                  {/* Предупреждение о критических уведомлениях */}
-                  <div className="p-3 rounded-lg bg-brand-loss/5 border border-brand-loss/10">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="h-4 w-4 text-brand-loss mt-0.5 flex-shrink-0" />
-                      <p className="text-xs text-gray-400">
-                        <span className="text-brand-loss font-medium">Внимание:</span>{' '}
-                        отключение критических уведомлений (боты, системные) может привести к пропуску важных событий.
-                      </p>
-                    </div>
-                  </div>
-
-                  <Separator className="bg-white/5" />
-
-                  <Button
-                    onClick={handleSaveNotifPrefs}
-                    disabled={!notifPrefsChanged || savingNotifPrefs}
-                    className={`w-full min-h-[44px] transition-all duration-300 ${
-                      notifPrefsChanged
-                        ? 'bg-brand-premium text-brand-bg hover:bg-brand-premium/90 shadow-md shadow-brand-premium/20'
-                        : 'bg-white/[0.04] text-gray-500 border border-white/[0.06]'
-                    } disabled:opacity-40`}
-                  >
-                    {savingNotifPrefs ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Save className="mr-2 h-4 w-4" />
-                        Сохранить настройки
-                      </>
-                    )}
-                  </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Правая колонка: Биржевые аккаунты */}
-        <div className="lg:col-span-2">
+        {/* Правая колонка: Биржевые аккаунты + Уведомления */}
+        <div className="space-y-6">
           <Card className="border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-base text-white flex items-center gap-2">
@@ -701,6 +606,101 @@ export function Settings() {
                     </div>
                   </div>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ---- Уведомления ---- */}
+          <Card className="border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-all duration-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-white flex items-center gap-2">
+                <BellIcon className="h-4 w-4 text-brand-accent" />
+                Уведомления
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {loadingNotifPrefs ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                </div>
+              ) : (
+                <>
+                  {([
+                    { key: 'positions_enabled', label: 'Позиции', desc: 'Открытие, закрытие, TP/SL', icon: TrendingUp },
+                    { key: 'bots_enabled', label: 'Боты', desc: 'Старт, стоп, ошибки', icon: Bot, critical: true },
+                    { key: 'orders_enabled', label: 'Ордера', desc: 'Исполнение, отмена, ошибки', icon: ClipboardList },
+                    { key: 'backtest_enabled', label: 'Бэктесты', desc: 'Завершение, ошибки', icon: BarChart3 },
+                    { key: 'system_enabled', label: 'Системные', desc: 'Соединение, ошибки сервисов', icon: Cog, critical: true },
+                    { key: 'billing_enabled', label: 'Биллинг', desc: 'Подписки, платежи', icon: CreditCard },
+                  ] as const).map((cat) => {
+                    const Icon = cat.icon;
+                    const enabled = notifPrefs[cat.key];
+                    return (
+                      <div
+                        key={cat.key}
+                        className="flex items-center justify-between gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.03] transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Icon className={`h-4 w-4 flex-shrink-0 ${enabled ? 'text-brand-accent' : 'text-gray-600'} transition-colors`} />
+                          <div className="min-w-0">
+                            <p className="text-sm text-white truncate">{cat.label}</p>
+                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{cat.desc}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={enabled}
+                          aria-label={`${cat.label}: ${enabled ? 'включено' : 'выключено'}`}
+                          onClick={() => setNotifPrefs((prev) => ({ ...prev, [cat.key]: !prev[cat.key] }))}
+                          className={`
+                            relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors
+                            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg
+                            ${enabled ? 'bg-brand-profit' : 'bg-gray-600'}
+                          `}
+                        >
+                          <span
+                            className={`
+                              inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform
+                              ${enabled ? 'translate-x-6' : 'translate-x-1'}
+                            `}
+                          />
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  <div className="p-3 rounded-lg bg-brand-loss/5 border border-brand-loss/10">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-brand-loss mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-gray-400">
+                        <span className="text-brand-loss font-medium">Внимание:</span>{' '}
+                        отключение критических уведомлений (боты, системные) может привести к пропуску важных событий.
+                      </p>
+                    </div>
+                  </div>
+
+                  <Separator className="bg-white/5" />
+
+                  <Button
+                    onClick={handleSaveNotifPrefs}
+                    disabled={!notifPrefsChanged || savingNotifPrefs}
+                    className={`w-full min-h-[44px] transition-all duration-300 ${
+                      notifPrefsChanged
+                        ? 'bg-brand-premium text-brand-bg hover:bg-brand-premium/90 shadow-md shadow-brand-premium/20'
+                        : 'bg-white/[0.04] text-gray-500 border border-white/[0.06]'
+                    } disabled:opacity-40`}
+                  >
+                    {savingNotifPrefs ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Сохранить настройки
+                      </>
+                    )}
+                  </Button>
+                </>
               )}
             </CardContent>
           </Card>
