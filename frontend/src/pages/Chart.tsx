@@ -383,7 +383,7 @@ export function Chart() {
                     <Activity className="h-4 w-4 text-brand-accent" />
                     <span className="font-mono text-lg text-white">{latestSignal.knnClass}</span>
                     <span className="font-mono text-xs text-gray-400">
-                      {(latestSignal.knnConfidence * 100).toFixed(0)}%
+                      {latestSignal.knnConfidence.toFixed(1)}%
                     </span>
                   </div>
                 ) : (

@@ -284,7 +284,7 @@ class StrategyService:
                 take_profit=sig.take_profit,
                 tp1_price=tp1_price,
                 tp2_price=tp2_price,
-                signal_strength=sig.confluence_score,
+                signal_strength=min(round(sig.confluence_score / 5.5 * 100, 1), 100),
                 knn_class=knn_class,
                 knn_confidence=knn_confidence,
                 was_executed=False,

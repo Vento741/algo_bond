@@ -4,13 +4,16 @@ from redis.asyncio import ConnectionPool, Redis
 
 from app.config import settings
 
-pool = ConnectionPool.from_url(
+_pool = ConnectionPool.from_url(
     settings.redis_url,
     max_connections=20,
     decode_responses=True,
 )
 
+# Общий Redis-клиент для кеширования (market, strategy)
+pool = Redis(connection_pool=_pool)
+
 
 def get_redis() -> Redis:
-    """Dependency: клиент Redis."""
-    return Redis(connection_pool=pool)
+    """Dependency: новый Redis-клиент из пула."""
+    return Redis(connection_pool=_pool)
