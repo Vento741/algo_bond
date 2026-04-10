@@ -47,7 +47,7 @@ pandas==2.2.3
 pybit==5.14.0
 
 # Telegram
-aiogram>=3.27.0,<4.0
+aiogram==3.27.0
 
 # Мониторинг
 psutil==6.1.1
