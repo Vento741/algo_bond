@@ -27,7 +27,7 @@ export function Topbar() {
 
   return (
     <header className="sticky top-0 z-30 h-16 border-b border-border bg-brand-bg/80 backdrop-blur-md">
-      <div className="flex items-center justify-between h-full px-6">
+      <div className="flex items-center justify-between h-full px-3 sm:px-6">
         {/* Left: mobile spacer + breadcrumb area */}
         <div className="flex items-center gap-3 text-sm text-gray-400">
           {/* spacer for mobile hamburger */}
@@ -35,11 +35,11 @@ export function Topbar() {
         </div>
 
         {/* Right: balance + WS status + notifications + user + logout */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           {/* Bybit balance */}
           {(balance || balanceLoading) && (
             <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-card/60 border border-border"
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-card/60 border border-border"
               title={
                 balance
                   ? `${balance.account_label}${balance.is_demo ? ' (Demo)' : ''}\nAvailable: $${formatBalance(balance.available)}\nUnrealized PnL: $${formatBalance(balance.unrealized_pnl)}`

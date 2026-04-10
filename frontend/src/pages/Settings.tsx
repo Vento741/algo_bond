@@ -433,13 +433,13 @@ export function Settings() {
                     return (
                       <div
                         key={cat.key}
-                        className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.03] transition-colors"
+                        className="flex items-center justify-between gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.03] transition-colors"
                       >
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           <Icon className={`h-4 w-4 flex-shrink-0 ${enabled ? 'text-brand-accent' : 'text-gray-600'} transition-colors`} />
-                          <div>
-                            <p className="text-sm text-white">{cat.label}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">{cat.desc}</p>
+                          <div className="min-w-0">
+                            <p className="text-sm text-white truncate">{cat.label}</p>
+                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{cat.desc}</p>
                           </div>
                         </div>
                         <button

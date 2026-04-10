@@ -124,7 +124,7 @@ export function NotificationItem({ notification }: Props) {
       </div>
       <button
         onClick={handleDelete}
-        className="text-gray-600 hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity self-start mt-0.5 p-1 -m-1 min-w-[28px] min-h-[28px] flex items-center justify-center"
+        className="text-gray-600 hover:text-gray-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity self-start mt-0.5 p-1 -m-1 min-w-[28px] min-h-[28px] flex items-center justify-center"
         aria-label="Удалить уведомление"
       >
         <X className="h-3.5 w-3.5" />
