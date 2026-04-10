@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   FlaskConical,
   Play,
@@ -31,7 +31,7 @@ import {
   Timer,
   RefreshCw,
   EyeOff,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   createChart,
   AreaSeries,
@@ -39,18 +39,15 @@ import {
   HistogramSeries,
   ColorType,
   createSeriesMarkers,
-} from 'lightweight-charts';
-import type {
-  IChartApi,
-  Time,
-} from 'lightweight-charts';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
-import { SymbolSearch } from '@/components/ui/symbol-search';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+} from "lightweight-charts";
+import type { IChartApi, Time } from "lightweight-charts";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { SymbolSearch } from "@/components/ui/symbol-search";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Table,
   TableHeader,
@@ -58,15 +55,15 @@ import {
   TableRow,
   TableHead,
   TableCell,
-} from '@/components/ui/table';
-import api from '@/lib/api';
+} from "@/components/ui/table";
+import api from "@/lib/api";
 import type {
   StrategyConfig,
   BacktestRunResponse,
   BacktestResultResponse,
   BacktestResultTradeEntry,
   BacktestStatus,
-} from '@/types/api';
+} from "@/types/api";
 
 /* ---- Types ---- */
 
@@ -85,7 +82,7 @@ interface BacktestResult {
   equity_curve: { time: number; equity: number }[];
   trades: {
     id: number;
-    side: 'long' | 'short';
+    side: "long" | "short";
     entry_time: string;
     exit_time: string;
     entry_price: number;
@@ -98,54 +95,58 @@ interface BacktestResult {
     entry_time_ms: number;
     exit_time_ms: number;
   }[];
+  backtestSymbol?: string;
+  backtestTimeframe?: string;
 }
 
 /* ---- Timeframe mapping ---- */
 
 const TIMEFRAME_OPTIONS = [
-  { value: '5m', label: '5m' },
-  { value: '15m', label: '15m' },
-  { value: '1h', label: '1h' },
-  { value: '4h', label: '4h' },
+  { value: "5m", label: "5m" },
+  { value: "15m", label: "15m" },
+  { value: "1h", label: "1h" },
+  { value: "4h", label: "4h" },
 ] as const;
 
 const CHART_TIMEFRAME_OPTIONS = [
-  { value: '1', label: '1m' },
-  { value: '5', label: '5m' },
-  { value: '15', label: '15m' },
-  { value: '60', label: '1h' },
-  { value: '240', label: '4h' },
+  { value: "1", label: "1m" },
+  { value: "5", label: "5m" },
+  { value: "15", label: "15m" },
+  { value: "60", label: "1h" },
+  { value: "240", label: "4h" },
 ] as const;
 
 const TIMEFRAME_TO_BACKEND: Record<string, string> = {
-  '5m': '5',
-  '15m': '15',
-  '1h': '60',
-  '4h': '240',
+  "5m": "5",
+  "15m": "15",
+  "1h": "60",
+  "4h": "240",
 };
 
 const BACKEND_TO_LABEL: Record<string, string> = {
-  '1': '1m',
-  '5': '5m',
-  '15': '15m',
-  '60': '1h',
-  '240': '4h',
+  "1": "1m",
+  "5": "5m",
+  "15": "15m",
+  "60": "1h",
+  "240": "4h",
 };
 
 /* ---- Backend response mapping ---- */
 
-function mapBackendResultToUI(
-  res: BacktestResultResponse,
-): BacktestResult {
+function mapBackendResultToUI(res: BacktestResultResponse): BacktestResult {
   const trades = res.trades_log.map(
     (t: BacktestResultTradeEntry, idx: number) => {
       const entryMs = t.entry_time || 0;
       const exitMs = t.exit_time || 0;
-      const entryDate = entryMs ? new Date(entryMs).toISOString().slice(0, 16).replace('T', ' ') : `bar ${t.entry_bar}`;
-      const exitDate = exitMs ? new Date(exitMs).toISOString().slice(0, 16).replace('T', ' ') : `bar ${t.exit_bar}`;
+      const entryDate = entryMs
+        ? new Date(entryMs).toISOString().slice(0, 16).replace("T", " ")
+        : `bar ${t.entry_bar}`;
+      const exitDate = exitMs
+        ? new Date(exitMs).toISOString().slice(0, 16).replace("T", " ")
+        : `bar ${t.exit_bar}`;
       return {
         id: idx + 1,
-        side: (t.direction === 'long' ? 'long' : 'short') as 'long' | 'short',
+        side: (t.direction === "long" ? "long" : "short") as "long" | "short",
         entry_time: entryDate,
         exit_time: `${exitDate} (${t.exit_reason})`,
         entry_price: t.entry_price,
@@ -162,7 +163,8 @@ function mapBackendResultToUI(
   );
 
   const pnls = trades.map((t) => t.pnl);
-  const avgTradePnl = pnls.length > 0 ? pnls.reduce((a, b) => a + b, 0) / pnls.length : 0;
+  const avgTradePnl =
+    pnls.length > 0 ? pnls.reduce((a, b) => a + b, 0) / pnls.length : 0;
   const bestTrade = pnls.length > 0 ? Math.max(...pnls) : 0;
   const worstTrade = pnls.length > 0 ? Math.min(...pnls) : 0;
 
@@ -192,27 +194,31 @@ function mapBackendResultToUI(
 
 export function Backtest() {
   const [searchParams] = useSearchParams();
-  const urlConfigId = searchParams.get('config_id');
+  const urlConfigId = searchParams.get("config_id");
 
   // Strategy configs
   const [configs, setConfigs] = useState<StrategyConfig[]>([]);
   const [configsLoading, setConfigsLoading] = useState(true);
-  const [selectedConfigId, setSelectedConfigId] = useState('');
+  const [selectedConfigId, setSelectedConfigId] = useState("");
 
   // Form state - загружаем из localStorage если есть
   const savedParams = useRef(() => {
     try {
-      const raw = localStorage.getItem('algobond:backtest-params');
-      return raw ? JSON.parse(raw) as Record<string, string> : null;
-    } catch { return null; }
+      const raw = localStorage.getItem("algobond:backtest-params");
+      return raw ? (JSON.parse(raw) as Record<string, string>) : null;
+    } catch {
+      return null;
+    }
   });
   const saved = savedParams.current();
   const today = new Date().toISOString().slice(0, 10);
-  const [symbol, setSymbol] = useState(saved?.symbol || 'BTCUSDT');
-  const [timeframe, setTimeframe] = useState(saved?.timeframe || '15m');
-  const [startDate, setStartDate] = useState(saved?.startDate || '2026-01-01');
+  const [symbol, setSymbol] = useState(saved?.symbol || "BTCUSDT");
+  const [timeframe, setTimeframe] = useState(saved?.timeframe || "15m");
+  const [startDate, setStartDate] = useState(saved?.startDate || "2026-01-01");
   const [endDate, setEndDate] = useState(saved?.endDate || today);
-  const [initialCapital, setInitialCapital] = useState(saved?.initialCapital || '100');
+  const [initialCapital, setInitialCapital] = useState(
+    saved?.initialCapital || "100",
+  );
 
   // Result state
   const [result, setResult] = useState<BacktestResult | null>(null);
@@ -227,7 +233,7 @@ export function Backtest() {
   // Fetch user's strategy configs on mount
   useEffect(() => {
     api
-      .get<StrategyConfig[]>('/strategies/configs/my')
+      .get<StrategyConfig[]>("/strategies/configs/my")
       .then(({ data }) => {
         setConfigs(data);
 
@@ -274,14 +280,16 @@ export function Backtest() {
             setRunStatus(run.status);
             setRunProgress(run.progress);
 
-            if (run.status === 'completed') {
+            if (run.status === "completed") {
               clearInterval(poll);
               pollingRef.current = null;
               resolve(run);
-            } else if (run.status === 'failed') {
+            } else if (run.status === "failed") {
               clearInterval(poll);
               pollingRef.current = null;
-              reject(new Error(run.error_message ?? 'Бэктест завершился с ошибкой'));
+              reject(
+                new Error(run.error_message ?? "Бэктест завершился с ошибкой"),
+              );
             }
           } catch (err) {
             clearInterval(poll);
@@ -296,50 +304,71 @@ export function Backtest() {
   );
 
   // При выборе конфига - подставить символ и ТФ
-  const handleConfigChange = useCallback((configId: string) => {
-    setSelectedConfigId(configId);
-    const cfg = configs.find((c) => c.id === configId);
-    if (cfg) {
-      setSymbol(cfg.symbol);
-      const tfMap: Record<string, string> = { '1': '1m', '5': '5m', '15': '15m', '30': '30m', '60': '1h', '240': '4h', 'D': '1D' };
-      setTimeframe(tfMap[cfg.timeframe] || `${cfg.timeframe}m`);
-    }
-  }, [configs]);
+  const handleConfigChange = useCallback(
+    (configId: string) => {
+      setSelectedConfigId(configId);
+      const cfg = configs.find((c) => c.id === configId);
+      if (cfg) {
+        setSymbol(cfg.symbol);
+        const tfMap: Record<string, string> = {
+          "1": "1m",
+          "5": "5m",
+          "15": "15m",
+          "30": "30m",
+          "60": "1h",
+          "240": "4h",
+          D: "1D",
+        };
+        setTimeframe(tfMap[cfg.timeframe] || `${cfg.timeframe}m`);
+      }
+    },
+    [configs],
+  );
 
   const runBacktest = async () => {
     if (!selectedConfigId) return;
 
     // Сохранить параметры в localStorage
     try {
-      localStorage.setItem('algobond:backtest-params', JSON.stringify({
-        symbol, timeframe, startDate, endDate, initialCapital,
-      }));
+      localStorage.setItem(
+        "algobond:backtest-params",
+        JSON.stringify({
+          symbol,
+          timeframe,
+          startDate,
+          endDate,
+          initialCapital,
+        }),
+      );
     } catch {}
 
     setLoading(true);
     setResult(null);
     setErrorMessage(null);
-    setRunStatus('pending');
+    setRunStatus("pending");
     setRunProgress(0);
 
     try {
       // Step 1: Create run
-      const { data: run } = await api.post<BacktestRunResponse>('/backtest/runs', {
-        strategy_config_id: selectedConfigId,
-        symbol,
-        timeframe: TIMEFRAME_TO_BACKEND[timeframe] ?? timeframe,
-        start_date: `${startDate}T00:00:00Z`,
-        end_date: `${endDate}T23:59:59Z`,
-        initial_capital: Number(initialCapital),
-      });
+      const { data: run } = await api.post<BacktestRunResponse>(
+        "/backtest/runs",
+        {
+          strategy_config_id: selectedConfigId,
+          symbol,
+          timeframe: TIMEFRAME_TO_BACKEND[timeframe] ?? timeframe,
+          start_date: `${startDate}T00:00:00Z`,
+          end_date: `${endDate}T23:59:59Z`,
+          initial_capital: Number(initialCapital),
+        },
+      );
 
       setRunStatus(run.status);
 
       // Step 2: Poll for completion
-      if (run.status === 'completed') {
+      if (run.status === "completed") {
         // Already done (sync backtest)
-      } else if (run.status === 'failed') {
-        throw new Error(run.error_message ?? 'Бэктест завершился с ошибкой');
+      } else if (run.status === "failed") {
+        throw new Error(run.error_message ?? "Бэктест завершился с ошибкой");
       } else {
         await pollRunStatus(run.id);
       }
@@ -350,11 +379,12 @@ export function Backtest() {
       );
 
       const mapped = mapBackendResultToUI(resultData);
+      mapped.backtestSymbol = symbol;
+      mapped.backtestTimeframe = TIMEFRAME_TO_BACKEND[timeframe] ?? timeframe;
       setResult(mapped);
-      setRunStatus('completed');
+      setRunStatus("completed");
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Неизвестная ошибка';
+      const message = err instanceof Error ? err.message : "Неизвестная ошибка";
       setErrorMessage(message);
 
       // Demo fallback
@@ -368,12 +398,12 @@ export function Backtest() {
   // History state
   const [historyRuns, setHistoryRuns] = useState<BacktestRunResponse[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [topTab, setTopTab] = useState('new');
+  const [topTab, setTopTab] = useState("new");
 
   const fetchHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const { data } = await api.get<BacktestRunResponse[]>('/backtest/runs');
+      const { data } = await api.get<BacktestRunResponse[]>("/backtest/runs");
       setHistoryRuns(data);
     } catch {
       setHistoryRuns([]);
@@ -384,14 +414,14 @@ export function Backtest() {
 
   // Fetch history when switching to history tab
   useEffect(() => {
-    if (topTab === 'history') {
+    if (topTab === "history") {
       fetchHistory();
     }
   }, [topTab, fetchHistory]);
 
   const handleLoadResult = (loaded: BacktestResult) => {
     setResult(loaded);
-    setTopTab('new');
+    setTopTab("new");
   };
 
   const configOptions = configs.map((c) => ({
@@ -429,11 +459,17 @@ export function Backtest() {
       {/* ---- Top-level tabs: Новый бэктест / История ---- */}
       <Tabs defaultValue="new" value={topTab} onValueChange={setTopTab}>
         <TabsList className="bg-white/[0.04] border border-white/[0.06] p-1 rounded-xl">
-          <TabsTrigger value="new" className="rounded-lg px-4 py-2 text-xs gap-1.5">
+          <TabsTrigger
+            value="new"
+            className="rounded-lg px-4 py-2 text-xs gap-1.5"
+          >
             <FlaskConical className="h-3.5 w-3.5" />
             Новый бэктест
           </TabsTrigger>
-          <TabsTrigger value="history" className="rounded-lg px-4 py-2 text-xs gap-1.5">
+          <TabsTrigger
+            value="history"
+            className="rounded-lg px-4 py-2 text-xs gap-1.5"
+          >
             <History className="h-3.5 w-3.5" />
             История
             {historyRuns.length > 0 && (
@@ -445,7 +481,6 @@ export function Backtest() {
         </TabsList>
 
         <TabsContent value="new" className="mt-6">
-
           {/* No configs warning */}
           {hasNoConfigs && (
             <Card className="border-brand-premium/20 bg-brand-premium/[0.04] mb-6">
@@ -458,8 +493,8 @@ export function Backtest() {
                     Нет конфигураций стратегий
                   </p>
                   <p className="text-gray-400 text-sm mt-1 leading-relaxed">
-                    Для запуска бэктеста нужна конфигурация стратегии. Создайте её
-                    на странице{' '}
+                    Для запуска бэктеста нужна конфигурация стратегии. Создайте
+                    её на странице{" "}
                     <a
                       href="/strategies"
                       className="text-brand-premium hover:underline font-medium"
@@ -493,7 +528,9 @@ export function Backtest() {
                     {configsLoading ? (
                       <div className="flex h-9 items-center rounded-lg border border-white/[0.06] bg-white/[0.03] px-3">
                         <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-500" />
-                        <span className="ml-2 text-sm text-gray-500">Загрузка...</span>
+                        <span className="ml-2 text-sm text-gray-500">
+                          Загрузка...
+                        </span>
                       </div>
                     ) : configs.length > 0 ? (
                       <Select
@@ -504,7 +541,9 @@ export function Backtest() {
                       />
                     ) : (
                       <div className="flex h-9 items-center rounded-lg border border-white/[0.06] bg-white/[0.03] px-3">
-                        <span className="text-sm text-gray-500">Нет конфигураций</span>
+                        <span className="text-sm text-gray-500">
+                          Нет конфигураций
+                        </span>
                       </div>
                     )}
                   </div>
@@ -611,12 +650,12 @@ export function Backtest() {
                     <Loader2 className="h-4 w-4 animate-spin text-brand-premium" />
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-gray-400">
-                        {runStatus === 'pending' && 'Запуск бэктеста...'}
-                        {runStatus === 'running' &&
+                        {runStatus === "pending" && "Запуск бэктеста..."}
+                        {runStatus === "running" &&
                           `Вычисление... ${runProgress}%`}
-                        {runStatus === 'completed' && 'Загрузка результатов...'}
+                        {runStatus === "completed" && "Загрузка результатов..."}
                       </span>
-                      {runStatus === 'running' && (
+                      {runStatus === "running" && (
                         <div className="w-40 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                           <div
                             className="h-full bg-gradient-to-r from-brand-premium to-amber-500 rounded-full transition-all duration-300"
@@ -667,19 +706,39 @@ export function Backtest() {
                       label="Win Rate"
                       value={`${result.metrics.win_rate.toFixed(1)}%`}
                       icon={Target}
-                      color={result.metrics.win_rate >= 50 ? 'text-brand-profit' : 'text-brand-loss'}
+                      color={
+                        result.metrics.win_rate >= 50
+                          ? "text-brand-profit"
+                          : "text-brand-loss"
+                      }
                     />
                     <MetricCell
                       label="Profit Factor"
-                      value={result.metrics.profit_factor >= 999 ? 'Inf' : result.metrics.profit_factor.toFixed(2)}
+                      value={
+                        result.metrics.profit_factor >= 999
+                          ? "Inf"
+                          : result.metrics.profit_factor.toFixed(2)
+                      }
                       icon={TrendingUp}
-                      color={result.metrics.profit_factor >= 1 ? 'text-brand-profit' : 'text-brand-loss'}
+                      color={
+                        result.metrics.profit_factor >= 1
+                          ? "text-brand-profit"
+                          : "text-brand-loss"
+                      }
                     />
                     <MetricCell
                       label="Итого P&L"
                       value={`$${result.metrics.total_pnl.toFixed(0)}`}
-                      icon={result.metrics.total_pnl >= 0 ? TrendingUp : TrendingDown}
-                      color={result.metrics.total_pnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'}
+                      icon={
+                        result.metrics.total_pnl >= 0
+                          ? TrendingUp
+                          : TrendingDown
+                      }
+                      color={
+                        result.metrics.total_pnl >= 0
+                          ? "text-brand-profit"
+                          : "text-brand-loss"
+                      }
                       highlight
                     />
                     <MetricCell
@@ -692,13 +751,21 @@ export function Backtest() {
                       label="Sharpe"
                       value={result.metrics.sharpe_ratio.toFixed(2)}
                       icon={Percent}
-                      color={result.metrics.sharpe_ratio >= 1 ? 'text-brand-premium' : 'text-gray-400'}
+                      color={
+                        result.metrics.sharpe_ratio >= 1
+                          ? "text-brand-premium"
+                          : "text-gray-400"
+                      }
                     />
                     <MetricCell
                       label="Avg Trade"
                       value={`$${result.metrics.avg_trade_pnl.toFixed(2)}`}
                       icon={Crosshair}
-                      color={result.metrics.avg_trade_pnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'}
+                      color={
+                        result.metrics.avg_trade_pnl >= 0
+                          ? "text-brand-profit"
+                          : "text-brand-loss"
+                      }
                     />
                     <MetricCell
                       label="Best"
@@ -719,15 +786,24 @@ export function Backtest() {
               {/* Charts & Trades tabs */}
               <Tabs defaultValue="chart">
                 <TabsList className="bg-white/[0.04] border border-white/[0.06] p-1 rounded-xl">
-                  <TabsTrigger value="chart" className="rounded-lg px-4 py-2 text-xs gap-1.5">
+                  <TabsTrigger
+                    value="chart"
+                    className="rounded-lg px-4 py-2 text-xs gap-1.5"
+                  >
                     <CandlestickChart className="h-3.5 w-3.5" />
                     График сделок
                   </TabsTrigger>
-                  <TabsTrigger value="equity" className="rounded-lg px-4 py-2 text-xs gap-1.5">
+                  <TabsTrigger
+                    value="equity"
+                    className="rounded-lg px-4 py-2 text-xs gap-1.5"
+                  >
                     <TrendingUp className="h-3.5 w-3.5" />
                     Equity Curve
                   </TabsTrigger>
-                  <TabsTrigger value="trades" className="rounded-lg px-4 py-2 text-xs gap-1.5">
+                  <TabsTrigger
+                    value="trades"
+                    className="rounded-lg px-4 py-2 text-xs gap-1.5"
+                  >
                     <BarChart3 className="h-3.5 w-3.5" />
                     Сделки
                     <span className="ml-1 text-[10px] bg-brand-accent/15 text-brand-accent px-1.5 py-0.5 rounded-full font-mono leading-none">
@@ -740,8 +816,12 @@ export function Backtest() {
                   <Card className="border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01] overflow-hidden">
                     <CardContent className="p-0">
                       <TradesChart
-                        symbol={symbol}
-                        timeframe={TIMEFRAME_TO_BACKEND[timeframe] ?? timeframe}
+                        symbol={result.backtestSymbol || symbol}
+                        timeframe={
+                          (result.backtestTimeframe ||
+                            TIMEFRAME_TO_BACKEND[timeframe]) ??
+                          timeframe
+                        }
                         startDate={startDate}
                         endDate={endDate}
                         trades={result.trades}
@@ -759,7 +839,12 @@ export function Backtest() {
                           Equity Curve
                         </span>
                         <span className="text-xs text-gray-600 font-mono ml-auto">
-                          ${result.equity_curve.length > 0 ? result.equity_curve[result.equity_curve.length - 1].equity.toFixed(0) : '0'}
+                          $
+                          {result.equity_curve.length > 0
+                            ? result.equity_curve[
+                                result.equity_curve.length - 1
+                              ].equity.toFixed(0)
+                            : "0"}
                         </span>
                       </div>
                       <EquityChart data={result.equity_curve} />
@@ -783,14 +868,30 @@ export function Backtest() {
                         <Table>
                           <TableHeader>
                             <TableRow className="border-white/[0.04] hover:bg-transparent">
-                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">#</TableHead>
-                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">Сторона</TableHead>
-                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">Вход</TableHead>
-                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">Выход</TableHead>
-                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">Цена входа</TableHead>
-                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">Цена выхода</TableHead>
-                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold text-right">P&L</TableHead>
-                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold text-right">P&L %</TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">
+                                #
+                              </TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">
+                                Сторона
+                              </TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">
+                                Вход
+                              </TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">
+                                Выход
+                              </TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">
+                                Цена входа
+                              </TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">
+                                Цена выхода
+                              </TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold text-right">
+                                P&L
+                              </TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold text-right">
+                                P&L %
+                              </TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -798,14 +899,20 @@ export function Backtest() {
                               <TableRow
                                 key={trade.id}
                                 className={`border-white/[0.03] transition-colors hover:bg-white/[0.02] ${
-                                  idx % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.01]'
+                                  idx % 2 === 0
+                                    ? "bg-transparent"
+                                    : "bg-white/[0.01]"
                                 }`}
                               >
                                 <TableCell className="font-mono text-xs text-gray-500">
                                   {trade.id}
                                 </TableCell>
                                 <TableCell>
-                                  <Badge variant={trade.side === 'long' ? 'profit' : 'loss'}>
+                                  <Badge
+                                    variant={
+                                      trade.side === "long" ? "profit" : "loss"
+                                    }
+                                  >
                                     {trade.side.toUpperCase()}
                                   </Badge>
                                 </TableCell>
@@ -823,17 +930,23 @@ export function Backtest() {
                                 </TableCell>
                                 <TableCell
                                   className={`text-right font-mono text-xs font-bold ${
-                                    trade.pnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'
+                                    trade.pnl >= 0
+                                      ? "text-brand-profit"
+                                      : "text-brand-loss"
                                   }`}
                                 >
-                                  {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
+                                  {trade.pnl >= 0 ? "+" : ""}$
+                                  {trade.pnl.toFixed(2)}
                                 </TableCell>
                                 <TableCell
                                   className={`text-right font-mono text-xs ${
-                                    trade.pnl_pct >= 0 ? 'text-brand-profit' : 'text-brand-loss'
+                                    trade.pnl_pct >= 0
+                                      ? "text-brand-profit"
+                                      : "text-brand-loss"
                                   }`}
                                 >
-                                  {trade.pnl_pct >= 0 ? '+' : ''}{trade.pnl_pct.toFixed(2)}%
+                                  {trade.pnl_pct >= 0 ? "+" : ""}
+                                  {trade.pnl_pct.toFixed(2)}%
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -878,12 +991,13 @@ export function Backtest() {
                   Выполняется бэктест
                 </p>
                 <p className="text-gray-500 text-sm mt-2">
-                  {runStatus === 'pending' && 'Инициализация...'}
-                  {runStatus === 'running' && `Обработка данных... ${runProgress}%`}
-                  {runStatus === 'completed' && 'Подготовка результатов...'}
-                  {!runStatus && 'Запуск...'}
+                  {runStatus === "pending" && "Инициализация..."}
+                  {runStatus === "running" &&
+                    `Обработка данных... ${runProgress}%`}
+                  {runStatus === "completed" && "Подготовка результатов..."}
+                  {!runStatus && "Запуск..."}
                 </p>
-                {runStatus === 'running' && (
+                {runStatus === "running" && (
                   <div className="w-48 h-1.5 bg-white/[0.06] rounded-full overflow-hidden mt-4">
                     <div
                       className="h-full bg-gradient-to-r from-brand-premium to-amber-500 rounded-full transition-all duration-500 ease-out"
@@ -925,12 +1039,16 @@ function MetricCell({
   highlight?: boolean;
 }) {
   return (
-    <div className={`px-4 py-4 ${highlight ? 'bg-white/[0.02]' : ''}`}>
+    <div className={`px-4 py-4 ${highlight ? "bg-white/[0.02]" : ""}`}>
       <div className="flex items-center gap-1.5 mb-1.5">
         <Icon className={`h-3 w-3 ${color} opacity-60`} />
-        <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider leading-none">{label}</p>
+        <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider leading-none">
+          {label}
+        </p>
       </div>
-      <p className={`text-lg font-bold font-mono ${color} leading-none`}>{value}</p>
+      <p className={`text-lg font-bold font-mono ${color} leading-none`}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -952,25 +1070,25 @@ function EquityChart({ data }: { data: { time: number; equity: number }[] }) {
 
     const chart = createChart(containerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: '#0d0d1a' },
-        textColor: '#8a8a9a',
+        background: { type: ColorType.Solid, color: "#0d0d1a" },
+        textColor: "#8a8a9a",
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: 11,
       },
       grid: {
-        vertLines: { color: '#1a1a2e' },
-        horzLines: { color: '#1a1a2e' },
+        vertLines: { color: "#1a1a2e" },
+        horzLines: { color: "#1a1a2e" },
       },
-      rightPriceScale: { borderColor: '#2a2a3e' },
-      timeScale: { borderColor: '#2a2a3e', timeVisible: true },
+      rightPriceScale: { borderColor: "#2a2a3e" },
+      timeScale: { borderColor: "#2a2a3e", timeVisible: true },
       height: 350,
     });
     chartRef.current = chart;
 
     const lineSeries = chart.addSeries(AreaSeries, {
-      lineColor: '#FFD700',
-      topColor: 'rgba(255,215,0,0.15)',
-      bottomColor: 'rgba(255,215,0,0.0)',
+      lineColor: "#FFD700",
+      topColor: "rgba(255,215,0,0.15)",
+      bottomColor: "rgba(255,215,0,0.0)",
       lineWidth: 2,
     });
 
@@ -988,7 +1106,9 @@ function EquityChart({ data }: { data: { time: number; equity: number }[] }) {
     const ro = new ResizeObserver((entries) => {
       if (!chartRef.current) return;
       for (const entry of entries) {
-        try { chartRef.current.applyOptions({ width: entry.contentRect.width }); } catch {}
+        try {
+          chartRef.current.applyOptions({ width: entry.contentRect.width });
+        } catch {}
       }
     });
     ro.observe(containerRef.current);
@@ -1005,7 +1125,9 @@ function EquityChart({ data }: { data: { time: number; equity: number }[] }) {
     return () => cleanup?.();
   }, [initChart]);
 
-  return <div ref={containerRef} className="w-full" style={{ minHeight: 350 }} />;
+  return (
+    <div ref={containerRef} className="w-full" style={{ minHeight: 350 }} />
+  );
 }
 
 /* ---- Trades Chart (Candlestick + Entry/Exit Markers) ---- */
@@ -1021,7 +1143,7 @@ function TradesChart({
   timeframe: string;
   startDate: string;
   endDate: string;
-  trades: BacktestResult['trades'];
+  trades: BacktestResult["trades"];
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -1074,39 +1196,39 @@ function TradesChart({
 
       const chart = createChart(containerRef.current, {
         layout: {
-          background: { type: ColorType.Solid, color: 'transparent' },
-          textColor: '#666',
+          background: { type: ColorType.Solid, color: "transparent" },
+          textColor: "#666",
           fontFamily: "'JetBrains Mono', monospace",
           fontSize: 11,
         },
         grid: {
-          vertLines: { color: '#1a1a2e' },
-          horzLines: { color: '#1a1a2e' },
+          vertLines: { color: "#1a1a2e" },
+          horzLines: { color: "#1a1a2e" },
         },
         rightPriceScale: {
-          borderColor: '#2a2a3e',
+          borderColor: "#2a2a3e",
           scaleMargins: { top: 0.1, bottom: 0.2 },
         },
-        timeScale: { borderColor: '#2a2a3e', timeVisible: true },
+        timeScale: { borderColor: "#2a2a3e", timeVisible: true },
         height: 450,
       });
       chartRef.current = chart;
 
       // Candlestick series
       const candleSeries = chart.addSeries(CandlestickSeries, {
-        upColor: '#00E676',
-        downColor: '#FF1744',
-        borderUpColor: '#00E676',
-        borderDownColor: '#FF1744',
-        wickUpColor: '#00E676',
-        wickDownColor: '#FF1744',
+        upColor: "#00E676",
+        downColor: "#FF1744",
+        borderUpColor: "#00E676",
+        borderDownColor: "#FF1744",
+        wickUpColor: "#00E676",
+        wickDownColor: "#FF1744",
       });
       candleSeries.setData(candles);
 
       // Volume
       const volumeSeries = chart.addSeries(HistogramSeries, {
-        priceFormat: { type: 'volume' },
-        priceScaleId: '',
+        priceFormat: { type: "volume" },
+        priceScaleId: "",
       });
       volumeSeries.priceScale().applyOptions({
         scaleMargins: { top: 0.85, bottom: 0 },
@@ -1116,31 +1238,29 @@ function TradesChart({
           time: c.time,
           value: c.volume,
           color:
-            c.close >= c.open
-              ? 'rgba(0,230,118,0.2)'
-              : 'rgba(255,23,68,0.2)',
+            c.close >= c.open ? "rgba(0,230,118,0.2)" : "rgba(255,23,68,0.2)",
         })),
       );
 
       // Trade markers
       type MarkerItem = {
         time: Time;
-        position: 'belowBar' | 'aboveBar';
+        position: "belowBar" | "aboveBar";
         color: string;
-        shape: 'arrowUp' | 'arrowDown' | 'circle';
+        shape: "arrowUp" | "arrowDown" | "circle";
         text: string;
       };
       const markers: MarkerItem[] = [];
 
       const reasonLabels: Record<string, string> = {
-        stop_loss: 'SL',
-        take_profit: 'TP',
-        take_profit_1: 'TP1',
-        take_profit_2: 'TP2',
-        trailing_stop: 'TRAIL',
-        breakeven: 'BE',
-        signal: 'REVERSE',
-        end_of_data: 'END',
+        stop_loss: "SL",
+        take_profit: "TP",
+        take_profit_1: "TP1",
+        take_profit_2: "TP2",
+        trailing_stop: "TRAIL",
+        breakeven: "BE",
+        signal: "REVERSE",
+        end_of_data: "END",
       };
 
       // Поиск свечи по timestamp (ближайшая свеча <= target time)
@@ -1148,7 +1268,8 @@ function TradesChart({
         if (!timeMs) return undefined;
         const timeSec = Math.floor(timeMs / 1000);
         // Бинарный поиск ближайшей свечи
-        let lo = 0, hi = candles.length - 1;
+        let lo = 0,
+          hi = candles.length - 1;
         while (lo <= hi) {
           const mid = (lo + hi) >> 1;
           if ((candles[mid].time as number) <= timeSec) lo = mid + 1;
@@ -1169,22 +1290,25 @@ function TradesChart({
         if (entryCandle) {
           markers.push({
             time: entryCandle.time,
-            position: trade.side === 'long' ? 'belowBar' : 'aboveBar',
-            color: trade.side === 'long' ? '#00E676' : '#FF1744',
-            shape: trade.side === 'long' ? 'arrowUp' : 'arrowDown',
-            text: `${trade.side === 'long' ? 'LONG' : 'SHORT'} $${trade.entry_price.toFixed(4)}`,
+            position: trade.side === "long" ? "belowBar" : "aboveBar",
+            color: trade.side === "long" ? "#00E676" : "#FF1744",
+            shape: trade.side === "long" ? "arrowUp" : "arrowDown",
+            text: `${trade.side === "long" ? "LONG" : "SHORT"} $${trade.entry_price.toFixed(4)}`,
           });
         }
 
         if (exitCandle && exitCandle.time !== entryCandle?.time) {
-          const reasonLabel = reasonLabels[trade.exit_reason] || trade.exit_reason?.toUpperCase() || 'EXIT';
-          const pnlStr = `${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}`;
+          const reasonLabel =
+            reasonLabels[trade.exit_reason] ||
+            trade.exit_reason?.toUpperCase() ||
+            "EXIT";
+          const pnlStr = `${trade.pnl >= 0 ? "+" : ""}$${trade.pnl.toFixed(2)}`;
 
           markers.push({
             time: exitCandle.time,
-            position: trade.side === 'long' ? 'aboveBar' : 'belowBar',
-            color: trade.pnl >= 0 ? '#FFD700' : '#FF6D00',
-            shape: 'circle',
+            position: trade.side === "long" ? "aboveBar" : "belowBar",
+            color: trade.pnl >= 0 ? "#FFD700" : "#FF6D00",
+            shape: "circle",
             text: `${reasonLabel} ${pnlStr}`,
           });
         }
@@ -1201,7 +1325,9 @@ function TradesChart({
       const ro = new ResizeObserver((entries) => {
         if (!chartRef.current) return;
         for (const entry of entries) {
-          try { chartRef.current.applyOptions({ width: entry.contentRect.width }); } catch {}
+          try {
+            chartRef.current.applyOptions({ width: entry.contentRect.width });
+          } catch {}
         }
       });
       ro.observe(containerRef.current);
@@ -1213,8 +1339,10 @@ function TradesChart({
         chart.remove();
       };
     } catch (err) {
-      console.error('TradesChart error:', err);
-      setError(`Ошибка графика: ${err instanceof Error ? err.message : String(err)}`);
+      console.error("TradesChart error:", err);
+      setError(
+        `Ошибка графика: ${err instanceof Error ? err.message : String(err)}`,
+      );
       setLoading(false);
     }
   }, [symbol, activeTimeframe, trades]);
@@ -1251,8 +1379,8 @@ function TradesChart({
                 onClick={() => setActiveTimeframe(tf.value)}
                 className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
                   activeTimeframe === tf.value
-                    ? 'bg-brand-premium/10 text-brand-premium shadow-sm'
-                    : 'text-gray-500 hover:text-white'
+                    ? "bg-brand-premium/10 text-brand-premium shadow-sm"
+                    : "text-gray-500 hover:text-white"
                 }`}
               >
                 {tf.label}
@@ -1261,7 +1389,8 @@ function TradesChart({
           </div>
           {activeTimeframe !== defaultTimeframe && (
             <span className="text-[10px] text-gray-600 font-mono">
-              (бэктест: {BACKEND_TO_LABEL[defaultTimeframe] ?? defaultTimeframe})
+              (бэктест: {BACKEND_TO_LABEL[defaultTimeframe] ?? defaultTimeframe}
+              )
             </span>
           )}
         </div>
@@ -1276,23 +1405,29 @@ function TradesChart({
       {!loading && trades.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5 border-t border-white/[0.04] text-xs text-gray-500">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-b-[6px] border-transparent border-b-brand-profit" /> LONG
+            <span className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-b-[6px] border-transparent border-b-brand-profit" />{" "}
+            LONG
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-t-[6px] border-transparent border-t-brand-loss" /> SHORT
+            <span className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-t-[6px] border-transparent border-t-brand-loss" />{" "}
+            SHORT
           </span>
           <span className="text-gray-700">|</span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 bg-brand-premium rounded-full" /> SL - стоп-лосс
+            <span className="inline-block w-2 h-2 bg-brand-premium rounded-full" />{" "}
+            SL - стоп-лосс
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 bg-brand-premium rounded-full" /> TP - тейк-профит
+            <span className="inline-block w-2 h-2 bg-brand-premium rounded-full" />{" "}
+            TP - тейк-профит
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 bg-orange-500 rounded-full" /> TRAIL - трейлинг
+            <span className="inline-block w-2 h-2 bg-orange-500 rounded-full" />{" "}
+            TRAIL - трейлинг
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 bg-orange-500 rounded-full" /> REVERSE - обратный сигнал
+            <span className="inline-block w-2 h-2 bg-orange-500 rounded-full" />{" "}
+            REVERSE - обратный сигнал
           </span>
         </div>
       )}
@@ -1302,12 +1437,15 @@ function TradesChart({
 
 /* ---- Backtest History ---- */
 
-const LS_NOTES_KEY = 'algobond_backtest_notes';
-const LS_HIDDEN_KEY = 'algobond_backtest_hidden';
+const LS_NOTES_KEY = "algobond_backtest_notes";
+const LS_HIDDEN_KEY = "algobond_backtest_hidden";
 
 function getStoredNotes(): Record<string, string> {
   try {
-    return JSON.parse(localStorage.getItem(LS_NOTES_KEY) ?? '{}') as Record<string, string>;
+    return JSON.parse(localStorage.getItem(LS_NOTES_KEY) ?? "{}") as Record<
+      string,
+      string
+    >;
   } catch {
     return {};
   }
@@ -1321,7 +1459,7 @@ function setStoredNote(runId: string, note: string): void {
 
 function getHiddenIds(): string[] {
   try {
-    return JSON.parse(localStorage.getItem(LS_HIDDEN_KEY) ?? '[]') as string[];
+    return JSON.parse(localStorage.getItem(LS_HIDDEN_KEY) ?? "[]") as string[];
   } catch {
     return [];
   }
@@ -1337,13 +1475,13 @@ function hideRun(runId: string): void {
 
 function statusBadge(status: BacktestStatus, errorMsg: string | null) {
   switch (status) {
-    case 'completed':
+    case "completed":
       return (
         <span className="inline-flex items-center gap-1.5 text-xs text-brand-profit bg-brand-profit/10 border border-brand-profit/15 px-2.5 py-1 rounded-lg font-medium">
           <CheckCircle2 className="h-3 w-3" /> Завершён
         </span>
       );
-    case 'failed':
+    case "failed":
       return (
         <span
           className="inline-flex items-center gap-1.5 text-xs text-brand-loss bg-brand-loss/10 border border-brand-loss/15 px-2.5 py-1 rounded-lg font-medium"
@@ -1352,13 +1490,13 @@ function statusBadge(status: BacktestStatus, errorMsg: string | null) {
           <XCircle className="h-3 w-3" /> Ошибка
         </span>
       );
-    case 'running':
+    case "running":
       return (
         <span className="inline-flex items-center gap-1.5 text-xs text-brand-accent bg-brand-accent/10 border border-brand-accent/15 px-2.5 py-1 rounded-lg font-medium">
           <Loader2 className="h-3 w-3 animate-spin" /> Выполняется
         </span>
       );
-    case 'pending':
+    case "pending":
       return (
         <span className="inline-flex items-center gap-1.5 text-xs text-brand-premium bg-brand-premium/10 border border-brand-premium/15 px-2.5 py-1 rounded-lg font-medium">
           <Clock className="h-3 w-3" /> В очереди
@@ -1369,12 +1507,12 @@ function statusBadge(status: BacktestStatus, errorMsg: string | null) {
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  return d.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -1385,19 +1523,23 @@ interface HistoryRunCardProps {
 }
 
 function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
-  const [resultData, setResultData] = useState<BacktestResultResponse | null>(null);
+  const [resultData, setResultData] = useState<BacktestResultResponse | null>(
+    null,
+  );
   const [resultLoading, setResultLoading] = useState(false);
-  const [note, setNote] = useState(() => getStoredNotes()[run.id] ?? '');
+  const [note, setNote] = useState(() => getStoredNotes()[run.id] ?? "");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Auto-fetch result for completed runs
   useEffect(() => {
-    if (run.status === 'completed' && !resultData && !resultLoading) {
+    if (run.status === "completed" && !resultData && !resultLoading) {
       setResultLoading(true);
       api
         .get<BacktestResultResponse>(`/backtest/runs/${run.id}/result`)
         .then(({ data }) => setResultData(data))
-        .catch(() => { /* result not available */ })
+        .catch(() => {
+          /* result not available */
+        })
         .finally(() => setResultLoading(false));
     }
   }, [run.id, run.status, resultData, resultLoading]);
@@ -1409,7 +1551,10 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
 
   const handleLoadResult = () => {
     if (resultData) {
-      onLoad(mapBackendResultToUI(resultData));
+      const mapped = mapBackendResultToUI(resultData);
+      mapped.backtestSymbol = run.symbol;
+      mapped.backtestTimeframe = run.timeframe;
+      onLoad(mapped);
     }
   };
 
@@ -1452,11 +1597,17 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
         <div className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-2.5 border-b border-white/[0.04] text-xs text-gray-500">
           <span className="flex items-center gap-1.5">
             <DollarSign className="h-3 w-3" />
-            Капитал: <span className="font-mono text-white ml-0.5">${run.initial_capital}</span>
+            Капитал:{" "}
+            <span className="font-mono text-white ml-0.5">
+              ${run.initial_capital}
+            </span>
           </span>
           <span className="flex items-center gap-1.5">
             <Clock className="h-3 w-3" />
-            Создан: <span className="font-mono text-gray-300 ml-0.5">{formatDate(run.created_at)}</span>
+            Создан:{" "}
+            <span className="font-mono text-gray-300 ml-0.5">
+              {formatDate(run.created_at)}
+            </span>
           </span>
         </div>
 
@@ -1464,43 +1615,51 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
         {resultData && (
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-2.5 border-b border-white/[0.04] text-xs">
             <span className="text-gray-500">
-              Сделок: <span className="font-mono text-white">{resultData.total_trades}</span>
+              Сделок:{" "}
+              <span className="font-mono text-white">
+                {resultData.total_trades}
+              </span>
             </span>
             <span className="text-gray-500">
-              Win:{' '}
+              Win:{" "}
               <span
                 className={`font-mono font-medium ${
                   Number(resultData.win_rate) * 100 >= 50
-                    ? 'text-brand-profit'
-                    : 'text-brand-loss'
+                    ? "text-brand-profit"
+                    : "text-brand-loss"
                 }`}
               >
                 {(Number(resultData.win_rate) * 100).toFixed(1)}%
               </span>
             </span>
             <span className="text-gray-500">
-              PnL:{' '}
+              PnL:{" "}
               <span
                 className={`font-mono font-bold ${
                   Number(resultData.total_pnl) >= 0
-                    ? 'text-brand-profit'
-                    : 'text-brand-loss'
+                    ? "text-brand-profit"
+                    : "text-brand-loss"
                 }`}
               >
-                {Number(resultData.total_pnl) >= 0 ? '+' : ''}${Number(resultData.total_pnl).toFixed(2)}
+                {Number(resultData.total_pnl) >= 0 ? "+" : ""}$
+                {Number(resultData.total_pnl).toFixed(2)}
               </span>
             </span>
             <span className="text-gray-500">
-              DD:{' '}
+              DD:{" "}
               <span className="font-mono text-brand-loss font-medium">
                 {Number(resultData.max_drawdown).toFixed(1)}%
               </span>
             </span>
             <span className="text-gray-500">
-              Sharpe:{' '}
-              <span className={`font-mono font-medium ${
-                Number(resultData.sharpe_ratio) >= 1 ? 'text-brand-premium' : 'text-gray-400'
-              }`}>
+              Sharpe:{" "}
+              <span
+                className={`font-mono font-medium ${
+                  Number(resultData.sharpe_ratio) >= 1
+                    ? "text-brand-premium"
+                    : "text-gray-400"
+                }`}
+              >
                 {Number(resultData.sharpe_ratio).toFixed(2)}
               </span>
             </span>
@@ -1514,7 +1673,7 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
         )}
 
         {/* Error message */}
-        {run.status === 'failed' && run.error_message && (
+        {run.status === "failed" && run.error_message && (
           <div className="flex items-center gap-2 px-5 py-2.5 border-b border-white/[0.04] text-xs text-brand-loss">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{run.error_message}</span>
@@ -1522,7 +1681,7 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
         )}
 
         {/* Running progress */}
-        {run.status === 'running' && (
+        {run.status === "running" && (
           <div className="px-5 py-2.5 border-b border-white/[0.04]">
             <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
               <span>Выполняется...</span>
@@ -1542,7 +1701,9 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
           <div className="flex-1">
             <div className="flex items-center gap-1.5 mb-1.5">
               <StickyNote className="h-3 w-3 text-gray-600" />
-              <span className="text-[10px] text-gray-600 uppercase tracking-wider font-semibold">Заметка</span>
+              <span className="text-[10px] text-gray-600 uppercase tracking-wider font-semibold">
+                Заметка
+              </span>
             </div>
             <Input
               value={note}
@@ -1552,7 +1713,7 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
             />
           </div>
           <div className="flex items-center gap-2 pt-5">
-            {run.status === 'completed' && resultData && (
+            {run.status === "completed" && resultData && (
               <Button
                 size="sm"
                 onClick={handleLoadResult}
@@ -1569,12 +1730,12 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
               onBlur={() => setConfirmDelete(false)}
               className={`text-xs h-8 ${
                 confirmDelete
-                  ? 'text-brand-loss bg-brand-loss/10 hover:bg-brand-loss/20 border border-brand-loss/15'
-                  : 'text-gray-500 hover:text-brand-loss hover:bg-brand-loss/10'
+                  ? "text-brand-loss bg-brand-loss/10 hover:bg-brand-loss/20 border border-brand-loss/15"
+                  : "text-gray-500 hover:text-brand-loss hover:bg-brand-loss/10"
               }`}
             >
               <Trash2 className="h-3 w-3 mr-1" />
-              {confirmDelete ? 'Точно?' : 'Скрыть'}
+              {confirmDelete ? "Точно?" : "Скрыть"}
             </Button>
           </div>
         </div>
@@ -1601,18 +1762,26 @@ function BacktestHistory({
 
   const visibleRuns = runs
     .filter((r) => !hiddenIds.includes(r.id))
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    .sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
 
   const handleHide = (id: string) => {
     hideRun(id);
     setHiddenIds((prev) => [...prev, id]);
-    setSelected((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    setSelected((prev) => {
+      const n = new Set(prev);
+      n.delete(id);
+      return n;
+    });
   };
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const n = new Set(prev);
-      if (n.has(id)) n.delete(id); else n.add(id);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
       return n;
     });
   };
@@ -1629,7 +1798,11 @@ function BacktestHistory({
 
   const deleteAllHidden = async () => {
     for (const id of hiddenIds) {
-      try { await api.delete(`/backtest/runs/${id}`); } catch { /* ignore */ }
+      try {
+        await api.delete(`/backtest/runs/${id}`);
+      } catch {
+        /* ignore */
+      }
     }
     localStorage.removeItem(LS_HIDDEN_KEY);
     setHiddenIds([]);
@@ -1643,7 +1816,9 @@ function BacktestHistory({
           <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-premium/10 to-brand-accent/5 border border-brand-premium/10 mb-4">
             <Loader2 className="h-7 w-7 animate-spin text-brand-premium" />
           </div>
-          <span className="text-gray-400 text-sm mt-2">Загрузка истории...</span>
+          <span className="text-gray-400 text-sm mt-2">
+            Загрузка истории...
+          </span>
         </CardContent>
       </Card>
     );
@@ -1697,7 +1872,8 @@ function BacktestHistory({
   const totalPages = Math.ceil(visibleRuns.length / perPage);
   const pagedRuns = visibleRuns.slice(page * perPage, (page + 1) * perPage);
 
-  const allSelected = selected.size === pagedRuns.length && pagedRuns.length > 0;
+  const allSelected =
+    selected.size === pagedRuns.length && pagedRuns.length > 0;
   const someSelected = selected.size > 0;
 
   return (
@@ -1705,33 +1881,59 @@ function BacktestHistory({
       {/* Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <button type="button" onClick={selectAll} className="flex items-center gap-1.5 px-2 py-1 rounded text-xs text-gray-500 hover:text-white transition-colors">
-            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
-              allSelected ? 'border-brand-premium bg-brand-premium' : someSelected ? 'border-brand-premium bg-brand-premium/30' : 'border-gray-600'
-            }`}>
-              {allSelected && <span className="text-[8px] text-black font-bold">&#10003;</span>}
-              {someSelected && !allSelected && <span className="text-[8px] text-black font-bold">-</span>}
+          <button
+            type="button"
+            onClick={selectAll}
+            className="flex items-center gap-1.5 px-2 py-1 rounded text-xs text-gray-500 hover:text-white transition-colors"
+          >
+            <div
+              className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
+                allSelected
+                  ? "border-brand-premium bg-brand-premium"
+                  : someSelected
+                    ? "border-brand-premium bg-brand-premium/30"
+                    : "border-gray-600"
+              }`}
+            >
+              {allSelected && (
+                <span className="text-[8px] text-black font-bold">
+                  &#10003;
+                </span>
+              )}
+              {someSelected && !allSelected && (
+                <span className="text-[8px] text-black font-bold">-</span>
+              )}
             </div>
-            {someSelected ? `${selected.size} выбрано` : 'Выбрать все'}
+            {someSelected ? `${selected.size} выбрано` : "Выбрать все"}
           </button>
           {someSelected && (
-            <Button variant="ghost" size="sm" className="text-xs text-brand-loss h-7 hover:bg-brand-loss/10" onClick={hideSelected}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-brand-loss h-7 hover:bg-brand-loss/10"
+              onClick={hideSelected}
+            >
               <EyeOff className="h-3 w-3 mr-1" />
               Скрыть ({selected.size})
             </Button>
           )}
           <div className="h-4 w-px bg-white/10" />
-          <span className="text-[10px] text-gray-600 font-mono">{visibleRuns.length} всего</span>
+          <span className="text-[10px] text-gray-600 font-mono">
+            {visibleRuns.length} всего
+          </span>
           <div className="flex items-center rounded-md bg-white/[0.03] border border-white/[0.06] p-0.5">
             {PER_PAGE_OPTIONS.map((n) => (
               <button
                 key={n}
                 type="button"
-                onClick={() => { setPerPage(n); setPage(0); }}
+                onClick={() => {
+                  setPerPage(n);
+                  setPage(0);
+                }}
                 className={`px-2 py-0.5 text-[10px] font-mono rounded transition-all ${
                   perPage === n
-                    ? 'bg-brand-premium/15 text-brand-premium'
-                    : 'text-gray-500 hover:text-gray-300'
+                    ? "bg-brand-premium/15 text-brand-premium"
+                    : "text-gray-500 hover:text-gray-300"
                 }`}
               >
                 {n}
@@ -1740,17 +1942,36 @@ function BacktestHistory({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="text-xs text-gray-500 h-7 hover:text-white" onClick={onRefresh}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-gray-500 h-7 hover:text-white"
+            onClick={onRefresh}
+          >
             <RefreshCw className="h-3 w-3 mr-1.5" />
             Обновить
           </Button>
           {hiddenIds.length > 0 && (
             <>
-              <Button variant="ghost" size="sm" className="text-xs text-gray-500 h-7 hover:text-white" onClick={() => { localStorage.removeItem(LS_HIDDEN_KEY); setHiddenIds([]); onRefresh(); }}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-gray-500 h-7 hover:text-white"
+                onClick={() => {
+                  localStorage.removeItem(LS_HIDDEN_KEY);
+                  setHiddenIds([]);
+                  onRefresh();
+                }}
+              >
                 <CircleDot className="h-3 w-3 mr-1.5" />
                 Показать скрытые ({hiddenIds.length})
               </Button>
-              <Button variant="ghost" size="sm" className="text-xs text-brand-loss h-7 hover:bg-brand-loss/10" onClick={deleteAllHidden}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-brand-loss h-7 hover:bg-brand-loss/10"
+                onClick={deleteAllHidden}
+              >
                 <Trash2 className="h-3 w-3 mr-1" />
                 Удалить скрытые
               </Button>
@@ -1761,15 +1982,31 @@ function BacktestHistory({
       {/* List with checkboxes */}
       {pagedRuns.map((run) => (
         <div key={run.id} className="flex items-start gap-2">
-          <button type="button" onClick={() => toggleSelect(run.id)} className="mt-4 flex-shrink-0">
-            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-              selected.has(run.id) ? 'border-brand-premium bg-brand-premium' : 'border-gray-600 hover:border-gray-400'
-            }`}>
-              {selected.has(run.id) && <span className="text-[9px] text-black font-bold">&#10003;</span>}
+          <button
+            type="button"
+            onClick={() => toggleSelect(run.id)}
+            className="mt-4 flex-shrink-0"
+          >
+            <div
+              className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                selected.has(run.id)
+                  ? "border-brand-premium bg-brand-premium"
+                  : "border-gray-600 hover:border-gray-400"
+              }`}
+            >
+              {selected.has(run.id) && (
+                <span className="text-[9px] text-black font-bold">
+                  &#10003;
+                </span>
+              )}
             </div>
           </button>
           <div className="flex-1 min-w-0">
-            <HistoryRunCard run={run} onLoad={onLoadResult} onHide={handleHide} />
+            <HistoryRunCard
+              run={run}
+              onLoad={onLoadResult}
+              onHide={handleHide}
+            />
           </div>
         </div>
       ))}
@@ -1791,8 +2028,8 @@ function BacktestHistory({
               onClick={() => setPage(i)}
               className={`w-7 h-7 text-[11px] font-mono rounded-md transition-all ${
                 page === i
-                  ? 'bg-brand-premium/15 text-brand-premium border border-brand-premium/20'
-                  : 'text-gray-500 hover:text-white hover:bg-white/5'
+                  ? "bg-brand-premium/15 text-brand-premium border border-brand-premium/20"
+                  : "text-gray-500 hover:text-white hover:bg-white/5"
               }`}
             >
               {i + 1}
@@ -1815,11 +2052,11 @@ function BacktestHistory({
 /* ---- Demo Data ---- */
 
 function generateDemoResult(capital: number): BacktestResult {
-  const trades: BacktestResult['trades'] = [];
-  const equityCurve: BacktestResult['equity_curve'] = [];
+  const trades: BacktestResult["trades"] = [];
+  const equityCurve: BacktestResult["equity_curve"] = [];
 
   let equity = capital;
-  const baseTime = new Date('2025-01-15').getTime() / 1000;
+  const baseTime = new Date("2025-01-15").getTime() / 1000;
   const step = 86400; // ~1 day
 
   let wins = 0;
@@ -1830,9 +2067,7 @@ function generateDemoResult(capital: number): BacktestResult {
 
   for (let i = 0; i < 87; i++) {
     const isWin = Math.random() < 0.58;
-    const pnlPct = isWin
-      ? Math.random() * 4 + 0.5
-      : -(Math.random() * 3 + 0.3);
+    const pnlPct = isWin ? Math.random() * 4 + 0.5 : -(Math.random() * 3 + 0.3);
     const pnl = equity * (pnlPct / 100);
     equity += pnl;
 
@@ -1855,14 +2090,16 @@ function generateDemoResult(capital: number): BacktestResult {
 
     trades.push({
       id: i + 1,
-      side: Math.random() > 0.4 ? 'long' : 'short',
-      entry_time: entryDate.toISOString().slice(0, 16).replace('T', ' '),
-      exit_time: exitDate.toISOString().slice(0, 16).replace('T', ' '),
+      side: Math.random() > 0.4 ? "long" : "short",
+      entry_time: entryDate.toISOString().slice(0, 16).replace("T", " "),
+      exit_time: exitDate.toISOString().slice(0, 16).replace("T", " "),
       entry_price: +entryPrice.toFixed(2),
       exit_price: +exitPrice.toFixed(2),
       pnl: +pnl.toFixed(2),
       pnl_pct: +pnlPct.toFixed(2),
-      exit_reason: ['stop_loss', 'take_profit', 'trailing_stop', 'signal'][Math.floor(Math.random() * 4)],
+      exit_reason: ["stop_loss", "take_profit", "trailing_stop", "signal"][
+        Math.floor(Math.random() * 4)
+      ],
       entry_bar: i * 10,
       exit_bar: i * 10 + 5 + Math.floor(Math.random() * 10),
       entry_time_ms: (baseTime + i * step) * 1000,
@@ -1876,7 +2113,8 @@ function generateDemoResult(capital: number): BacktestResult {
   }
 
   const totalPnl = equity - capital;
-  const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : totalProfit > 0 ? 99 : 0;
+  const profitFactor =
+    totalLoss > 0 ? totalProfit / totalLoss : totalProfit > 0 ? 99 : 0;
 
   return {
     metrics: {
