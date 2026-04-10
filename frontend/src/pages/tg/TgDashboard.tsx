@@ -127,7 +127,7 @@ export default function TgDashboard() {
                           <TrendingUp
                             className={cn(
                               "h-3.5 w-3.5",
-                              bot.total_pnl >= 0
+                              Number(bot.total_pnl) >= 0
                                 ? "text-[#00E676]"
                                 : "text-[#FF1744]",
                             )}
@@ -135,13 +135,13 @@ export default function TgDashboard() {
                           <span
                             className={cn(
                               'font-["JetBrains_Mono"] text-sm font-semibold',
-                              bot.total_pnl >= 0
+                              Number(bot.total_pnl) >= 0
                                 ? "text-[#00E676]"
                                 : "text-[#FF1744]",
                             )}
                           >
-                            {bot.total_pnl >= 0 ? "+" : ""}$
-                            {bot.total_pnl.toFixed(2)}
+                            {Number(bot.total_pnl) >= 0 ? "+" : ""}$
+                            {Number(bot.total_pnl || 0).toFixed(2)}
                           </span>
                         </div>
                       </div>
