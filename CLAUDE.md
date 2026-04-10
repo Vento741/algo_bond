@@ -103,6 +103,18 @@ POST /api/trading/bots/{bot_id}/reconcile
 - Multi-TP P&L: при partial close (TP1) `realized_pnl` накапливается (+=), при финальном закрытии — добавляется к накопленному (если `original_quantity is not None`). `bot.total_pnl` пересчитывается из ВСЕХ закрытых позиций (не инкрементально) чтобы избежать двойного подсчёта
 - Bybit closed PnL API: поле `avgEntryPrice` (не `entryPrice`). DB хранит float64 precision → при сравнении округлять до 3 знаков
 
+## AlgoBond Sentinel (автономный агент)
+
+- **Спека:** `docs/superpowers/specs/2026-04-10-autonomous-agent-monitor-design.md`
+- **Скиллы:** `/sentinel-diagnose` (диагностика), `/sentinel-control` (start/stop/restart)
+- **VPS infra:** tmux сессия `algobond-agent`, systemd timer (30с watchdog), cron (12ч restart)
+- **Redis keys:** `algobond:agent:status` (hash), `algobond:agent:command` (start/stop), `algobond:agent:incidents` (list)
+- **API:** `GET/PUT /api/admin/agent/status`, `POST /api/admin/agent/toggle`, `GET /api/admin/agent/incidents`
+- **PUT /status** защищен `X-Agent-Token` (shared secret из `AGENT_SECRET` в .env), не JWT
+- **UI:** таб "Sentinel" на странице AdminSystem
+- **Скрипты:** `.claude/scripts/agent-init.sh`, `agent-restart.sh`, `agent-watchdog.sh`, `sentinel-deploy.sh`
+- **Hooks:** `path-guard.sh` (Edit/Write isolation), `safety-guard.sh` (VPS isolation, SSH bypass для jeremy-vps), `circuit-breaker.sh` (3 reset conditions)
+
 ## Рабочий процесс агентов
 
 - Каждый агент после реализации вызывает `/simplify` для ревью
