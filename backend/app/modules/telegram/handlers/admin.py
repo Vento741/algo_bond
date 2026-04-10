@@ -37,8 +37,8 @@ async def check_health(session: AsyncSession) -> list[str]:
 
     # inspector.stats() синхронный - запускаем в thread чтобы не блокировать event loop
     try:
-        from app.celery_app import celery_app
-        inspector = celery_app.control.inspect(timeout=2.0)
+        from app.celery_app import celery
+        inspector = celery.control.inspect(timeout=2.0)
         stats = await asyncio.to_thread(inspector.stats)
         if stats:
             lines.append(f"Celery: OK ({len(stats)} workers)")
