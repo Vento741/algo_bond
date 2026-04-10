@@ -1,15 +1,14 @@
 """Middleware для Telegram бота: DB session, Auth, Admin."""
 
-import logging
 from typing import Any, Awaitable, Callable
 
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message, TelegramObject
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.modules.auth.models import User, UserRole
 from app.modules.telegram.service import TelegramService
-
-logger = logging.getLogger(__name__)
 
 
 class DbSessionMiddleware(BaseMiddleware):
@@ -25,7 +24,6 @@ class DbSessionMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: dict[str, Any],
     ) -> Any:
-        """Открыть сессию и передать в data['session']."""
         async with self.session_pool() as session:
             data["session"] = session
             return await handler(event, data)
@@ -40,7 +38,6 @@ class AuthMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: dict[str, Any],
     ) -> Any:
-        """Проверить наличие активной TelegramLink для пользователя."""
         user = None
         if isinstance(event, Message) and event.from_user:
             user = event.from_user
@@ -77,11 +74,6 @@ class AdminMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: dict[str, Any],
     ) -> Any:
-        """Проверить что пользователь является администратором."""
-        from sqlalchemy import select
-
-        from app.modules.auth.models import User, UserRole
-
         session: AsyncSession = data["session"]
         user_id = data.get("user_id")
         if user_id is None:

@@ -2,6 +2,8 @@
 
 from decimal import Decimal
 
+from app.modules.trading.models import BotStatus
+
 
 def format_position_opened(
     symbol: str,
@@ -113,11 +115,18 @@ def format_daily_report(
     ])
 
 
+_STATUS_EMOJI: dict[BotStatus, str] = {
+    BotStatus.RUNNING: "🟢",
+    BotStatus.STOPPED: "⬜",
+    BotStatus.ERROR: "🔴",
+}
+
+
 def format_bot_status(
     name: str,
     symbol: str,
     timeframe: str,
-    status: str,
+    status: BotStatus,
     pnl: Decimal,
     trades: int,
     win_rate: Decimal,
@@ -128,7 +137,7 @@ def format_bot_status(
         name: Название бота.
         symbol: Торговый символ.
         timeframe: Таймфрейм (напр. 1h, 4h).
-        status: Статус бота (running/stopped/error).
+        status: Статус бота (BotStatus enum).
         pnl: Суммарный P&L бота.
         trades: Количество сделок.
         win_rate: Процент прибыльных сделок.
@@ -136,10 +145,10 @@ def format_bot_status(
     Returns:
         HTML-строка для отправки в Telegram.
     """
-    status_emoji = {"running": "🟢", "stopped": "⬜", "error": "🔴"}.get(status, "⚪")
+    emoji = _STATUS_EMOJI.get(status, "⚪")
     return "\n".join([
-        f"{status_emoji} <b>{name}</b>",
-        f"{symbol} {timeframe} | {status.upper()}",
+        f"{emoji} <b>{name}</b>",
+        f"{symbol} {timeframe} | {status.value.upper()}",
         f"P&L: {pnl:+,.2f} USDT | Сделок: {trades} | WR: {win_rate:.0f}%",
     ])
 
