@@ -33,14 +33,15 @@ cd "$PROJECT_DIR"
 tmux new-session -d -s "$SESSION_NAME" -x 200 -y 50
 sleep 1
 
-# Запускаем claude в интерактивном режиме с init prompt
-# --dangerously-skip-permissions: агент работает автономно без подтверждений
-# Prompt передается через --prompt (первое сообщение)
+# Запускаем claude в интерактивном режиме
+# -p + pipe: одноразовый, но claude без -p = интерактивный (ждет ввод)
+# Передаем init prompt как позиционный аргумент в кавычках
 PROMPT_FILE="$PROJECT_DIR/.claude/scripts/sentinel-init-prompt.md"
-cat > /tmp/sentinel-run.sh << RUNNER
+cat > /tmp/sentinel-run.sh << 'RUNNER'
 #!/bin/bash
-cd $PROJECT_DIR
-claude --dangerously-skip-permissions --verbose --prompt "\$(cat $PROMPT_FILE)"
+cd /var/www/dev_james_usr/data/www/dev-james.bond/algo_trade
+PROMPT=$(cat .claude/scripts/sentinel-init-prompt.md)
+exec claude --dangerously-skip-permissions "$PROMPT"
 RUNNER
 chmod +x /tmp/sentinel-run.sh
 tmux send-keys -t "$SESSION_NAME" "bash /tmp/sentinel-run.sh" Enter
