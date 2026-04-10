@@ -14,6 +14,13 @@ import {
   Calendar,
   Monitor,
   Bell as BellIcon,
+  TrendingUp,
+  Bot,
+  ClipboardList,
+  BarChart3,
+  Cog,
+  CreditCard,
+  AlertTriangle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -414,43 +421,59 @@ export function Settings() {
               ) : (
                 <>
                   {([
-                    { key: 'positions_enabled', label: '📈 Позиции', desc: 'Открытие, закрытие, TP/SL' },
-                    { key: 'bots_enabled', label: '🤖 Боты', desc: 'Старт, стоп, ошибки' },
-                    { key: 'orders_enabled', label: '📋 Ордера', desc: 'Исполнение, отмена, ошибки' },
-                    { key: 'backtest_enabled', label: '📊 Бэктесты', desc: 'Завершение, ошибки' },
-                    { key: 'system_enabled', label: '⚙️ Системные', desc: 'Соединение, ошибки сервисов' },
-                    { key: 'billing_enabled', label: '💳 Биллинг', desc: 'Подписки, платежи' },
-                  ] as const).map((cat) => (
-                    <div key={cat.key} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5">
-                      <div>
-                        <p className="text-sm text-white">{cat.label}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{cat.desc}</p>
-                      </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={notifPrefs[cat.key]}
-                        onClick={() => setNotifPrefs((prev) => ({ ...prev, [cat.key]: !prev[cat.key] }))}
-                        className={`
-                          relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                          ${notifPrefs[cat.key] ? 'bg-brand-profit' : 'bg-gray-600'}
-                        `}
+                    { key: 'positions_enabled', label: 'Позиции', desc: 'Открытие, закрытие, TP/SL', icon: TrendingUp },
+                    { key: 'bots_enabled', label: 'Боты', desc: 'Старт, стоп, ошибки', icon: Bot, critical: true },
+                    { key: 'orders_enabled', label: 'Ордера', desc: 'Исполнение, отмена, ошибки', icon: ClipboardList },
+                    { key: 'backtest_enabled', label: 'Бэктесты', desc: 'Завершение, ошибки', icon: BarChart3 },
+                    { key: 'system_enabled', label: 'Системные', desc: 'Соединение, ошибки сервисов', icon: Cog, critical: true },
+                    { key: 'billing_enabled', label: 'Биллинг', desc: 'Подписки, платежи', icon: CreditCard },
+                  ] as const).map((cat) => {
+                    const Icon = cat.icon;
+                    const enabled = notifPrefs[cat.key];
+                    return (
+                      <div
+                        key={cat.key}
+                        className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.03] transition-colors"
                       >
-                        <span
+                        <div className="flex items-center gap-2.5">
+                          <Icon className={`h-4 w-4 flex-shrink-0 ${enabled ? 'text-brand-accent' : 'text-gray-600'} transition-colors`} />
+                          <div>
+                            <p className="text-sm text-white">{cat.label}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{cat.desc}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={enabled}
+                          aria-label={`${cat.label}: ${enabled ? 'включено' : 'выключено'}`}
+                          onClick={() => setNotifPrefs((prev) => ({ ...prev, [cat.key]: !prev[cat.key] }))}
                           className={`
-                            inline-block h-4 w-4 rounded-full bg-white transition-transform
-                            ${notifPrefs[cat.key] ? 'translate-x-6' : 'translate-x-1'}
+                            relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors
+                            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg
+                            ${enabled ? 'bg-brand-profit' : 'bg-gray-600'}
                           `}
-                        />
-                      </button>
-                    </div>
-                  ))}
+                        >
+                          <span
+                            className={`
+                              inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform
+                              ${enabled ? 'translate-x-6' : 'translate-x-1'}
+                            `}
+                          />
+                        </button>
+                      </div>
+                    );
+                  })}
 
-                  {/* Предупреждение */}
+                  {/* Предупреждение о критических уведомлениях */}
                   <div className="p-3 rounded-lg bg-brand-loss/5 border border-brand-loss/10">
-                    <p className="text-xs text-gray-400">
-                      <span className="text-brand-loss font-medium">Внимание:</span> отключение критических уведомлений (боты, системные) может привести к пропуску важных событий.
-                    </p>
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-brand-loss mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-gray-400">
+                        <span className="text-brand-loss font-medium">Внимание:</span>{' '}
+                        отключение критических уведомлений (боты, системные) может привести к пропуску важных событий.
+                      </p>
+                    </div>
                   </div>
 
                   <Separator className="bg-white/5" />
