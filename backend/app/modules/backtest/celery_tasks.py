@@ -180,6 +180,20 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
 
             await service.update_run_status(run_id, BacktestStatus.COMPLETED, progress=100)
 
+            try:
+                from app.modules.notifications.service import notify
+                from app.modules.notifications.enums import NotificationType, NotificationPriority
+                await notify(
+                    session, run.user_id,
+                    NotificationType.BACKTEST_COMPLETED, NotificationPriority.LOW,
+                    title="Бэктест завершен",
+                    message=f"{run.symbol} {run.timeframe}: {metrics.total_trades} сделок, PnL {metrics.total_pnl_pct:+.1f}%",
+                    data={"run_id": str(run_id)},
+                    link="/backtest",
+                )
+            except Exception:
+                pass
+
             logger.info(
                 "Backtest %s completed: %d trades, PnL=%.2f%%",
                 run_id, metrics.total_trades, metrics.total_pnl_pct,
@@ -195,6 +209,19 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
             await service.update_run_status(
                 run_id, BacktestStatus.FAILED, error_message=str(e)[:500]
             )
+            try:
+                from app.modules.notifications.service import notify
+                from app.modules.notifications.enums import NotificationType, NotificationPriority
+                await notify(
+                    session, run.user_id,
+                    NotificationType.BACKTEST_FAILED, NotificationPriority.HIGH,
+                    title="Бэктест провален",
+                    message=f"{run.symbol}: {str(e)[:100]}",
+                    data={"run_id": str(run_id)},
+                    link="/backtest",
+                )
+            except Exception:
+                pass
             return {"status": "error", "message": str(e)[:200]}
 
 

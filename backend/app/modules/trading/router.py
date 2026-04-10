@@ -94,7 +94,21 @@ async def start_bot(
 ) -> BotResponse:
     """Запустить бота."""
     service = TradingService(db)
-    return await service.start_bot(bot_id, user.id)
+    bot = await service.start_bot(bot_id, user.id)
+    try:
+        from app.modules.notifications.service import notify
+        from app.modules.notifications.enums import NotificationType, NotificationPriority
+        await notify(
+            db, bot.user_id,
+            NotificationType.BOT_STARTED, NotificationPriority.LOW,
+            title="Бот запущен",
+            message=f"{bot.strategy_config.symbol} - {bot.strategy_config.name}",
+            data={"bot_id": str(bot.id)},
+            link=f"/bots/{bot.id}",
+        )
+    except Exception:
+        logger.debug("Failed to send bot_started notification for bot=%s", bot_id)
+    return bot
 
 
 @router.post("/bots/{bot_id}/stop", response_model=BotResponse)
@@ -105,7 +119,21 @@ async def stop_bot(
 ) -> BotResponse:
     """Остановить бота."""
     service = TradingService(db)
-    return await service.stop_bot(bot_id, user.id)
+    bot = await service.stop_bot(bot_id, user.id)
+    try:
+        from app.modules.notifications.service import notify
+        from app.modules.notifications.enums import NotificationType, NotificationPriority
+        await notify(
+            db, bot.user_id,
+            NotificationType.BOT_STOPPED, NotificationPriority.LOW,
+            title="Бот остановлен",
+            message=f"{bot.strategy_config.symbol} - {bot.strategy_config.name}",
+            data={"bot_id": str(bot.id)},
+            link=f"/bots/{bot.id}",
+        )
+    except Exception:
+        logger.debug("Failed to send bot_stopped notification for bot=%s", bot_id)
+    return bot
 
 
 @router.delete("/bots/{bot_id}", status_code=204)
