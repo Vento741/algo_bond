@@ -137,12 +137,19 @@ async def _backfill_candles(symbol: str, timeframe: str) -> dict:
                 if newest_fetched is None or open_time > newest_fetched:
                     newest_fetched = open_time
 
-            # Bulk INSERT ON CONFLICT DO NOTHING
+            # Bulk UPSERT: обновляем OHLCV если свеча уже существует (могла быть записана незакрытой)
             if rows:
                 async with session_factory() as db:
                     stmt = pg_insert(OHLCVCandle).values(rows)
-                    stmt = stmt.on_conflict_do_nothing(
-                        index_elements=["symbol", "timeframe", "open_time"]
+                    stmt = stmt.on_conflict_do_update(
+                        index_elements=["symbol", "timeframe", "open_time"],
+                        set_={
+                            "open": stmt.excluded.open,
+                            "high": stmt.excluded.high,
+                            "low": stmt.excluded.low,
+                            "close": stmt.excluded.close,
+                            "volume": stmt.excluded.volume,
+                        },
                     )
                     result = await db.execute(stmt)
                     await db.commit()
@@ -280,8 +287,15 @@ async def _sync_latest_candles() -> dict:
             if rows:
                 async with session_factory() as db:
                     stmt = pg_insert(OHLCVCandle).values(rows)
-                    stmt = stmt.on_conflict_do_nothing(
-                        index_elements=["symbol", "timeframe", "open_time"]
+                    stmt = stmt.on_conflict_do_update(
+                        index_elements=["symbol", "timeframe", "open_time"],
+                        set_={
+                            "open": stmt.excluded.open,
+                            "high": stmt.excluded.high,
+                            "low": stmt.excluded.low,
+                            "close": stmt.excluded.close,
+                            "volume": stmt.excluded.volume,
+                        },
                     )
                     result = await db.execute(stmt)
                     await db.commit()
