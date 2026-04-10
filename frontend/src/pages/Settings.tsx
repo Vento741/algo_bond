@@ -11,8 +11,6 @@ import {
   EyeOff,
   Loader2,
   Save,
-  Calendar,
-  Monitor,
   Bell as BellIcon,
   TrendingUp,
   Bot,
@@ -21,6 +19,12 @@ import {
   Cog,
   CreditCard,
   AlertTriangle,
+  Lock,
+  Clock,
+  Palette,
+  LineChart,
+  Link2,
+  ShieldCheck,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,7 +55,7 @@ const TIMEFRAME_OPTIONS = [
 ];
 
 const THEME_OPTIONS = [
-  { value: 'dark', label: 'Тёмная' },
+  { value: 'dark', label: 'Темная' },
   { value: 'light', label: 'Светлая' },
 ];
 
@@ -72,6 +76,16 @@ function roleLabel(role: string): string {
     premium: 'Premium',
   };
   return map[role] ?? role;
+}
+
+function getUserInitials(username: string | undefined, email: string | undefined): string {
+  if (username && username.trim()) {
+    return username.trim().slice(0, 2).toUpperCase();
+  }
+  if (email) {
+    return email.slice(0, 2).toUpperCase();
+  }
+  return 'AB';
 }
 
 /* ---- Главный компонент ---- */
@@ -126,7 +140,7 @@ export function Settings() {
       .get('/auth/exchange-accounts')
       .then(({ data }) => setAccounts(data as ExchangeAccount[]))
       .catch(() => {
-        /* нет аккаунтов — не критично */
+        /* нет аккаунтов - не критично */
       })
       .finally(() => setLoadingAccounts(false));
   }, []);
@@ -143,7 +157,7 @@ export function Settings() {
         setTheme(s.ui_preferences?.theme || 'dark');
       })
       .catch(() => {
-        /* настройки не загружены — используем дефолты */
+        /* настройки не загружены - используем дефолты */
       })
       .finally(() => setLoadingSettings(false));
   }, []);
@@ -173,7 +187,7 @@ export function Settings() {
     api
       .patch('/auth/me', { username: username.trim() })
       .then(() => {
-        toast('Профиль обновлён', 'success');
+        toast('Профиль обновлен', 'success');
         fetchUser();
       })
       .catch(() => {
@@ -188,7 +202,7 @@ export function Settings() {
     api
       .delete(`/auth/exchange-accounts/${id}`)
       .then(() => {
-        toast('Аккаунт удалён', 'success');
+        toast('Аккаунт удален', 'success');
         loadAccounts();
       })
       .catch(() => {
@@ -245,40 +259,76 @@ export function Settings() {
   const profileChanged = username.trim() !== (user?.username ?? '');
 
   return (
-    <div className="space-y-6">
-      {/* Заголовок */}
-      <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-          <SettingsIcon className="h-6 w-6 text-brand-premium" />
-          Настройки
-        </h1>
-        <p className="text-gray-400 text-sm mt-1">
-          Управление профилем, биржевыми аккаунтами и предпочтениями
-        </p>
+    <div className="space-y-8">
+      {/* --- Заголовок страницы --- */}
+      <div className="relative">
+        {/* Декоративный градиент за заголовком */}
+        <div className="absolute -inset-x-4 -top-4 h-32 bg-gradient-to-b from-brand-premium/[0.03] to-transparent rounded-2xl pointer-events-none" />
+        <div className="relative">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-brand-premium/20 to-brand-accent/10 border border-brand-premium/20 shadow-lg shadow-brand-premium/5">
+              <SettingsIcon className="h-6 w-6 text-brand-premium" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white tracking-tight font-[Tektur]">
+                Настройки
+              </h1>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Управление профилем, биржевыми аккаунтами и предпочтениями
+              </p>
+            </div>
+          </div>
+          {/* Декоративная линия-акцент */}
+          <div className="mt-5 h-px bg-gradient-to-r from-brand-premium/30 via-brand-accent/10 to-transparent" />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Левая колонка: Профиль + Предпочтения */}
+        {/* Левая колонка: Профиль + Предпочтения + Уведомления */}
         <div className="lg:col-span-1 space-y-6">
           {/* ---- Профиль ---- */}
-          <Card className="border-white/5 bg-white/[0.02]">
+          <Card className="border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-all duration-300 group">
             <CardHeader className="pb-3">
               <CardTitle className="text-base text-white flex items-center gap-2">
                 <User className="h-4 w-4 text-brand-accent" />
                 Профиль
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
+              {/* Аватар + роль */}
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-brand-accent/30 to-brand-premium/20 border-2 border-brand-accent/20 flex items-center justify-center shadow-lg shadow-brand-accent/5">
+                    <span className="text-lg font-bold text-white font-[Tektur] select-none">
+                      {getUserInitials(user?.username, user?.email)}
+                    </span>
+                  </div>
+                  {/* Статус-индикатор (online) */}
+                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-brand-profit border-2 border-brand-bg" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-white truncate">
+                    {user?.username || user?.email || '...'}
+                  </p>
+                  <Badge variant="premium" className="mt-1.5">
+                    {roleLabel(user?.role ?? 'user')}
+                  </Badge>
+                </div>
+              </div>
+
+              <Separator className="bg-white/5" />
+
               {/* Email (readonly) */}
               <div>
                 <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">
                   Email
                 </label>
-                <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-white/5 bg-white/[0.01]">
+                <div className="flex items-center gap-2.5 h-10 px-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
+                  <Lock className="h-3.5 w-3.5 text-gray-600 flex-shrink-0" />
                   <span className="text-sm text-gray-400 font-mono truncate">
                     {user?.email ?? '...'}
                   </span>
-                  <Shield className="h-3.5 w-3.5 text-gray-600 ml-auto flex-shrink-0" />
+                  <Shield className="h-3.5 w-3.5 text-brand-profit/50 ml-auto flex-shrink-0" />
                 </div>
               </div>
 
@@ -291,33 +341,27 @@ export function Settings() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Введите имя"
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-600"
+                  className="bg-white/[0.03] border-white/[0.08] text-white placeholder:text-gray-600 focus:border-brand-accent/40 transition-colors"
                 />
               </div>
 
-              {/* Роль */}
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-400 uppercase tracking-wider">Роль</span>
-                <Badge variant="premium">{roleLabel(user?.role ?? 'user')}</Badge>
-              </div>
-
               {/* Дата регистрации */}
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-400 uppercase tracking-wider">
-                  Участник с
-                </span>
-                <span className="text-xs text-gray-400 font-mono flex items-center gap-1.5">
-                  <Calendar className="h-3 w-3" />
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.015]">
+                <Clock className="h-3.5 w-3.5 text-gray-600 flex-shrink-0" />
+                <span className="text-xs text-gray-500">Участник с</span>
+                <span className="text-xs text-gray-400 font-mono ml-auto">
                   {user?.created_at ? formatDate(user.created_at) : '...'}
                 </span>
               </div>
 
-              <Separator className="bg-white/5" />
-
               <Button
                 onClick={handleSaveProfile}
                 disabled={!profileChanged || savingProfile}
-                className="w-full bg-brand-premium text-brand-bg hover:bg-brand-premium/90 disabled:opacity-40"
+                className={`w-full min-h-[44px] transition-all duration-300 ${
+                  profileChanged
+                    ? 'bg-brand-premium text-brand-bg hover:bg-brand-premium/90 shadow-md shadow-brand-premium/20'
+                    : 'bg-white/[0.04] text-gray-500 border border-white/[0.06]'
+                } disabled:opacity-40`}
               >
                 {savingProfile ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -332,23 +376,24 @@ export function Settings() {
           </Card>
 
           {/* ---- Предпочтения ---- */}
-          <Card className="border-white/5 bg-white/[0.02]">
+          <Card className="border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-all duration-300">
             <CardHeader className="pb-3">
               <CardTitle className="text-base text-white flex items-center gap-2">
                 <Globe className="h-4 w-4 text-brand-accent" />
                 Предпочтения
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5">
               {loadingSettings ? (
-                <div className="flex items-center justify-center py-6">
+                <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                 </div>
               ) : (
                 <>
                   {/* Торговая пара по умолчанию */}
                   <div>
-                    <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">
+                    <label className="text-xs text-gray-400 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                      <LineChart className="h-3 w-3" />
                       Символ по умолчанию
                     </label>
                     <SymbolSearch
@@ -358,9 +403,12 @@ export function Settings() {
                     />
                   </div>
 
+                  <Separator className="bg-white/5" />
+
                   {/* Таймфрейм по умолчанию */}
                   <div>
-                    <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">
+                    <label className="text-xs text-gray-400 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                      <Clock className="h-3 w-3" />
                       Таймфрейм по умолчанию
                     </label>
                     <Select
@@ -371,10 +419,12 @@ export function Settings() {
                     />
                   </div>
 
+                  <Separator className="bg-white/5" />
+
                   {/* Тема */}
                   <div>
-                    <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">
-                      <Monitor className="h-3 w-3 inline mr-1" />
+                    <label className="text-xs text-gray-400 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                      <Palette className="h-3 w-3" />
                       Тема оформления
                     </label>
                     <Select
@@ -385,12 +435,14 @@ export function Settings() {
                     />
                   </div>
 
-                  <Separator className="bg-white/5" />
-
                   <Button
                     onClick={handleSaveSettings}
                     disabled={!settingsChanged || savingSettings}
-                    className="w-full bg-brand-premium text-brand-bg hover:bg-brand-premium/90 disabled:opacity-40"
+                    className={`w-full min-h-[44px] transition-all duration-300 ${
+                      settingsChanged
+                        ? 'bg-brand-premium text-brand-bg hover:bg-brand-premium/90 shadow-md shadow-brand-premium/20'
+                        : 'bg-white/[0.04] text-gray-500 border border-white/[0.06]'
+                    } disabled:opacity-40`}
                   >
                     {savingSettings ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -405,8 +457,9 @@ export function Settings() {
               )}
             </CardContent>
           </Card>
+
           {/* ---- Уведомления ---- */}
-          <Card className="border-white/5 bg-white/[0.02]">
+          <Card className="border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-all duration-300">
             <CardHeader className="pb-3">
               <CardTitle className="text-base text-white flex items-center gap-2">
                 <BellIcon className="h-4 w-4 text-brand-accent" />
@@ -481,7 +534,11 @@ export function Settings() {
                   <Button
                     onClick={handleSaveNotifPrefs}
                     disabled={!notifPrefsChanged || savingNotifPrefs}
-                    className="w-full bg-brand-premium text-brand-bg hover:bg-brand-premium/90 disabled:opacity-40"
+                    className={`w-full min-h-[44px] transition-all duration-300 ${
+                      notifPrefsChanged
+                        ? 'bg-brand-premium text-brand-bg hover:bg-brand-premium/90 shadow-md shadow-brand-premium/20'
+                        : 'bg-white/[0.04] text-gray-500 border border-white/[0.06]'
+                    } disabled:opacity-40`}
                   >
                     {savingNotifPrefs ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -500,16 +557,21 @@ export function Settings() {
 
         {/* Правая колонка: Биржевые аккаунты */}
         <div className="lg:col-span-2">
-          <Card className="border-white/5 bg-white/[0.02]">
+          <Card className="border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-base text-white flex items-center gap-2">
                 <Key className="h-4 w-4 text-brand-premium" />
                 Биржевые аккаунты
+                {accounts.length > 0 && (
+                  <span className="text-xs text-gray-500 font-mono font-normal ml-1">
+                    ({accounts.length})
+                  </span>
+                )}
               </CardTitle>
               <Button
                 onClick={() => setShowAddAccount(true)}
                 size="sm"
-                className="bg-brand-premium text-brand-bg hover:bg-brand-premium/90"
+                className="bg-brand-premium text-brand-bg hover:bg-brand-premium/90 min-h-[36px] shadow-md shadow-brand-premium/10 transition-all duration-200 hover:shadow-lg hover:shadow-brand-premium/20"
               >
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
                 Добавить
@@ -517,23 +579,39 @@ export function Settings() {
             </CardHeader>
             <CardContent>
               {loadingAccounts ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin text-brand-premium" />
+                <div className="flex items-center justify-center py-16">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-6 w-6 animate-spin text-brand-premium" />
+                    <span className="text-xs text-gray-500">Загрузка аккаунтов...</span>
+                  </div>
                 </div>
               ) : accounts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <Key className="h-10 w-10 text-gray-600 mb-3" />
-                  <p className="text-gray-400 text-sm font-medium">
-                    Нет подключённых аккаунтов
+                /* --- Пустое состояние --- */
+                <div className="flex flex-col items-center justify-center py-16">
+                  {/* Визуальная композиция из иконок */}
+                  <div className="relative mb-6">
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-premium/10 to-brand-accent/5 border border-brand-premium/10 flex items-center justify-center">
+                      <Key className="h-8 w-8 text-brand-premium/40" />
+                    </div>
+                    {/* Декоративные элементы вокруг */}
+                    <div className="absolute -top-2 -right-2 w-8 h-8 rounded-lg bg-brand-accent/5 border border-brand-accent/10 flex items-center justify-center">
+                      <Link2 className="h-3.5 w-3.5 text-brand-accent/30" />
+                    </div>
+                    <div className="absolute -bottom-1.5 -left-2 w-7 h-7 rounded-lg bg-brand-profit/5 border border-brand-profit/10 flex items-center justify-center">
+                      <ShieldCheck className="h-3 w-3 text-brand-profit/30" />
+                    </div>
+                  </div>
+                  <p className="text-gray-300 text-sm font-medium">
+                    Нет подключенных аккаунтов
                   </p>
-                  <p className="text-gray-400 text-xs mt-1">
-                    Добавьте API-ключи биржи для начала торговли
+                  <p className="text-gray-500 text-xs mt-1.5 text-center max-w-[260px]">
+                    Добавьте API-ключи биржи для начала автоматической торговли
                   </p>
                   <Button
                     onClick={() => setShowAddAccount(true)}
                     variant="outline"
                     size="sm"
-                    className="mt-4 border-brand-premium/30 text-brand-premium hover:bg-brand-premium/10"
+                    className="mt-5 min-h-[44px] border-brand-premium/20 text-brand-premium hover:bg-brand-premium/10 hover:border-brand-premium/30 transition-all duration-200"
                   >
                     <Plus className="mr-1.5 h-3.5 w-3.5" />
                     Добавить аккаунт
@@ -544,28 +622,44 @@ export function Settings() {
                   {accounts.map((account) => (
                     <div
                       key={account.id}
-                      className="flex items-center justify-between p-4 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors"
+                      className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] hover:bg-white/[0.03] transition-all duration-200 group/item"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-brand-premium/10 flex-shrink-0">
-                          <Key className="h-4 w-4 text-brand-premium" />
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        {/* Иконка биржи с индикатором статуса */}
+                        <div className="relative flex-shrink-0">
+                          <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-brand-premium/15 to-brand-premium/5 border border-brand-premium/10">
+                            <span className="text-xs font-bold text-brand-premium font-[Tektur] select-none">
+                              BY
+                            </span>
+                          </div>
+                          {/* Статус-точка */}
+                          {account.is_active && (
+                            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-brand-profit border-2 border-brand-bg">
+                              <div className="absolute inset-0 rounded-full bg-brand-profit animate-ping opacity-30" />
+                            </div>
+                          )}
                         </div>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-sm font-medium text-white truncate">
                               {account.label}
                             </p>
                             {account.is_testnet && (
-                              <Badge variant="accent">Demo</Badge>
+                              <Badge variant="accent" className="text-[10px] px-1.5 py-0">
+                                DEMO
+                              </Badge>
                             )}
                             {account.is_active && (
-                              <Badge variant="profit">Активен</Badge>
+                              <Badge variant="profit" className="text-[10px] px-1.5 py-0">
+                                Активен
+                              </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 mt-1">
-                            <span className="text-xs text-gray-400 uppercase">
+                          <div className="flex items-center gap-2.5 mt-1">
+                            <span className="text-xs text-gray-500 uppercase font-medium">
                               {account.exchange}
                             </span>
+                            <span className="w-1 h-1 rounded-full bg-gray-700" />
                             <span className="text-xs text-gray-600 font-mono">
                               {formatDate(account.created_at)}
                             </span>
@@ -577,7 +671,8 @@ export function Settings() {
                         size="icon"
                         onClick={() => setShowDeleteConfirm(account.id)}
                         disabled={deletingId === account.id}
-                        className="text-gray-400 hover:text-brand-loss hover:bg-brand-loss/10 flex-shrink-0"
+                        className="text-gray-600 hover:text-brand-loss hover:bg-brand-loss/10 flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-all duration-200 min-w-[44px] min-h-[44px]"
+                        aria-label={`Удалить аккаунт ${account.label}`}
                       >
                         {deletingId === account.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -592,13 +687,18 @@ export function Settings() {
 
               {/* Предупреждение о безопасности */}
               {accounts.length > 0 && (
-                <div className="mt-4 p-3 rounded-lg bg-brand-premium/5 border border-brand-premium/10">
-                  <div className="flex items-start gap-2">
-                    <Shield className="h-4 w-4 text-brand-premium mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-gray-400">
-                      API-ключи шифруются при хранении. Рекомендуем использовать отдельные ключи
-                      с ограниченными правами (только торговля, без вывода).
-                    </p>
+                <div className="mt-5 p-4 rounded-xl bg-gradient-to-r from-brand-premium/[0.04] to-transparent border border-brand-premium/10">
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-brand-premium/10 flex-shrink-0 mt-0.5">
+                      <Shield className="h-4 w-4 text-brand-premium" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-300 mb-1">Безопасность ключей</p>
+                      <p className="text-xs text-gray-500 leading-relaxed">
+                        API-ключи шифруются при хранении. Рекомендуем использовать отдельные ключи
+                        с ограниченными правами (только торговля, без вывода).
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -698,8 +798,8 @@ function AddAccountDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Exchange (hardcoded) */}
           <div>
-            <label className="text-sm text-gray-400 block mb-1.5">Биржа</label>
-            <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-white/5 bg-white/[0.01]">
+            <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">Биржа</label>
+            <div className="flex items-center gap-2 h-10 px-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
               <span className="text-sm text-gray-400">Bybit</span>
               <Badge variant="default" className="ml-auto">
                 V5 API
@@ -709,31 +809,31 @@ function AddAccountDialog({
 
           {/* Label */}
           <div>
-            <label className="text-sm text-gray-400 block mb-1.5">Название</label>
+            <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">Название</label>
             <Input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="Например: My Bybit Demo"
               required
-              className="bg-white/5 border-white/10 text-white placeholder:text-gray-600"
+              className="bg-white/[0.03] border-white/[0.08] text-white placeholder:text-gray-600 focus:border-brand-accent/40 min-h-[44px]"
             />
           </div>
 
           {/* API Key */}
           <div>
-            <label className="text-sm text-gray-400 block mb-1.5">API Key</label>
+            <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">API Key</label>
             <Input
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="Вставьте API ключ"
               required
-              className="bg-white/5 border-white/10 text-white placeholder:text-gray-600 font-mono text-xs"
+              className="bg-white/[0.03] border-white/[0.08] text-white placeholder:text-gray-600 font-mono text-xs focus:border-brand-accent/40 min-h-[44px]"
             />
           </div>
 
           {/* API Secret */}
           <div>
-            <label className="text-sm text-gray-400 block mb-1.5">API Secret</label>
+            <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">API Secret</label>
             <div className="relative">
               <Input
                 type={showSecret ? 'text' : 'password'}
@@ -741,12 +841,13 @@ function AddAccountDialog({
                 onChange={(e) => setApiSecret(e.target.value)}
                 placeholder="Вставьте API секрет"
                 required
-                className="bg-white/5 border-white/10 text-white placeholder:text-gray-600 font-mono text-xs pr-10"
+                className="bg-white/[0.03] border-white/[0.08] text-white placeholder:text-gray-600 font-mono text-xs pr-10 focus:border-brand-accent/40 min-h-[44px]"
               />
               <button
                 type="button"
                 onClick={() => setShowSecret(!showSecret)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors p-1"
+                aria-label={showSecret ? 'Скрыть секрет' : 'Показать секрет'}
               >
                 {showSecret ? (
                   <EyeOff className="h-4 w-4" />
@@ -758,10 +859,10 @@ function AddAccountDialog({
           </div>
 
           {/* Demo mode toggle */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5">
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
             <div>
               <p className="text-sm text-white">Demo-режим</p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-gray-500 mt-0.5">
                 Реальные цены, симулированные ордера (без риска)
               </p>
             </div>
@@ -769,9 +870,11 @@ function AddAccountDialog({
               type="button"
               role="switch"
               aria-checked={isTestnet}
+              aria-label={`Demo-режим: ${isTestnet ? 'включен' : 'выключен'}`}
               onClick={() => setIsTestnet(!isTestnet)}
               className={`
-                relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg
                 ${isTestnet ? 'bg-brand-profit' : 'bg-gray-600'}
               `}
             >
@@ -785,10 +888,10 @@ function AddAccountDialog({
           </div>
 
           {/* Предупреждение */}
-          <div className="p-3 rounded-lg bg-brand-premium/5 border border-brand-premium/10">
-            <div className="flex items-start gap-2">
+          <div className="p-3.5 rounded-xl bg-gradient-to-r from-brand-premium/[0.04] to-transparent border border-brand-premium/10">
+            <div className="flex items-start gap-2.5">
               <Shield className="h-4 w-4 text-brand-premium mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-400 leading-relaxed">
                 API-ключи будут зашифрованы. Рекомендуем создать ключи с правами только на торговлю,
                 без возможности вывода средств.
               </p>
@@ -801,14 +904,14 @@ function AddAccountDialog({
               type="button"
               variant="ghost"
               onClick={handleClose}
-              className="flex-1 text-gray-400"
+              className="flex-1 text-gray-400 min-h-[44px]"
             >
               Отмена
             </Button>
             <Button
               type="submit"
               disabled={!label.trim() || !apiKey.trim() || !apiSecret.trim() || submitting}
-              className="flex-1 bg-brand-premium text-brand-bg hover:bg-brand-premium/90"
+              className="flex-1 bg-brand-premium text-brand-bg hover:bg-brand-premium/90 min-h-[44px] shadow-md shadow-brand-premium/10 disabled:shadow-none"
             >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -858,14 +961,14 @@ function DeleteConfirmDialog({
               variant="ghost"
               onClick={onClose}
               disabled={deleting}
-              className="flex-1 text-gray-400"
+              className="flex-1 text-gray-400 min-h-[44px]"
             >
               Отмена
             </Button>
             <Button
               onClick={onConfirm}
               disabled={deleting}
-              className="flex-1 bg-brand-loss/20 text-brand-loss hover:bg-brand-loss/30 border border-brand-loss/20"
+              className="flex-1 bg-brand-loss/20 text-brand-loss hover:bg-brand-loss/30 border border-brand-loss/20 min-h-[44px]"
             >
               {deleting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
