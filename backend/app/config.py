@@ -49,5 +49,11 @@ class Settings(BaseSettings):
     bybit_api_secret: str = ""
     bybit_demo: bool = False
 
+    # Telegram
+    telegram_bot_token: str = ""
+    telegram_webhook_secret: str = ""
+    telegram_admin_chat_id: int = 0
+    telegram_webapp_url: str = ""
+
 
 settings = Settings()
