@@ -39,9 +39,10 @@ export function Dashboard() {
       .finally(() => setLoadingBots(false));
   }, []);
 
-  const activeBots = bots.filter((b) => b.status === 'running').length;
-  const totalPnl = bots.reduce((sum, b) => sum + Number(b.total_pnl), 0);
-  const totalTrades = bots.reduce((sum, b) => sum + b.total_trades, 0);
+  const liveBots = bots.filter((b) => b.mode === 'live');
+  const activeBots = liveBots.filter((b) => b.status === 'running').length;
+  const totalPnl = liveBots.reduce((sum, b) => sum + Number(b.total_pnl), 0);
+  const totalTrades = liveBots.reduce((sum, b) => sum + b.total_trades, 0);
 
   const pnlFormatted = `${totalPnl >= 0 ? '+' : ''}$${Math.abs(totalPnl).toFixed(2)}`;
   const pnlColor = totalPnl > 0 ? 'text-brand-profit' : totalPnl < 0 ? 'text-brand-loss' : 'text-gray-400';
