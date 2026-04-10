@@ -18,6 +18,7 @@ from app.modules.trading.router import router as trading_router
 from app.modules.market.ws_router import router as ws_router
 from app.modules.market.ws_info_router import router as ws_info_router
 from app.modules.admin.router import router as admin_router
+from app.modules.admin.system_router import router as system_router
 from app.modules.analytics.router import admin_router as analytics_admin_router
 from app.modules.analytics.router import router as analytics_router
 
@@ -81,6 +82,7 @@ app.include_router(backtest_router)
 app.include_router(ws_router)
 app.include_router(ws_info_router)
 app.include_router(admin_router)
+app.include_router(system_router)
 app.include_router(analytics_router)
 app.include_router(analytics_admin_router)
 
