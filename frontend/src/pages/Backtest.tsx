@@ -973,19 +973,18 @@ function EquityChart({ data }: { data: { time: number; equity: number }[] }) {
     }
     chart.timeScale().fitContent();
 
-    // Resize observer
-    let disposed = false;
+    // Resize observer - проверяем chartRef чтобы избежать disposed ошибки
     const ro = new ResizeObserver((entries) => {
-      if (disposed) return;
+      if (!chartRef.current) return;
       for (const entry of entries) {
-        chart.applyOptions({ width: entry.contentRect.width });
+        try { chartRef.current.applyOptions({ width: entry.contentRect.width }); } catch {}
       }
     });
     ro.observe(containerRef.current);
 
     return () => {
-      disposed = true;
       ro.disconnect();
+      chartRef.current = null;
       chart.remove();
     };
   }, [data]);
