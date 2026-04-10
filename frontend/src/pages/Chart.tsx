@@ -30,7 +30,24 @@ export function Chart() {
   const navigate = useNavigate();
 
   const [symbol, setSymbol] = useState(paramSymbol || 'BTCUSDT');
-  const [interval, setInterval] = useState('5');
+  const [interval, setInterval] = useState('15');
+
+  // Загрузить предпочтения пользователя при первом открытии
+  useEffect(() => {
+    if (paramSymbol) return; // URL уже содержит символ
+    api.get<{ default_symbol: string; default_timeframe: string }>('/auth/settings')
+      .then(({ data }) => {
+        if (data.default_symbol) {
+          setSymbol(data.default_symbol);
+          navigate(`/chart/${data.default_symbol}`, { replace: true });
+        }
+        if (data.default_timeframe) {
+          setInterval(data.default_timeframe);
+        }
+      })
+      .catch(() => {}); // Settings не загрузились - используем дефолты
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [klines, setKlines] = useState<KlineData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDemo, setIsDemo] = useState(false);
