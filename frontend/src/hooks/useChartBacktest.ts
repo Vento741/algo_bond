@@ -132,7 +132,12 @@ function drawTradeMarkers(
 
   markers.sort((a, b) => (a.time as number) - (b.time as number));
   if (markers.length > 0) {
-    return createSeriesMarkers(candleSeries, markers);
+    try {
+      return createSeriesMarkers(candleSeries, markers);
+    } catch {
+      // Markers may reference times not present in chart data
+      return null;
+    }
   }
   return null;
 }
@@ -164,12 +169,16 @@ export function useChartBacktest({
     }
   }, []);
 
-  // Рисование маркеров
+  // Рисование маркеров (безопасно - не крашит при невалидных данных)
   const applyMarkers = useCallback(
     (tradesList: BacktestResultTradeEntry[]) => {
       clearMarkers();
       if (!candleSeries || tradesList.length === 0 || barTimestampsRef.current.size === 0) return;
-      markersPluginRef.current = drawTradeMarkers(candleSeries, tradesList, barTimestampsRef.current);
+      try {
+        markersPluginRef.current = drawTradeMarkers(candleSeries, tradesList, barTimestampsRef.current);
+      } catch {
+        // Маркеры могут не совпасть с данными на графике - не крашим
+      }
     },
     [candleSeries, clearMarkers],
   );
@@ -289,18 +298,20 @@ export function useChartBacktest({
 
       // Построить карту bar -> timestamp из equity_curve
       const btMap = new Map<number, number>();
-      for (const pt of result.equity_curve) {
-        btMap.set(pt.bar, pt.timestamp);
+      if (result.equity_curve) {
+        for (const pt of result.equity_curve) {
+          btMap.set(pt.bar, pt.timestamp);
+        }
       }
       barTimestampsRef.current = btMap;
 
       setMetrics(m);
-      setTrades(result.trades_log);
+      setTrades(result.trades_log ?? []);
       setProgress(100);
-      applyMarkers(result.trades_log);
+      applyMarkers(result.trades_log ?? []);
 
       // Кешировать
-      saveCache(configId, symbol, interval, m, result.trades_log, btMap);
+      saveCache(configId, symbol, interval, m, result.trades_log ?? [], btMap);
       setHasCache(true);
     } catch (err) {
       if (controller.signal.aborted) return;
