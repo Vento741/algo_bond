@@ -87,7 +87,7 @@ export function Bots() {
     if (bot) {
       toggleBot(bot.id, bot.status);
     }
-  }, [selectedBot, bots]);
+  }, [selectedBot, bots, toggleBot]);
 
   useKeyboardShortcuts(handleToggleBot);
 
@@ -173,7 +173,7 @@ export function Bots() {
                 </h1>
                 <p className="text-sm text-gray-500 mt-0.5">
                   {bots.length > 0
-                    ? `${bots.length} ${bots.length === 1 ? 'бот' : bots.length < 5 ? 'бота' : 'ботов'} - управление автоматической торговлей`
+                    ? `${bots.length} ${(() => { const n = bots.length % 100; const n10 = n % 10; if (n > 10 && n < 20) return 'ботов'; if (n10 === 1) return 'бот'; if (n10 >= 2 && n10 <= 4) return 'бота'; return 'ботов'; })()} - управление автоматической торговлей`
                     : 'Управление автоматической торговлей'}
                 </p>
               </div>

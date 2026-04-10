@@ -115,6 +115,7 @@ export function Sidebar() {
         <button
           className="ml-auto md:hidden text-gray-400 hover:text-white transition-colors"
           onClick={() => setMobileOpen(false)}
+          aria-label="Закрыть меню"
         >
           <X className="h-5 w-5" />
         </button>
@@ -169,6 +170,7 @@ export function Sidebar() {
       <button
         className="fixed top-4 left-4 z-50 md:hidden flex items-center justify-center w-10 h-10 rounded-lg bg-brand-card border border-white/10 transition-colors hover:border-white/20"
         onClick={() => setMobileOpen(true)}
+        aria-label="Открыть меню"
       >
         <Menu className="h-5 w-5 text-gray-300" />
       </button>

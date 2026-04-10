@@ -324,7 +324,7 @@ export function Chart() {
                 ))}
               </div>
               <Loader2 className="h-8 w-8 animate-spin text-brand-premium relative z-10" />
-              <span className="text-xs text-gray-500 font-mono relative z-10">Loading chart data...</span>
+              <span className="text-xs text-gray-500 font-mono relative z-10">Загрузка графика...</span>
             </div>
           ) : !klines.length ? (
             <div className="flex items-center justify-center h-full text-gray-500 font-mono text-sm">

@@ -133,7 +133,8 @@ export function Topbar() {
             size="icon"
             onClick={handleLogout}
             title="Выйти"
-            className="text-gray-500 hover:text-gray-300 hover:bg-white/[0.04] h-8 w-8 transition-colors"
+            aria-label="Выйти"
+            className="text-gray-500 hover:text-gray-300 hover:bg-white/[0.04] h-9 w-9 min-h-[44px] min-w-[44px] transition-colors"
           >
             <LogOut className="h-4 w-4" />
           </Button>
