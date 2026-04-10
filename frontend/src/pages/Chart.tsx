@@ -35,22 +35,25 @@ export function Chart() {
   // Загрузить предпочтения пользователя при первом открытии (без paramSymbol)
   useEffect(() => {
     if (paramSymbol) return;
-    api.get<{ default_symbol: string; default_timeframe: string }>('/auth/settings')
+    const controller = new AbortController();
+    api.get<{ default_symbol: string; default_timeframe: string }>('/auth/settings', { signal: controller.signal })
       .then(({ data }) => {
+        if (controller.signal.aborted) return;
         const sym = data.default_symbol || 'BTCUSDT';
         setSymbol(sym);
         navigate(`/chart/${sym}`, { replace: true });
         if (data.default_timeframe) {
-          // Settings может хранить "15m", "1h" - нормализуем в "15", "60"
           const tf = data.default_timeframe.replace(/m$/i, '');
           const TF_MAP: Record<string, string> = { '1h': '60', '4h': '240', '1d': 'D', '1D': 'D' };
           setInterval(TF_MAP[data.default_timeframe] ?? tf);
         }
       })
       .catch(() => {
+        if (controller.signal.aborted) return;
         setSymbol('BTCUSDT');
         navigate('/chart/BTCUSDT', { replace: true });
       });
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [klines, setKlines] = useState<KlineData[]>([]);

@@ -16,6 +16,7 @@ export function NotificationBell() {
     if (unreadCount > prevCountRef.current) {
       setRinging(true);
       const timer = setTimeout(() => setRinging(false), 800);
+      prevCountRef.current = unreadCount;
       return () => clearTimeout(timer);
     }
     prevCountRef.current = unreadCount;

@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { BellOff, Settings } from 'lucide-react';
 import { useNotificationStore } from '@/stores/notifications';
 import { NotificationItem } from './NotificationItem';
@@ -15,6 +16,7 @@ const FILTER_OPTIONS: { value: NotificationCategory | 'all'; label: string }[] =
 
 export function NotificationDropdown() {
   const { notifications, unreadCount, filter, setFilter, markAllRead } = useNotificationStore();
+  const navigate = useNavigate();
 
   return (
     <div className="w-[90vw] max-w-[380px] max-h-[60vh] sm:max-h-[480px] flex flex-col">
@@ -68,7 +70,7 @@ export function NotificationDropdown() {
         <button
           onClick={() => {
             useNotificationStore.getState().setOpen(false);
-            window.location.pathname = '/settings';
+            navigate('/settings');
           }}
           className="inline-flex items-center gap-1.5 text-xs text-brand-accent hover:text-brand-accent/80 transition-colors"
         >
