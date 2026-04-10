@@ -29,23 +29,25 @@ export function Chart() {
   const { symbol: paramSymbol } = useParams<{ symbol: string }>();
   const navigate = useNavigate();
 
-  const [symbol, setSymbol] = useState(paramSymbol || 'BTCUSDT');
+  const [symbol, setSymbol] = useState(paramSymbol || '');
   const [interval, setInterval] = useState('15');
+  const [ready, setReady] = useState(!!paramSymbol);
 
   // Загрузить предпочтения пользователя при первом открытии
   useEffect(() => {
-    if (paramSymbol) return; // URL уже содержит символ
+    if (paramSymbol) { setReady(true); return; }
     api.get<{ default_symbol: string; default_timeframe: string }>('/auth/settings')
       .then(({ data }) => {
-        if (data.default_symbol) {
-          setSymbol(data.default_symbol);
-          navigate(`/chart/${data.default_symbol}`, { replace: true });
-        }
-        if (data.default_timeframe) {
-          setInterval(data.default_timeframe);
-        }
+        const sym = data.default_symbol || 'BTCUSDT';
+        setSymbol(sym);
+        navigate(`/chart/${sym}`, { replace: true });
+        if (data.default_timeframe) setInterval(data.default_timeframe);
       })
-      .catch(() => {}); // Settings не загрузились - используем дефолты
+      .catch(() => {
+        setSymbol('BTCUSDT');
+        navigate('/chart/BTCUSDT', { replace: true });
+      })
+      .finally(() => setReady(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [klines, setKlines] = useState<KlineData[]>([]);
@@ -59,7 +61,7 @@ export function Chart() {
     volume: number | null;
   }>({ time: null, price: null, volume: null });
 
-  const { lastPrice, lastKline, isConnected } = useMarketStream(symbol, interval);
+  const { lastPrice, lastKline, isConnected } = useMarketStream(ready ? symbol : '', interval);
 
   // Chart API для индикаторов - state чтобы хук перерисовывался при создании chart
   const [chartApi, setChartApi] = useState<IChartApi | null>(null);
@@ -120,6 +122,7 @@ export function Chart() {
 
   // Загрузка исторических данных с отменой предыдущего запроса
   useEffect(() => {
+    if (!ready || !symbol) return;
     const controller = new AbortController();
     setLoading(true);
     setIsDemo(false);
@@ -155,7 +158,7 @@ export function Chart() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [symbol, interval]);
+  }, [symbol, interval, ready]);
 
   const handleSymbolChange = useCallback(
     (val: string) => {
