@@ -132,6 +132,11 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
 
             # 5. Запустить стратегию
             merged_config = {**strategy.default_config, **config.config}
+            # DEBUG: логируем ключи конфига и критические параметры
+            import logging as _log
+            _log.warning("BACKTEST CONFIG KEYS: %s", sorted(merged_config.keys()))
+            _log.warning("BACKTEST risk: %s", merged_config.get("risk", {}))
+            _log.warning("BACKTEST has smc: %s, ribbon: %s", "smc" in merged_config, "ribbon" in merged_config)
             engine = get_engine(strategy.engine_type, merged_config)
             strategy_result = engine.generate_signals(ohlcv)
 
