@@ -1,0 +1,250 @@
+"""Обработчики inline callback кнопок."""
+
+import uuid
+
+from aiogram import F, Router
+from aiogram.types import CallbackQuery
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.modules.trading.models import Bot, BotStatus, Position, PositionStatus
+
+router = Router(name="callbacks")
+
+
+# === Управление ботами ===
+
+
+@router.callback_query(F.data.startswith("bot_start:"))
+async def callback_bot_start(
+    query: CallbackQuery, session: AsyncSession, user_id: uuid.UUID
+) -> None:
+    """Запустить бота по нажатию кнопки."""
+    bot_id_str = query.data.split(":", 1)[1]
+    try:
+        bot_id = uuid.UUID(bot_id_str)
+    except ValueError:
+        await query.answer("Некорректный ID бота", show_alert=True)
+        return
+
+    result = await session.execute(
+        select(Bot).where(Bot.id == bot_id, Bot.user_id == user_id)
+    )
+    bot = result.scalar_one_or_none()
+
+    if bot is None:
+        await query.answer("Бот не найден", show_alert=True)
+        return
+
+    if bot.status == BotStatus.RUNNING:
+        await query.answer("Бот уже запущен", show_alert=True)
+        return
+
+    from datetime import datetime, timezone
+
+    bot.status = BotStatus.RUNNING
+    bot.started_at = datetime.now(timezone.utc)
+    bot.stopped_at = None
+    await session.commit()
+
+    await query.answer("Бот запущен")
+    await query.message.edit_text(
+        f"{query.message.text}\n\n<i>Статус изменён: RUNNING</i>"
+    )
+
+
+@router.callback_query(F.data.startswith("bot_stop:"))
+async def callback_bot_stop(
+    query: CallbackQuery, session: AsyncSession, user_id: uuid.UUID
+) -> None:
+    """Остановить бота по нажатию кнопки."""
+    bot_id_str = query.data.split(":", 1)[1]
+    try:
+        bot_id = uuid.UUID(bot_id_str)
+    except ValueError:
+        await query.answer("Некорректный ID бота", show_alert=True)
+        return
+
+    result = await session.execute(
+        select(Bot).where(Bot.id == bot_id, Bot.user_id == user_id)
+    )
+    bot = result.scalar_one_or_none()
+
+    if bot is None:
+        await query.answer("Бот не найден", show_alert=True)
+        return
+
+    if bot.status == BotStatus.STOPPED:
+        await query.answer("Бот уже остановлен", show_alert=True)
+        return
+
+    from datetime import datetime, timezone
+
+    bot.status = BotStatus.STOPPED
+    bot.stopped_at = datetime.now(timezone.utc)
+    await session.commit()
+
+    await query.answer("Бот остановлен")
+    await query.message.edit_text(
+        f"{query.message.text}\n\n<i>Статус изменён: STOPPED</i>"
+    )
+
+
+# === Управление позициями ===
+
+
+@router.callback_query(F.data.startswith("close_pos:"))
+async def callback_close_position(
+    query: CallbackQuery, session: AsyncSession, user_id: uuid.UUID
+) -> None:
+    """Показать подтверждение закрытия позиции."""
+    position_id_str = query.data.split(":", 1)[1]
+    try:
+        position_id = uuid.UUID(position_id_str)
+    except ValueError:
+        await query.answer("Некорректный ID позиции", show_alert=True)
+        return
+
+    # Проверяем существование позиции и принадлежность пользователю
+    result = await session.execute(
+        select(Position)
+        .join(Bot, Position.bot_id == Bot.id)
+        .where(Position.id == position_id, Bot.user_id == user_id)
+    )
+    position = result.scalar_one_or_none()
+
+    if position is None:
+        await query.answer("Позиция не найдена", show_alert=True)
+        return
+
+    if position.status != PositionStatus.OPEN:
+        await query.answer("Позиция уже закрыта", show_alert=True)
+        return
+
+    from app.modules.telegram.keyboards import confirm_close_position
+
+    await query.message.edit_reply_markup(
+        reply_markup=confirm_close_position(position_id_str)
+    )
+    await query.answer()
+
+
+@router.callback_query(F.data.startswith("confirm_close:"))
+async def callback_confirm_close(
+    query: CallbackQuery, session: AsyncSession, user_id: uuid.UUID
+) -> None:
+    """Подтвердить закрытие позиции (помечает на закрытие в БД)."""
+    position_id_str = query.data.split(":", 1)[1]
+    try:
+        position_id = uuid.UUID(position_id_str)
+    except ValueError:
+        await query.answer("Некорректный ID позиции", show_alert=True)
+        return
+
+    result = await session.execute(
+        select(Position)
+        .join(Bot, Position.bot_id == Bot.id)
+        .where(Position.id == position_id, Bot.user_id == user_id)
+    )
+    position = result.scalar_one_or_none()
+
+    if position is None:
+        await query.answer("Позиция не найдена", show_alert=True)
+        return
+
+    if position.status != PositionStatus.OPEN:
+        await query.answer("Позиция уже закрыта", show_alert=True)
+        return
+
+    # Закрытие позиции через бота выполняется bot_worker.
+    # Telegram-закрытие: перенаправляем на платформу для безопасного ручного закрытия.
+    from app.modules.telegram.keyboards import webapp_button
+    from app.config import settings
+
+    await query.answer("Откройте платформу для закрытия позиции", show_alert=True)
+    await query.message.edit_reply_markup(
+        reply_markup=webapp_button(
+            "Закрыть на платформе",
+            f"/bots",
+        )
+    )
+
+
+@router.callback_query(F.data == "cancel")
+async def callback_cancel(query: CallbackQuery) -> None:
+    """Отмена действия - убрать кнопки подтверждения."""
+    await query.message.edit_reply_markup(reply_markup=None)
+    await query.answer("Отменено")
+
+
+# === Callback кнопки админ-панели ===
+
+
+@router.callback_query(F.data == "admin_health")
+async def callback_admin_health(
+    query: CallbackQuery, session: AsyncSession, user_id: uuid.UUID
+) -> None:
+    """Health check через кнопку админ-панели."""
+    from sqlalchemy import func
+
+    lines = ["<b>Health Check</b>", "━━━━━━━━━━━━━━━━━"]
+
+    try:
+        await session.execute(select(func.now()))
+        lines.append("Database: OK")
+    except Exception as exc:
+        lines.append(f"Database: FAIL ({exc})")
+
+    try:
+        from app.redis import pool as redis_pool
+        await redis_pool.ping()
+        lines.append("Redis: OK")
+    except Exception as exc:
+        lines.append(f"Redis: FAIL ({exc})")
+
+    await query.answer()
+    await query.message.answer("\n".join(lines))
+
+
+@router.callback_query(F.data == "admin_logs")
+async def callback_admin_logs(query: CallbackQuery) -> None:
+    """Логи - заглушка через кнопку."""
+    await query.answer()
+    await query.message.answer(
+        "Логи API доступны в веб-панели или через SSH.\n\n"
+        "Откройте панель мониторинга для просмотра логов."
+    )
+
+
+@router.callback_query(F.data == "admin_users")
+async def callback_admin_users(
+    query: CallbackQuery, session: AsyncSession, user_id: uuid.UUID
+) -> None:
+    """Статистика пользователей через кнопку."""
+    from sqlalchemy import func
+
+    from app.modules.auth.models import User
+
+    users_result = await session.execute(
+        select(func.count()).select_from(User)
+    )
+    total_users = users_result.scalar_one() or 0
+
+    active_users_result = await session.execute(
+        select(func.count()).select_from(User).where(User.is_active.is_(True))
+    )
+    active_users = active_users_result.scalar_one() or 0
+
+    running_bots_result = await session.execute(
+        select(func.count()).select_from(Bot).where(Bot.status == BotStatus.RUNNING)
+    )
+    running_bots = running_bots_result.scalar_one() or 0
+
+    lines = [
+        "<b>Пользователи</b>",
+        "━━━━━━━━━━━━━━━━━",
+        f"Всего: {total_users} (активных: {active_users})",
+        f"Ботов запущено: {running_bots}",
+    ]
+    await query.answer()
+    await query.message.answer("\n".join(lines))
