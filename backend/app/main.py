@@ -23,6 +23,7 @@ from app.modules.analytics.router import admin_router as analytics_admin_router
 from app.modules.analytics.router import router as analytics_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.notifications.ws_router import router as notifications_ws_router
+from app.modules.telegram.router import router as telegram_router
 
 
 @asynccontextmanager
@@ -46,8 +47,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         _logger.warning("Startup: failed to sync trading pairs: %s", e)
 
+    from app.modules.telegram.bot import setup_telegram_bot
+    await setup_telegram_bot()
+
     yield
     # Shutdown
+    from app.modules.telegram.bot import shutdown_telegram_bot
+    await shutdown_telegram_bot()
     from app.modules.trading.ws_bridge import stop_ws_bridge
     await stop_ws_bridge()
     from app.redis import pool
@@ -89,6 +95,7 @@ app.include_router(analytics_router)
 app.include_router(analytics_admin_router)
 app.include_router(notifications_router)
 app.include_router(notifications_ws_router)
+app.include_router(telegram_router)
 
 
 @app.get("/health")

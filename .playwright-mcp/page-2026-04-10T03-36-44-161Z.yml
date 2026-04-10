@@ -1,0 +1,24 @@
+- generic [ref=e7]:
+  - link "AlgoBond AlgoBond" [ref=e9] [cursor=pointer]:
+    - /url: /
+    - img "AlgoBond" [ref=e10]
+    - generic [ref=e11]: AlgoBond
+  - generic [ref=e12]:
+    - generic [ref=e13]:
+      - heading "С возвращением." [level=3] [ref=e14]
+      - paragraph [ref=e15]: Алгоритмы ждут.
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - text: Email
+          - textbox "Email" [ref=e19]:
+            - /placeholder: your@email.com
+        - generic [ref=e20]:
+          - text: Пароль
+          - textbox "Пароль" [ref=e21]:
+            - /placeholder: Минимум 8 символов
+        - button "Войти" [ref=e22] [cursor=pointer]
+      - generic [ref=e23]:
+        - text: Нет аккаунта?
+        - link "Зарегистрироваться" [ref=e24] [cursor=pointer]:
+          - /url: /register

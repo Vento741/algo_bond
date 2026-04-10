@@ -1,0 +1,53 @@
+{
+  "symbol": "ETHUSDT",
+  "timeframe": "15",
+  "period": "2025-11-01 -> 2026-03-30",
+  "total_runs": 73,
+  "elapsed_seconds": 1567,
+  "saved_config_id": "514448c9-ed2e-4552-bf46-5aea520dbdfa",
+  "best_config": {
+    "knn": {"neighbors": 8, "lookback": 50, "weight": 0.5},
+    "trend": {"ema_fast": 26, "ema_slow": 50, "ema_filter": 200},
+    "ribbon": {"use": true, "threshold": 4},
+    "order_flow": {"use": true, "cvd_threshold": 0.7},
+    "smc": {"use": true, "fvg_min_size": 0.5},
+    "risk": {
+      "stop_atr_mult": 2.5,
+      "tp_atr_mult": 8.0,
+      "use_trailing": true,
+      "trailing_atr_mult": 10.0,
+      "cooldown_bars": 10
+    },
+    "filters": {"adx_threshold": 20, "min_confluence": 3.0, "volume_mult": 1.0},
+    "backtest": {"order_size": 30}
+  },
+  "best_metrics": {
+    "trades": 172,
+    "pnl": 19.1,
+    "dd": 4.8,
+    "sharpe": 1.88,
+    "win_rate": 0.4,
+    "pf": 1.43
+  },
+  "baselines": {
+    "default": {"trades": 225, "pnl": -21.0, "dd": 30.7, "sharpe": -0.56, "pf": 0.88},
+    "stable_a": {"trades": 120, "pnl": 13.9, "dd": 13.0, "sharpe": 1.05, "pf": 1.33}
+  },
+  "key_findings": [
+    "TP ATR mult = 8 is the single most impactful parameter (vs 30 default)",
+    "Order size = 30% dramatically reduces DD without losing PnL proportionally",
+    "Trailing ATR mult = 10 sweet spot (3-4 causes catastrophic losses)",
+    "Stop ATR mult = 2.5 optimal for ETH volatility",
+    "ADX threshold = 20 slightly filters low-quality signals (+0.3% PnL)",
+    "KNN weight, neighbors, confluence, CVD threshold have ZERO impact on results",
+    "EMA slow 40-50 with ribbon threshold 3-4 gives best trend identification",
+    "Cooldown bars 10-15 optimal, 5 too aggressive"
+  ],
+  "notable_configs": [
+    {"params": "tp8_B (os=30 trail=10 sl=2.5 tp=8)", "pnl": 15.1, "dd": 5.5, "sharpe": 1.55, "note": "Best DD/PnL ratio"},
+    {"params": "tr_03 (ema_s=40 rib=4)", "pnl": 20.2, "dd": 5.3, "sharpe": 1.95, "note": "Best PnL with low DD"},
+    {"params": "tr_04 (ema_s=40 rib=5)", "pnl": 20.3, "dd": 7.5, "sharpe": 2.03, "note": "Highest Sharpe"},
+    {"params": "tr_09 (ema_s=30 rib=4 on tp8_A)", "pnl": 25.4, "dd": 7.8, "sharpe": 1.83, "note": "Highest absolute PnL"},
+    {"params": "kn_15 (cooldown=15)", "pnl": 19.4, "dd": 5.1, "sharpe": 1.91, "note": "Best fine-tuned"}
+  ]
+}

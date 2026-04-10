@@ -1,0 +1,54 @@
+{
+  "symbol": "TRUMPUSDT",
+  "timeframe": "15",
+  "period": {"start": "2025-11-01", "end": "2026-03-30"},
+  "total_runs": 122,
+  "valid_results": 88,
+  "scoring": "0.20*sharpe + 0.15*pnl + 0.40*(1-dd) + 0.10*wr + 0.15*calmar",
+  "baseline": {
+    "total_trades": 211,
+    "win_rate": 0.3412,
+    "total_pnl_pct": 11.95,
+    "max_drawdown": 25.95,
+    "sharpe_ratio": 0.80,
+    "profit_factor": 1.18
+  },
+  "best_config": {
+    "name": "TRUMP 15m Stable v1 (Sharpe 1.67)",
+    "config_id": "0bcdc90c-bfd0-4afa-bc98-d089d037491b",
+    "config": {
+      "backtest": {"order_size": 30},
+      "risk": {"stop_atr_mult": 3.0, "trailing_atr_mult": 8, "use_trailing": true, "tp_atr_mult": 5}
+    },
+    "metrics": {
+      "total_trades": 192,
+      "win_rate": 0.4427,
+      "total_pnl_pct": 16.41,
+      "max_drawdown": 7.60,
+      "sharpe_ratio": 1.67,
+      "profit_factor": 1.35,
+      "calmar_ratio": 5.2
+    },
+    "score": 0.800
+  },
+  "top_10": [
+    {"rank": 1, "score": 0.800, "pnl": 16.4, "dd": 7.6, "sharpe": 1.67, "wr": 44.3, "pf": 1.35, "trades": 192, "params": "os=30 sl=3.0 tp=5 tr=8"},
+    {"rank": 2, "score": 0.798, "pnl": 16.2, "dd": 7.6, "sharpe": 1.65, "wr": 44.3, "pf": 1.35, "trades": 192, "params": "os=30 sl=3.0 tp=5 tr=8 rib=5"},
+    {"rank": 3, "score": 0.792, "pnl": 14.2, "dd": 6.8, "sharpe": 1.50, "wr": 44.2, "pf": 1.34, "trades": 165, "params": "os=30 sl=3.0 tp=5 tr=8 rib=6"},
+    {"rank": 4, "score": 0.789, "pnl": 23.1, "dd": 7.2, "sharpe": 1.54, "wr": 31.8, "pf": 1.66, "trades": 107, "params": "os=30 sl=3.0 tr=8"},
+    {"rank": 5, "score": 0.789, "pnl": 15.4, "dd": 7.4, "sharpe": 1.53, "wr": 44.0, "pf": 1.33, "trades": 193, "params": "os=30 sl=3.0 tp=5 tr=5"},
+    {"rank": 6, "score": 0.780, "pnl": 22.1, "dd": 10.1, "sharpe": 1.67, "wr": 44.3, "pf": 1.35, "trades": 192, "params": "os=40 sl=3.0 tp=5 tr=8"},
+    {"rank": 7, "score": 0.776, "pnl": 31.3, "dd": 9.5, "sharpe": 1.54, "wr": 31.8, "pf": 1.66, "trades": 107, "params": "os=40 sl=3.0 tr=8"},
+    {"rank": 8, "score": 0.776, "pnl": 14.3, "dd": 6.4, "sharpe": 1.32, "wr": 40.3, "pf": 1.40, "trades": 144, "params": "os=30 sl=3.0 tp=20 tr=5"},
+    {"rank": 9, "score": 0.775, "pnl": 14.4, "dd": 6.4, "sharpe": 1.33, "wr": 39.9, "pf": 1.39, "trades": 148, "params": "os=30 sl=3.0 tp=15 tr=5"},
+    {"rank": 10, "score": 0.773, "pnl": 14.6, "dd": 6.7, "sharpe": 1.35, "wr": 40.1, "pf": 1.37, "trades": 157, "params": "os=30 sl=3.0 tp=10 tr=5"}
+  ],
+  "insights": [
+    "TRUMP needs wide stops (3.0 ATR) due to high volatility",
+    "Early TP (5 ATR) dramatically improves stability: Sharpe 1.54 -> 1.67",
+    "Trailing stop 8 ATR optimal balance between trend-riding and profit protection",
+    "Order size 30% gives best risk-adjusted returns",
+    "Cooldown bars and min_confluence have zero effect on TRUMPUSDT 15m",
+    "Ribbon threshold default (5) is already optimal"
+  ]
+}

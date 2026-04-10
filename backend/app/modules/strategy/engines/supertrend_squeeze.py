@@ -28,7 +28,11 @@ import numpy as np
 from numpy.typing import NDArray
 
 from app.modules.strategy.engines.base import OHLCV, BaseStrategy, Signal, StrategyResult
-from app.modules.strategy.engines.indicators.oscillators import squeeze_duration, squeeze_momentum
+from app.modules.strategy.engines.indicators.oscillators import (
+    bollinger_bands,
+    squeeze_duration,
+    squeeze_momentum,
+)
 from app.modules.strategy.engines.indicators.trend import (
     atr,
     atr_percentile,
@@ -39,7 +43,6 @@ from app.modules.strategy.engines.indicators.trend import (
     sma,
     supertrend,
 )
-from app.modules.strategy.engines.indicators.oscillators import bollinger_bands
 
 
 def _validate_config(cfg: dict) -> dict:
@@ -279,11 +282,9 @@ class SuperTrendSqueezeStrategy(BaseStrategy):
             atr_pct = atr_percentile(atr_vals, regime_cfg["atr_lookback"])
             atr_pct = np.nan_to_num(atr_pct, nan=50.0)
 
-            # ADX-based regime
-            adx_trending_thresh = regime_cfg["adx_trending"]
             adx_ranging_thresh = regime_cfg["adx_ranging"]
 
-            # BB bandwidth для expanding/contracting
+            # BB bandwidth для expanding/contracting (переиспользуем BB из squeeze если совпадают параметры)
             bb_upper, bb_basis, bb_lower = bollinger_bands(data.close, sq_bb_period, sq_bb_mult)
             bw = bb_bandwidth(bb_upper, bb_lower, bb_basis)
             bw_safe = np.nan_to_num(bw, nan=0.0)
@@ -327,9 +328,7 @@ class SuperTrendSqueezeStrategy(BaseStrategy):
         if use_squeeze:
             mom_safe = np.nan_to_num(squeeze_mom, nan=0.0)
 
-            # Squeeze duration filter: release допустим только если squeeze длился >= min_duration
             # sq_dur на баре release = 0 (уже off), берем предыдущий бар
-            sq_dur_at_release = np.zeros(n, dtype=np.int64)
             sq_dur_at_release[1:] = sq_dur[:-1]
             duration_ok = sq_dur_at_release >= sq_min_duration if sq_min_duration > 0 else np.ones(n, dtype=bool)
 
@@ -350,17 +349,14 @@ class SuperTrendSqueezeStrategy(BaseStrategy):
             htf_trend_list = mtf_cfg["htf_trend"]
             htf_ts_list = mtf_cfg["htf_timestamps"]
             if data.timestamps is not None and len(htf_trend_list) > 0:
-                # Маппинг: для каждого бара LTF найти ближайший бар HTF
+                # Vectorized маппинг LTF баров к HTF тренду
                 htf_ts = np.array(htf_ts_list, dtype=np.float64)
                 htf_trend_vals = np.array(htf_trend_list, dtype=np.float64)
+                ltf_ts = np.asarray(data.timestamps, dtype=np.float64)
+                idx = np.searchsorted(htf_ts, ltf_ts, side="right") - 1
                 htf_trend_arr = np.zeros(n, dtype=np.float64)
-                for bar_i in range(n):
-                    ltf_ts = float(data.timestamps[bar_i])
-                    # Найти последний HTF бар <= текущему LTF timestamp
-                    idx = np.searchsorted(htf_ts, ltf_ts, side="right") - 1
-                    if idx >= 0:
-                        htf_trend_arr[bar_i] = htf_trend_vals[idx]
-                    # else: оставляем 0 (neutral)
+                valid_idx = idx >= 0
+                htf_trend_arr[valid_idx] = htf_trend_vals[idx[valid_idx]]
 
                 # Фильтр: long только при bullish HTF, short только при bearish HTF
                 long_condition = long_condition & ((htf_trend_arr >= 1.0) | (htf_trend_arr == 0.0))

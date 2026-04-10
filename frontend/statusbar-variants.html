@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlgoBond - Sine Wave Bar Variants</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tektur:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: { bg: '#0d0d1a', card: '#1a1a2e', profit: '#00E676', loss: '#FF1744', premium: '#FFD700', accent: '#7C4DFF' }
+      },
+      fontFamily: { tektur: ['Tektur','sans-serif'], mono: ['JetBrains Mono','monospace'] }
+    }
+  }
+}
+</script>
+<style>
+body { background: #0d0d1a; }
+.glass { background: rgba(26,26,46,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.06); }
+.variant-label {
+  font-family: 'Tektur'; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+  color: #FFD700; padding: 4px 12px; border: 1px solid rgba(255,215,0,0.3); border-radius: 4px;
+  display: inline-block; margin-bottom: 12px;
+}
+.divider { height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); margin: 40px 0; }
+.price-bar { position: relative; height: 38px; border-radius: 6px; overflow: hidden; }
+.price-marker {
+  position: absolute; top: 0; bottom: 0; width: 2px; z-index: 10;
+  transition: left 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+.marker-dot {
+  position: absolute; top: -1px; left: 50%; transform: translateX(-50%);
+  width: 8px; height: 8px; border-radius: 50%;
+}
+.heartbeat { animation: hb 1.5s ease-in-out infinite; }
+@keyframes hb {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,23,68,0.5); }
+  25% { box-shadow: 0 0 0 6px rgba(255,23,68,0); }
+  50% { box-shadow: 0 0 0 0 rgba(255,23,68,0.3); }
+  75% { box-shadow: 0 0 0 4px rgba(255,23,68,0); }
+}
+@keyframes hb-profit {
+  0%,100% { box-shadow: 0 0 0 0 rgba(0,230,118,0.5); }
+  25% { box-shadow: 0 0 0 6px rgba(0,230,118,0); }
+  50% { box-shadow: 0 0 0 0 rgba(0,230,118,0.3); }
+  75% { box-shadow: 0 0 0 4px rgba(0,230,118,0); }
+}
+/* Wave base */
+.wave-move { animation: wm 6s linear infinite; }
+@keyframes wm { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.wave-move-slow { animation: wm 10s linear infinite; }
+.wave-move-fast { animation: wm 3.5s linear infinite; }
+.wave-move-reverse { animation: wm-r 7s linear infinite; }
+@keyframes wm-r { 0% { transform: translateX(-50%); } 100% { transform: translateX(0); } }
+
+/* V4A: Choppy waves */
+.wave-choppy { animation: wm 4s linear infinite; }
+
+/* V4C: Glow edge */
+.glow-edge-loss { box-shadow: inset -8px 0 16px -8px rgba(255,23,68,0.3); }
+.glow-edge-profit { box-shadow: inset -8px 0 16px -8px rgba(0,230,118,0.3); }
+
+/* V4D: Scanner line */
+.scanner-line {
+  position: absolute; top: 0; bottom: 0; width: 40px; z-index: 4;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  animation: scanner 3s ease-in-out infinite;
+}
+@keyframes scanner {
+  0% { transform: translateX(-40px); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateX(calc(var(--fill-w) + 40px)); opacity: 0; }
+}
+
+/* Slider */
+.price-slider {
+  -webkit-appearance: none; width: 100%; height: 4px;
+  background: rgba(255,255,255,0.1); border-radius: 2px; outline: none;
+}
+.price-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+  background: #FFD700; cursor: pointer; border: 2px solid #0d0d1a;
+}
+</style>
+</head>
+<body class="text-white font-tektur p-6 min-h-screen">
+<div class="max-w-[1400px] mx-auto">
+
+<h1 class="text-center text-sm text-gray-500 uppercase tracking-[0.2em] mb-2">Sine Wave - 4 кастомизации</h1>
+<p class="text-center text-[10px] text-gray-600 mb-6">Двигай ползунок для симуляции. Протяни через 11.077 чтобы увидеть смену цвета.</p>
+
+<!-- Slider -->
+<div class="glass rounded-lg px-5 py-3 mb-8">
+  <div class="flex items-center gap-4">
+    <span class="text-[10px] text-gray-400 uppercase tracking-wider whitespace-nowrap">SL 11.609</span>
+    <input type="range" class="price-slider flex-1" id="priceSlider" min="9.5" max="12.0" step="0.005" value="11.225">
+    <span class="text-[10px] text-gray-400 uppercase tracking-wider whitespace-nowrap">TP 10.013</span>
+    <div class="w-px h-4 bg-white/10"></div>
+    <span class="font-mono text-sm text-white w-16 text-right" id="priceDisplay">11.225</span>
+    <span class="font-mono text-xs w-16 text-right" id="pnlDisplay" style="color:#FF1744">-$2.43</span>
+  </div>
+</div>
+
+<div class="space-y-4">
+
+<!-- ================================================================
+     V4A: Ocean Depth - 3 wave layers, different speeds + depth gradient
+     ================================================================ -->
+<div>
+<div class="variant-label">V4A - Ocean Depth</div>
+<p class="text-[10px] text-gray-600 mb-3">3 слоя волн с разной скоростью и opacity. Градиент глубины от прозрачного к насыщенному.</p>
+<div class="glass rounded-xl p-4">
+  <div class="price-bar bg-[#080812] border border-white/[0.04]" id="bar-a">
+    <div class="absolute inset-y-0 fill-zone" id="bar-a-fill" style="left:0;width:32%">
+      <!-- Depth gradient base -->
+      <div class="absolute inset-0" id="bar-a-base" style="background: linear-gradient(90deg, rgba(255,23,68,0.02), rgba(255,23,68,0.12))"></div>
+      <!-- Wave layer 1: slow, tall -->
+      <svg class="wave-move-slow absolute bottom-0 h-full" style="width:200%;opacity:0.12" viewBox="0 0 1200 38" preserveAspectRatio="none" id="bar-a-svg1">
+        <path d="M0,22 C150,12 300,32 450,22 C600,12 750,32 900,22 C1050,12 1200,32 1200,22 L1200,38 L0,38Z" fill="#FF1744"/>
+      </svg>
+      <!-- Wave layer 2: medium speed, offset -->
+      <svg class="wave-move absolute bottom-0 h-full" style="width:200%;opacity:0.08" viewBox="0 0 1200 38" preserveAspectRatio="none" id="bar-a-svg2">
+        <path d="M0,26 C100,18 250,34 400,26 C550,18 700,34 850,26 C1000,18 1150,34 1200,26 L1200,38 L0,38Z" fill="#FF1744"/>
+      </svg>
+      <!-- Wave layer 3: fast, small ripples -->
+      <svg class="wave-move-fast absolute bottom-0 h-full" style="width:200%;opacity:0.05" viewBox="0 0 1200 38" preserveAspectRatio="none" id="bar-a-svg3">
+        <path d="M0,30 C50,27 100,33 150,30 C200,27 250,33 300,30 C350,27 400,33 450,30 C500,27 550,33 600,30 C650,27 700,33 750,30 C800,27 850,33 900,30 C950,27 1000,33 1050,30 C1100,27 1150,33 1200,30 L1200,38 L0,38Z" fill="#FF1744"/>
+      </svg>
+    </div>
+    <div class="absolute inset-y-0 bg-brand-profit/[0.02]" style="left:45%;right:0"></div>
+    <div class="absolute inset-y-0 w-px bg-white/20 z-[5]" style="left:45%"></div>
+    <div class="price-marker z-10" id="bar-a-marker" style="left:32%;background:#FF1744">
+      <div class="marker-dot bg-brand-loss heartbeat"></div>
+    </div>
+    <div class="absolute inset-0 flex items-center justify-between px-3 z-20 pointer-events-none">
+      <span class="text-[9px] font-mono text-brand-loss/60">SL 11.609</span>
+      <span class="text-[9px] font-mono text-white/25">11.077</span>
+      <span class="text-[9px] font-mono text-brand-profit/60">TP1 10.013</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="divider" style="margin:28px 0"></div>
+
+<!-- ================================================================
+     V4B: Neon Edge - wave + glow border on fill edge + neon marker trail
+     ================================================================ -->
+<div>
+<div class="variant-label">V4B - Neon Edge</div>
+<p class="text-[10px] text-gray-600 mb-3">Неоновое свечение на границе fill-зоны. Маркер с glow-хвостом. Волна мягкая.</p>
+<div class="glass rounded-xl p-4">
+  <div class="price-bar bg-[#080812] border border-white/[0.04]" id="bar-b">
+    <!-- Fill with glow edge -->
+    <div class="absolute inset-y-0 fill-zone" id="bar-b-fill" style="left:0;width:32%">
+      <div class="absolute inset-0" id="bar-b-base" style="background:rgba(255,23,68,0.06)"></div>
+      <svg class="wave-move absolute bottom-0 h-full" style="width:200%;opacity:0.1" viewBox="0 0 1200 38" preserveAspectRatio="none" id="bar-b-svg1">
+        <path d="M0,24 C200,16 400,32 600,24 C800,16 1000,32 1200,24 L1200,38 L0,38Z" fill="#FF1744"/>
+      </svg>
+      <!-- Neon edge glow -->
+      <div class="absolute top-0 bottom-0 right-0 w-[3px] z-[6]" id="bar-b-edge"
+           style="background:#FF1744;box-shadow:0 0 8px rgba(255,23,68,0.6),0 0 16px rgba(255,23,68,0.3),0 0 32px rgba(255,23,68,0.1)"></div>
+    </div>
+    <div class="absolute inset-y-0 bg-brand-profit/[0.02]" style="left:45%;right:0"></div>
+    <div class="absolute inset-y-0 w-px bg-white/15 z-[5]" style="left:45%"></div>
+    <!-- Marker with neon glow -->
+    <div class="price-marker z-10" id="bar-b-marker" style="left:32%;background:#FF1744">
+      <div class="marker-dot heartbeat" id="bar-b-dot"
+           style="background:#FF1744;box-shadow:0 0 6px rgba(255,23,68,0.8),0 0 16px rgba(255,23,68,0.4)"></div>
+    </div>
+    <!-- Trail line from entry to marker -->
+    <div class="absolute inset-y-1/2 h-px z-[8]" id="bar-b-trail"
+         style="left:32%;width:13%;background:linear-gradient(90deg,rgba(255,23,68,0.4),rgba(255,23,68,0));transform:translateY(-50%)"></div>
+    <div class="absolute inset-0 flex items-center justify-between px-3 z-20 pointer-events-none">
+      <span class="text-[9px] font-mono text-brand-loss/60">SL 11.609</span>
+      <span class="text-[9px] font-mono text-white/25">11.077</span>
+      <span class="text-[9px] font-mono text-brand-profit/60">TP1 10.013</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="divider" style="margin:28px 0"></div>
+
+<!-- ================================================================
+     V4C: Radar Scan - wave + scanner beam sweeping through fill zone
+     ================================================================ -->
+<div>
+<div class="variant-label">V4C - Radar Scan</div>
+<p class="text-[10px] text-gray-600 mb-3">Волна + сканирующий луч проходит по fill-зоне как радар. Технический стиль.</p>
+<div class="glass rounded-xl p-4">
+  <div class="price-bar bg-[#080812] border border-white/[0.04]" id="bar-c">
+    <div class="absolute inset-y-0 fill-zone" id="bar-c-fill" style="left:0;width:32%">
+      <div class="absolute inset-0" id="bar-c-base" style="background:rgba(255,23,68,0.07)"></div>
+      <svg class="wave-move absolute bottom-0 h-full" style="width:200%;opacity:0.1" viewBox="0 0 1200 38" preserveAspectRatio="none" id="bar-c-svg1">
+        <path d="M0,22 C100,14 200,30 300,22 C400,14 500,30 600,22 C700,14 800,30 900,22 C1000,14 1100,30 1200,22 L1200,38 L0,38Z" fill="#FF1744"/>
+      </svg>
+      <!-- Scanner beam -->
+      <div class="scanner-line" id="bar-c-scanner" style="--fill-w:100%"></div>
+      <!-- Grid lines for radar feel -->
+      <div class="absolute inset-0 z-[2]" style="background-image:repeating-linear-gradient(90deg,rgba(255,255,255,0.02) 0px,rgba(255,255,255,0.02) 1px,transparent 1px,transparent 40px);"></div>
+    </div>
+    <div class="absolute inset-y-0 bg-brand-profit/[0.02]" style="left:45%;right:0"></div>
+    <div class="absolute inset-y-0 w-px bg-white/20 z-[5]" style="left:45%"></div>
+    <div class="price-marker z-10" id="bar-c-marker" style="left:32%;background:#FF1744">
+      <div class="marker-dot bg-brand-loss heartbeat"></div>
+    </div>
+    <div class="absolute inset-0 flex items-center justify-between px-3 z-20 pointer-events-none">
+      <span class="text-[9px] font-mono text-brand-loss/60">SL 11.609</span>
+      <span class="text-[9px] font-mono text-white/25">11.077</span>
+      <span class="text-[9px] font-mono text-brand-profit/60">TP1 10.013</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="divider" style="margin:28px 0"></div>
+
+<!-- ================================================================
+     V4D: Plasma - counter-rotating waves + color blending at intersection
+     ================================================================ -->
+<div>
+<div class="variant-label">V4D - Plasma</div>
+<p class="text-[10px] text-gray-600 mb-3">Две волны в противоположных направлениях создают плазменное мерцание. Интенсивность нарастает к маркеру.</p>
+<div class="glass rounded-xl p-4">
+  <div class="price-bar bg-[#080812] border border-white/[0.04]" id="bar-d">
+    <div class="absolute inset-y-0 fill-zone" id="bar-d-fill" style="left:0;width:32%">
+      <div class="absolute inset-0" id="bar-d-base" style="background:linear-gradient(90deg,rgba(255,23,68,0.02),rgba(255,23,68,0.1))"></div>
+      <!-- Forward wave -->
+      <svg class="wave-move absolute bottom-0 h-full" style="width:200%;opacity:0.12" viewBox="0 0 1200 38" preserveAspectRatio="none" id="bar-d-svg1">
+        <path d="M0,20 C80,10 160,30 240,20 C320,10 400,30 480,20 C560,10 640,30 720,20 C800,10 880,30 960,20 C1040,10 1120,30 1200,20 L1200,38 L0,38Z" fill="#FF1744"/>
+      </svg>
+      <!-- Reverse wave (counter-rotating) -->
+      <svg class="wave-move-reverse absolute top-0 h-full" style="width:200%;opacity:0.07" viewBox="0 0 1200 38" preserveAspectRatio="none" id="bar-d-svg2">
+        <path d="M0,18 C100,8 200,28 300,18 C400,8 500,28 600,18 C700,8 800,28 900,18 C1000,8 1100,28 1200,18 L1200,0 L0,0Z" fill="#FF1744"/>
+      </svg>
+      <!-- Intensity gradient toward marker -->
+      <div class="absolute inset-0 z-[3]" id="bar-d-intensity"
+           style="background:linear-gradient(90deg,transparent 30%,rgba(255,23,68,0.08) 100%)"></div>
+    </div>
+    <div class="absolute inset-y-0 bg-brand-profit/[0.02]" style="left:45%;right:0"></div>
+    <div class="absolute inset-y-0 w-px bg-white/20 z-[5]" style="left:45%"></div>
+    <div class="price-marker z-10" id="bar-d-marker" style="left:32%;background:#FF1744">
+      <div class="marker-dot heartbeat" style="background:#FF1744;box-shadow:0 0 10px rgba(255,23,68,0.7),0 0 20px rgba(255,23,68,0.3)"></div>
+    </div>
+    <div class="absolute inset-0 flex items-center justify-between px-3 z-20 pointer-events-none">
+      <span class="text-[9px] font-mono text-brand-loss/60">SL 11.609</span>
+      <span class="text-[9px] font-mono text-white/25">11.077</span>
+      <span class="text-[9px] font-mono text-brand-profit/60">TP1 10.013</span>
+    </div>
+  </div>
+</div>
+</div>
+
+</div><!-- /space-y -->
+</div>
+
+<script>
+const SL=11.609, ENTRY=11.077, TP=10.013, QTY=16.4;
+const totalRange=SL-TP;
+const entryPct=((SL-ENTRY)/totalRange)*100;
+const slider=document.getElementById('priceSlider');
+const priceD=document.getElementById('priceDisplay');
+const pnlD=document.getElementById('pnlDisplay');
+
+const BARS=['a','b','c','d'];
+
+function updateAll(price){
+  const currentPct=Math.max(0,Math.min(100,((SL-price)/totalRange)*100));
+  const clampedEntry=Math.max(2,Math.min(98,entryPct));
+  const isProfit=price<ENTRY;
+  const pnl=(ENTRY-price)*QTY;
+
+  priceD.textContent=price.toFixed(3);
+  pnlD.textContent=(pnl>=0?'+':'')+('$'+pnl.toFixed(2));
+  pnlD.style.color=isProfit?'#00E676':'#FF1744';
+
+  const fillLeft=Math.min(clampedEntry,currentPct);
+  const fillWidth=Math.abs(clampedEntry-currentPct);
+  const mc=isProfit?'#00E676':'#FF1744';
+  const rc=isProfit?'0,230,118':'255,23,68';
+
+  BARS.forEach(id=>{
+    // Marker
+    const marker=document.getElementById(`bar-${id}-marker`);
+    if(marker){
+      marker.style.left=currentPct+'%';
+      marker.style.background=mc;
+      const dot=marker.querySelector('.marker-dot');
+      if(dot){
+        dot.style.background=mc;
+        dot.style.animationName=isProfit?'hb-profit':'hb';
+        if(id==='b'||id==='d') dot.style.boxShadow=`0 0 6px rgba(${rc},0.8),0 0 16px rgba(${rc},0.4)`;
+      }
+    }
+    // Fill zone
+    const fill=document.getElementById(`bar-${id}-fill`);
+    if(fill){ fill.style.left=fillLeft+'%'; fill.style.width=fillWidth+'%'; }
+
+    // Base gradient
+    const base=document.getElementById(`bar-${id}-base`);
+    if(base){
+      if(id==='a'||id==='d') base.style.background=`linear-gradient(90deg,rgba(${rc},0.02),rgba(${rc},0.12))`;
+      else base.style.background=`rgba(${rc},${id==='c'?0.07:0.06})`;
+    }
+    // SVGs
+    document.querySelectorAll(`#bar-${id} svg path`).forEach(p=>p.setAttribute('fill',mc));
+
+    // V4B specifics: edge glow + trail
+    if(id==='b'){
+      const edge=document.getElementById('bar-b-edge');
+      if(edge) edge.style.cssText=`background:${mc};box-shadow:0 0 8px rgba(${rc},0.6),0 0 16px rgba(${rc},0.3),0 0 32px rgba(${rc},0.1);position:absolute;top:0;bottom:0;right:0;width:3px;z-index:6`;
+      const trail=document.getElementById('bar-b-trail');
+      if(trail){
+        const tLeft=Math.min(clampedEntry,currentPct);
+        const tWidth=Math.abs(clampedEntry-currentPct);
+        const dir=currentPct<clampedEntry;
+        trail.style.left=tLeft+'%';
+        trail.style.width=tWidth+'%';
+        trail.style.background=dir
+          ?`linear-gradient(90deg,rgba(${rc},0),rgba(${rc},0.4))`
+          :`linear-gradient(90deg,rgba(${rc},0.4),rgba(${rc},0))`;
+      }
+    }
+    // V4D: intensity gradient
+    if(id==='d'){
+      const intensity=document.getElementById('bar-d-intensity');
+      if(intensity) intensity.style.background=`linear-gradient(90deg,transparent 30%,rgba(${rc},0.08) 100%)`;
+    }
+  });
+}
+
+slider.addEventListener('input',e=>updateAll(parseFloat(e.target.value)));
+updateAll(11.225);
+</script>
+</body>
+</html>

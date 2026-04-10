@@ -213,8 +213,8 @@ def rolling_max(src: NDArray, period: int) -> NDArray:
     out = np.full_like(src, np.nan, dtype=np.float64)
     if len(src) < period:
         return out
-    for i in range(period - 1, len(src)):
-        out[i] = np.max(src[i - period + 1:i + 1])
+    windows = np.lib.stride_tricks.sliding_window_view(src, period)
+    out[period - 1:] = np.max(windows, axis=1)
     return out
 
 
@@ -223,8 +223,8 @@ def rolling_min(src: NDArray, period: int) -> NDArray:
     out = np.full_like(src, np.nan, dtype=np.float64)
     if len(src) < period:
         return out
-    for i in range(period - 1, len(src)):
-        out[i] = np.min(src[i - period + 1:i + 1])
+    windows = np.lib.stride_tricks.sliding_window_view(src, period)
+    out[period - 1:] = np.min(windows, axis=1)
     return out
 
 
