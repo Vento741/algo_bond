@@ -95,6 +95,8 @@ interface BacktestResult {
     exit_reason: string;
     entry_bar: number;
     exit_bar: number;
+    entry_time_ms: number;
+    exit_time_ms: number;
   }[];
 }
 
@@ -136,19 +138,27 @@ function mapBackendResultToUI(
   res: BacktestResultResponse,
 ): BacktestResult {
   const trades = res.trades_log.map(
-    (t: BacktestResultTradeEntry, idx: number) => ({
-      id: idx + 1,
-      side: (t.direction === 'long' ? 'long' : 'short') as 'long' | 'short',
-      entry_time: `bar ${t.entry_bar}`,
-      exit_time: `bar ${t.exit_bar} (${t.exit_reason})`,
-      entry_price: t.entry_price,
-      exit_price: t.exit_price,
-      pnl: t.pnl,
-      pnl_pct: t.pnl_pct,
-      exit_reason: t.exit_reason,
-      entry_bar: t.entry_bar,
-      exit_bar: t.exit_bar,
-    }),
+    (t: BacktestResultTradeEntry, idx: number) => {
+      const entryMs = t.entry_time || 0;
+      const exitMs = t.exit_time || 0;
+      const entryDate = entryMs ? new Date(entryMs).toISOString().slice(0, 16).replace('T', ' ') : `bar ${t.entry_bar}`;
+      const exitDate = exitMs ? new Date(exitMs).toISOString().slice(0, 16).replace('T', ' ') : `bar ${t.exit_bar}`;
+      return {
+        id: idx + 1,
+        side: (t.direction === 'long' ? 'long' : 'short') as 'long' | 'short',
+        entry_time: entryDate,
+        exit_time: `${exitDate} (${t.exit_reason})`,
+        entry_price: t.entry_price,
+        exit_price: t.exit_price,
+        pnl: t.pnl,
+        pnl_pct: t.pnl_pct,
+        exit_reason: t.exit_reason,
+        entry_bar: t.entry_bar,
+        exit_bar: t.exit_bar,
+        entry_time_ms: entryMs,
+        exit_time_ms: exitMs,
+      };
+    },
   );
 
   const pnls = trades.map((t) => t.pnl);
@@ -1133,9 +1143,28 @@ function TradesChart({
         end_of_data: 'END',
       };
 
+      // Поиск свечи по timestamp (ближайшая свеча <= target time)
+      const findCandleByTime = (timeMs: number) => {
+        if (!timeMs) return undefined;
+        const timeSec = Math.floor(timeMs / 1000);
+        // Бинарный поиск ближайшей свечи
+        let lo = 0, hi = candles.length - 1;
+        while (lo <= hi) {
+          const mid = (lo + hi) >> 1;
+          if ((candles[mid].time as number) <= timeSec) lo = mid + 1;
+          else hi = mid - 1;
+        }
+        return hi >= 0 ? candles[hi] : undefined;
+      };
+
       for (const trade of trades) {
-        const entryCandle = candles[trade.entry_bar];
-        const exitCandle = candles[trade.exit_bar];
+        // Используем timestamp для поиска свечи (работает при любом TF на графике)
+        const entryCandle = trade.entry_time_ms
+          ? findCandleByTime(trade.entry_time_ms)
+          : candles[trade.entry_bar];
+        const exitCandle = trade.exit_time_ms
+          ? findCandleByTime(trade.exit_time_ms)
+          : candles[trade.exit_bar];
 
         if (entryCandle) {
           markers.push({
@@ -1147,7 +1176,7 @@ function TradesChart({
           });
         }
 
-        if (exitCandle && trade.exit_bar !== trade.entry_bar) {
+        if (exitCandle && exitCandle.time !== entryCandle?.time) {
           const reasonLabel = reasonLabels[trade.exit_reason] || trade.exit_reason?.toUpperCase() || 'EXIT';
           const pnlStr = `${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}`;
 
@@ -1836,6 +1865,8 @@ function generateDemoResult(capital: number): BacktestResult {
       exit_reason: ['stop_loss', 'take_profit', 'trailing_stop', 'signal'][Math.floor(Math.random() * 4)],
       entry_bar: i * 10,
       exit_bar: i * 10 + 5 + Math.floor(Math.random() * 10),
+      entry_time_ms: (baseTime + i * step) * 1000,
+      exit_time_ms: (baseTime + i * step + 14400) * 1000,
     });
 
     equityCurve.push({
