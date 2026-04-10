@@ -2,7 +2,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,7 +11,7 @@ from app.core.security import decrypt_value
 from app.database import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import ExchangeAccount, User
-from app.modules.market.bybit_client import BybitClient
+from app.modules.market.bybit_client import BybitAPIError, BybitClient
 from app.modules.market.candle_service import CandleService
 from app.modules.market.schemas import (
     CandleResponse, CandlesPageResponse, SymbolInfoResponse, TickerResponse,
@@ -52,10 +52,13 @@ async def get_klines(
     Если указаны start/end — загружает ВСЕ свечи за период с пагинацией (max 20000).
     Без start/end — возвращает последние limit свечей.
     """
-    if start is not None and end is not None:
-        candles = await service.get_klines_range(symbol, interval, start, end)
-    else:
-        candles = await service.get_klines(symbol, interval, limit)
+    try:
+        if start is not None and end is not None:
+            candles = await service.get_klines_range(symbol, interval, start, end)
+        else:
+            candles = await service.get_klines(symbol, interval, limit)
+    except BybitAPIError as e:
+        raise HTTPException(status_code=502, detail=f"Bybit API: {e.message}") from e
     return [CandleResponse(**c) for c in candles]
 
 

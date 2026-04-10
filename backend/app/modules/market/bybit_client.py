@@ -103,6 +103,9 @@ class BybitClient:
             raise BybitAPIError(e.status_code, str(e.message)) from e
         except FailedRequestError as e:
             raise BybitAPIError(-1, f"Network error: {e.message}") from e
+        except KeyError as e:
+            # pybit 5.14.0 bug: KeyError 'x-bapi-limit-reset-timestamp' при rate limit
+            raise BybitAPIError(429, f"Rate limit (pybit KeyError: {e})") from e
 
     def klines_to_arrays(self, candles: list[dict]) -> dict[str, NDArray]:
         """Конвертировать свечи в numpy-массивы для стратегии."""
