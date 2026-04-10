@@ -138,7 +138,7 @@ export function Chart() {
     setLoading(true);
     setIsDemo(false);
     api
-      .get(`/market/candles/${symbol}`, {
+      .get(`/market/klines/${symbol}`, {
         params: { interval, limit: 500 },
         signal: controller.signal,
       })
