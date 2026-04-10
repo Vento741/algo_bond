@@ -147,11 +147,23 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
             tf_minutes = tf_map.get(tf_str, 15)
 
             live_config = merged_config.get("live", {})
+
+            # SuperTrend flip exit: вычислить ST direction для backtest engine
+            st_dirs = None
+            if backtest_config.get("use_supertrend_exit", False):
+                from app.modules.strategy.engines.indicators.trend import supertrend as st_func
+                st_period = merged_config.get("supertrend", {}).get("st2_period", 11)
+                st_mult = merged_config.get("supertrend", {}).get("st2_mult", 3.0)
+                st_dirs_raw, _, _ = st_func(ohlcv.high, ohlcv.low, ohlcv.close, st_period, st_mult)
+                import numpy as _np
+                st_dirs = _np.nan_to_num(st_dirs_raw, nan=0.0)
+
             metrics = run_backtest(
                 ohlcv=ohlcv,
                 signals=strategy_result.signals,
                 initial_capital=float(run.initial_capital),
                 commission_pct=backtest_config.get("commission", 0.05),
+                slippage_pct=backtest_config.get("slippage", 0.0),
                 order_size_pct=backtest_config.get("order_size", 75),
                 min_bars_trailing=risk_config.get("min_bars_trailing", 0),
                 use_multi_tp=risk_config.get("use_multi_tp", False),
@@ -160,6 +172,7 @@ async def _run_backtest(run_id: uuid.UUID) -> dict:
                 timeframe_minutes=tf_minutes,
                 leverage=live_config.get("leverage", 1),
                 on_reverse=live_config.get("on_reverse", "close"),
+                supertrend_dirs=st_dirs,
             )
 
             # 7. Сохранить результат

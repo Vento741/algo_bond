@@ -73,6 +73,7 @@ def _validate_config(cfg: dict) -> dict:
     risk = cfg.get("risk", {})
     regime = cfg.get("regime", {})
     multi_tf = cfg.get("multi_tf", {})
+    time_filter = cfg.get("time_filter", {})
 
     return {
         "supertrend": {
@@ -132,6 +133,11 @@ def _validate_config(cfg: dict) -> dict:
             "use": _bool(multi_tf.get("use"), False),
             "htf_trend": multi_tf.get("htf_trend", []),
             "htf_timestamps": multi_tf.get("htf_timestamps", []),
+        },
+        "time_filter": {
+            "use": _bool(time_filter.get("use"), False),
+            "block_start_utc": _int(time_filter.get("block_start_utc"), 2, 0),
+            "block_end_utc": _int(time_filter.get("block_end_utc"), 7, 0),
         },
     }
 
@@ -361,6 +367,20 @@ class SuperTrendSqueezeStrategy(BaseStrategy):
                 # Фильтр: long только при bullish HTF, short только при bearish HTF
                 long_condition = long_condition & ((htf_trend_arr >= 1.0) | (htf_trend_arr == 0.0))
                 short_condition = short_condition & ((htf_trend_arr <= -1.0) | (htf_trend_arr == 0.0))
+
+        # --- Time-of-day filter: блокируем входы в шумные часы ---
+        time_cfg = cfg["time_filter"]
+        if time_cfg["use"] and data.timestamps is not None:
+            block_start = time_cfg["block_start_utc"]
+            block_end = time_cfg["block_end_utc"]
+            ts_seconds = np.asarray(data.timestamps, dtype=np.float64) / 1000.0
+            hours_utc = ((ts_seconds % 86400) / 3600).astype(int)
+            if block_start < block_end:
+                blocked = (hours_utc >= block_start) & (hours_utc < block_end)
+            else:  # overnight: e.g. 22-06
+                blocked = (hours_utc >= block_start) | (hours_utc < block_end)
+            long_condition = long_condition & ~blocked
+            short_condition = short_condition & ~blocked
 
         # --- Generate Signals (entry only, exit tracking в backtest_engine) ---
         signals: list[Signal] = []

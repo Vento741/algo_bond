@@ -45,6 +45,7 @@ def run_backtest(
     signals: list[Signal],
     initial_capital: float = 100.0,
     commission_pct: float = 0.05,
+    slippage_pct: float = 0.0,
     order_size_pct: float = 75.0,
     min_bars_trailing: int = 0,
     use_multi_tp: bool = False,
@@ -53,6 +54,7 @@ def run_backtest(
     timeframe_minutes: int = 15,
     leverage: int = 1,
     on_reverse: str = "close",
+    supertrend_dirs: "np.ndarray | None" = None,
 ) -> BacktestMetrics:
     """Запустить бэктест.
 
@@ -191,6 +193,20 @@ def run_backtest(
                     # Есть остаток — проверяем SL/trailing для него
                     pass
 
+            # --- SuperTrend flip exit ---
+            if in_position and supertrend_dirs is not None:
+                st_dir = float(supertrend_dirs[i]) if i < len(supertrend_dirs) else 0.0
+                if position_direction == "long" and st_dir == -1.0:
+                    exit_p = bar_close
+                    if slippage_pct > 0:
+                        exit_p -= exit_p * slippage_pct / 100
+                    _close_full(exit_p, i, "supertrend_flip")
+                elif position_direction == "short" and st_dir == 1.0:
+                    exit_p = bar_close
+                    if slippage_pct > 0:
+                        exit_p += exit_p * slippage_pct / 100
+                    _close_full(exit_p, i, "supertrend_flip")
+
             # --- SL / Trailing для оставшегося объёма ---
             if in_position:
                 exit_price = None
@@ -235,6 +251,13 @@ def run_backtest(
                         exit_reason = "take_profit"
 
                 if exit_price is not None:
+                    # Slippage на выходе: ухудшаем цену
+                    if slippage_pct > 0:
+                        slip = exit_price * slippage_pct / 100
+                        if position_direction == "long":
+                            exit_price -= slip  # long exit ниже
+                        else:
+                            exit_price += slip  # short exit выше
                     _close_full(exit_price, i, exit_reason)
 
         # Проверить новый сигнал
@@ -243,7 +266,12 @@ def run_backtest(
             signal_idx += 1
 
             if sig.bar_index == i and not in_position:
-                entry_price = bar_close
+                # Slippage: вход по худшей цене (long = выше, short = ниже)
+                if slippage_pct > 0:
+                    slip = bar_close * slippage_pct / 100
+                    entry_price = bar_close + slip if sig.direction == "long" else bar_close - slip
+                else:
+                    entry_price = bar_close
                 position_value = equity * order_size_pct / 100 * leverage
                 qty = position_value / entry_price if entry_price > 0 else 0
                 if qty <= 0:
@@ -283,7 +311,11 @@ def run_backtest(
 
             elif sig.bar_index == i and in_position and sig.direction != position_direction:
                 if on_reverse == "close" or on_reverse == "reverse":
-                    _close_full(bar_close, i, "signal")
+                    close_p = bar_close
+                    if slippage_pct > 0:
+                        slip = close_p * slippage_pct / 100
+                        close_p = close_p - slip if position_direction == "long" else close_p + slip
+                    _close_full(close_p, i, "signal")
                 # on_reverse == "ignore" - пропускаем обратный сигнал
 
         # Записать точку equity
