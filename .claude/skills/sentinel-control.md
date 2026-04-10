@@ -31,17 +31,17 @@ ssh jeremy-vps "systemctl start algobond-agent-watchdog.timer"
 
 # 4. Проверь через 5с
 sleep 5
-ssh jeremy-vps "redis-cli HGET algobond:agent:status status && tmux has-session -t algobond-agent 2>/dev/null && echo 'tmux: OK' || echo 'tmux: DEAD'"
+ssh jeremy-vps "docker exec algobond-redis redis-cli HGET algobond:agent:status status && tmux has-session -t algobond-agent 2>/dev/null && echo 'tmux: OK' || echo 'tmux: DEAD'"
 ```
 
 ### Stop
 
 ```bash
 # 1. Остановка через Redis (graceful, watchdog подхватит)
-ssh jeremy-vps "redis-cli SET algobond:agent:command stop"
+ssh jeremy-vps "docker exec algobond-redis redis-cli SET algobond:agent:command stop"
 
 # 2. Или прямая остановка
-ssh jeremy-vps "tmux send-keys -t algobond-agent '/quit' Enter 2>/dev/null; sleep 5; tmux kill-session -t algobond-agent 2>/dev/null; redis-cli HSET algobond:agent:status status stopped"
+ssh jeremy-vps "tmux send-keys -t algobond-agent '/quit' Enter 2>/dev/null; sleep 5; tmux kill-session -t algobond-agent 2>/dev/null; docker exec algobond-redis redis-cli HSET algobond:agent:status status stopped"
 
 # 3. Останови watchdog (чтобы не перезапускал)
 ssh jeremy-vps "systemctl stop algobond-agent-watchdog.timer"
@@ -57,7 +57,7 @@ ssh jeremy-vps "bash /opt/algobond/agent-restart.sh"
 ### Emergency Stop (всё выключить)
 
 ```bash
-ssh jeremy-vps "tmux kill-session -t algobond-agent 2>/dev/null; systemctl stop algobond-agent-watchdog.timer; redis-cli HSET algobond:agent:status status stopped; redis-cli DEL algobond:agent:command"
+ssh jeremy-vps "tmux kill-session -t algobond-agent 2>/dev/null; systemctl stop algobond-agent-watchdog.timer; docker exec algobond-redis redis-cli HSET algobond:agent:status status stopped; docker exec algobond-redis redis-cli DEL algobond:agent:command"
 echo "Sentinel полностью остановлен. Watchdog выключен."
 ```
 
@@ -65,5 +65,5 @@ echo "Sentinel полностью остановлен. Watchdog выключе�
 
 Выведи текущее состояние:
 ```bash
-ssh jeremy-vps "echo 'Redis:' && redis-cli HGET algobond:agent:status status && echo 'tmux:' && (tmux has-session -t algobond-agent 2>/dev/null && echo 'ALIVE' || echo 'DEAD') && echo 'Watchdog:' && systemctl is-active algobond-agent-watchdog.timer"
+ssh jeremy-vps "echo 'Redis:' && docker exec algobond-redis redis-cli HGET algobond:agent:status status && echo 'tmux:' && (tmux has-session -t algobond-agent 2>/dev/null && echo 'ALIVE' || echo 'DEAD') && echo 'Watchdog:' && systemctl is-active algobond-agent-watchdog.timer"
 ```

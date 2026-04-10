@@ -17,7 +17,7 @@
 3. Прочитать last-known-good.sha: `cat .claude/state/last-known-good.sha 2>/dev/null || git rev-parse HEAD > .claude/state/last-known-good.sha`
 4. Обновить Redis статус:
    ```bash
-   redis-cli HSET algobond:agent:status status running started_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" monitors "api,listener" cron_jobs "health,reconcile,deps_audit" incidents_today 0 fixes_today 0
+   docker exec algobond-redis redis-cli HSET algobond:agent:status status running started_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" monitors "api,listener" cron_jobs "health,reconcile,deps_audit" incidents_today 0 fixes_today 0
    ```
 5. Запустить мониторы (шаг 6-7)
 6. Создать cron-задачи (шаг 8-10)
@@ -55,7 +55,7 @@ CronCreate: `*/5 * * * *`
 3. Если повторный fail: `docker compose restart api` + перезапустить Monitor API + TG алерт
 4. Если Redis/DB down: TG алерт (НЕ рестартить)
 5. Если OK: молчать (экономия токенов)
-6. Обновить Redis: `redis-cli HSET algobond:agent:status last_health_check "$(date -u +%Y-%m-%dT%H:%M:%SZ)" last_health_result ok`
+6. Обновить Redis: `docker exec algobond-redis redis-cli HSET algobond:agent:status last_health_check "$(date -u +%Y-%m-%dT%H:%M:%SZ)" last_health_result ok`
 
 ### P&L Reconciliation (23:50 UTC)
 
@@ -79,8 +79,8 @@ CronCreate: `0 3 * * 0`
 2. Дедупликация: SHA256[:8] от traceback, проверить incident-log за 60с. Дубль -> пропустить
 3. Redis RPUSH algobond:agent:fix_queue (FIFO). Если уже идет фикс - ждать
 4. Записать инцидент: `echo '{"ts":"...","hash":"...","status":"fixing","trace":"..."}' >> .claude/state/incident-log.jsonl`
-5. `redis-cli LPUSH algobond:agent:incidents '{"ts":"...","status":"fixing","trace":"..."}'`
-6. `redis-cli LTRIM algobond:agent:incidents 0 99`
+5. `docker exec algobond-redis redis-cli LPUSH algobond:agent:incidents '{"ts":"...","status":"fixing","trace":"..."}'`
+6. `docker exec algobond-redis redis-cli LTRIM algobond:agent:incidents 0 99`
 7. Сохранить pre-fix SHA: `git rev-parse HEAD > .claude/state/pre-fix.sha`
 8. `git pull origin main` (на случай если human запушил)
 9. Прочитать код, проанализировать, исправить
@@ -92,7 +92,7 @@ CronCreate: `0 3 * * 0`
     d. Перезапустить Monitor API (контейнер новый!)
     e. Сброс circuit breaker: `echo 0 > /tmp/claude-autofix-failures`
     f. TG уведомление с отчетом
-    g. Обновить Redis: `redis-cli HINCRBY algobond:agent:status fixes_today 1`
+    g. Обновить Redis: `docker exec algobond-redis redis-cli HINCRBY algobond:agent:status fixes_today 1`
 12. Если тесты красные (3 попытки):
     a. Circuit breaker активируется
     b. TG алерт
@@ -126,5 +126,5 @@ CronCreate: `0 3 * * 0`
 
 При получении /quit:
 1. Завершить текущую операцию (если auto-fix - дождаться)
-2. `redis-cli HSET algobond:agent:status status stopped`
+2. `docker exec algobond-redis redis-cli HSET algobond:agent:status status stopped`
 3. Выйти

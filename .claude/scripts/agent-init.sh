@@ -27,7 +27,7 @@ if [[ -f "$INCIDENT_LOG" ]]; then
   tail -1000 "$INCIDENT_LOG" > /tmp/incident-rotate && mv /tmp/incident-rotate "$INCIDENT_LOG"
 fi
 
-redis-cli HSET algobond:agent:status status starting started_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /dev/null 2>&1 || true
+docker exec algobond-redis redis-cli HSET algobond:agent:status status starting started_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /dev/null 2>&1 || true
 
 cd "$PROJECT_DIR"
 tmux new-session -d -s "$SESSION_NAME" -x 200 -y 50

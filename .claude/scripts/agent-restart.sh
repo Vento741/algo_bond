@@ -28,7 +28,7 @@ else
   echo "[restart] No active session found"
 fi
 
-redis-cli HSET algobond:agent:status status restarting > /dev/null 2>&1 || true
+docker exec algobond-redis redis-cli HSET algobond:agent:status status restarting > /dev/null 2>&1 || true
 
 echo "[restart] Starting fresh session..."
 sleep 5

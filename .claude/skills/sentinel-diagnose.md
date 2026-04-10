@@ -23,7 +23,7 @@ user_invocable: true
 ### 1. Redis статус агента
 
 ```bash
-ssh jeremy-vps "redis-cli HGETALL algobond:agent:status"
+ssh jeremy-vps "docker exec algobond-redis redis-cli HGETALL algobond:agent:status"
 ```
 
 Ожидан��е: hash с полями status, started_at, monitors, cron_jobs, incidents_today, fixes_today.
@@ -34,7 +34,7 @@ ssh jeremy-vps "redis-cli HGETALL algobond:agent:status"
 
 Также проверь команды в очереди:
 ```bash
-ssh jeremy-vps "redis-cli GET algobond:agent:command"
+ssh jeremy-vps "docker exec algobond-redis redis-cli GET algobond:agent:command"
 ```
 
 ### 2. tmux сессия
@@ -99,7 +99,7 @@ ssh jeremy-vps "cd /var/www/dev_james_usr/data/www/dev-james.bond/algo_trade && 
 ### 8. Последние инциденты
 
 ```bash
-ssh jeremy-vps "redis-cli LRANGE algobond:agent:incidents 0 4"
+ssh jeremy-vps "docker exec algobond-redis redis-cli LRANGE algobond:agent:incidents 0 4"
 ```
 
 ### 9. State файлы
@@ -140,7 +140,7 @@ ssh jeremy-vps "ls -la /opt/algobond/ && test -f /opt/algobond/.env && echo 'ENV
 - Решение: остановить timer, починить watchdog detection, перезапустить
 
 **Агент stopped но должен running:**
-- `redis-cli SET algobond:agent:command start` - watchdog подхватит
+- `docker exec algobond-redis redis-cli SET algobond:agent:command start` - watchdog подхватит
 
 **tmux жив, claude мертв:**
 - `tmux kill-session -t algobond-agent`

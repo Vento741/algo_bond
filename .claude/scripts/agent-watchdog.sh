@@ -13,11 +13,11 @@ SESSION_NAME="algobond-agent"
 INIT_SCRIPT="/var/www/dev_james_usr/data/www/dev-james.bond/algo_trade/.claude/scripts/agent-init.sh"
 
 # === 1. Проверка команд из Redis (UI toggle) ===
-COMMAND=$(redis-cli GET algobond:agent:command 2>/dev/null || echo "")
+COMMAND=$(docker exec algobond-redis redis-cli GET algobond:agent:command 2>/dev/null || echo "")
 
 if [[ "$COMMAND" == "stop" ]]; then
   echo "[watchdog] Stop command received"
-  redis-cli DEL algobond:agent:command > /dev/null 2>&1 || true
+  docker exec algobond-redis redis-cli DEL algobond:agent:command > /dev/null 2>&1 || true
   if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     tmux send-keys -t "$SESSION_NAME" "/quit" Enter
     sleep 30
@@ -25,14 +25,14 @@ if [[ "$COMMAND" == "stop" ]]; then
       tmux kill-session -t "$SESSION_NAME"
     fi
   fi
-  redis-cli HSET algobond:agent:status status stopped > /dev/null 2>&1 || true
+  docker exec algobond-redis redis-cli HSET algobond:agent:status status stopped > /dev/null 2>&1 || true
   echo "[watchdog] Sentinel stopped by command"
   exit 0
 fi
 
 if [[ "$COMMAND" == "start" ]]; then
   echo "[watchdog] Start command received"
-  redis-cli DEL algobond:agent:command > /dev/null 2>&1 || true
+  docker exec algobond-redis redis-cli DEL algobond:agent:command > /dev/null 2>&1 || true
   if ! tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     bash "$INIT_SCRIPT"
     echo "[watchdog] Sentinel started by command"
@@ -43,7 +43,7 @@ if [[ "$COMMAND" == "start" ]]; then
 fi
 
 # === 2. Проверка: агент должен быть running? ===
-STATUS=$(redis-cli HGET algobond:agent:status status 2>/dev/null || echo "stopped")
+STATUS=$(docker exec algobond-redis redis-cli HGET algobond:agent:status status 2>/dev/null || echo "stopped")
 
 if [[ "$STATUS" == "stopped" ]]; then
   exit 0
