@@ -115,6 +115,14 @@ export default {
           '0%': { opacity: '0', transform: 'translateX(-8px)' },
           '100%': { opacity: '1', transform: 'translateX(0)' },
         },
+        'shimmer': {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        'price-glow': {
+          '0%, 100%': { textShadow: '0 0 8px rgba(255, 255, 255, 0.15)' },
+          '50%': { textShadow: '0 0 16px rgba(255, 255, 255, 0.3)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -125,6 +133,8 @@ export default {
         'badge-pulse': 'badge-pulse 2s ease-in-out infinite',
         'bell-ring': 'bell-ring 0.8s ease-in-out',
         'notif-fade-in': 'notif-fade-in 0.3s ease-out both',
+        'shimmer': 'shimmer 2s linear infinite',
+        'price-glow': 'price-glow 3s ease-in-out infinite',
       },
     },
   },
