@@ -451,7 +451,7 @@ Stores, API layer (axios + JWT), TypeScript типы, утилиты - общи�
 ### 7.1 Hooks в .claude/settings.json
 
 **PostToolUse (Edit|Write):** auto-lint (ruff для .py, prettier для .ts/.tsx)
-**PreToolUse (Bash):** safety-guard (блок rm -rf, DROP TABLE, force push, .env access)
+**PreToolUse (Bash):** safety-guard (блок rm -rf, DROP TABLE, force push)
 **Stop (agent):** проверка pytest, circuit breaker (max 3 failures)
 **SessionStart (compact):** re-inject контекст проекта
 
@@ -562,8 +562,10 @@ Bot.send_message мокается - тесты не обращаются к Tele
 name: telegram-dev
 model: sonnet
 description: Telegram бот и WebApp разработчик. aiogram 3.x, webhook, Mini App.
-tools: [Read, Write, Edit, Bash, Glob, Grep]
+tools: [Read, Write, Edit, Bash, Glob, Grep, mcp__plugin_context7_context7__resolve-library-id, mcp__plugin_context7_context7__query-docs]
 ```
+
+Агент использует MCP context7 для получения актуальной документации по aiogram, @tma.js/sdk-react и другим библиотекам. Это критично - aiogram активно развивается (кастомизация кнопок, emoji_id, цвета и т.д.), и агент должен работать с последней документацией, а не с устаревшими данными из обучения.
 
 ### Скилл tg-notify
 
