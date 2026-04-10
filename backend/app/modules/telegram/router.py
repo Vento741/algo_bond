@@ -11,6 +11,9 @@ from app.database import get_db
 from app.modules.auth.dependencies import get_admin_user, get_current_active_user
 from app.modules.auth.models import User
 from app.modules.notifications.service import NotificationService
+from aiogram.types import Update
+
+from app.modules.telegram.bot import bot, dp
 from app.modules.telegram.schemas import (
     AdminNotifyRequest,
     TelegramLinkCreate,
@@ -44,12 +47,10 @@ async def telegram_webhook(
     if x_telegram_bot_api_secret_token != settings.telegram_webhook_secret:
         raise HTTPException(status_code=403, detail="Неверный секретный токен")
 
-    from app.modules.telegram.bot import bot, dp
     if bot is None or dp is None:
         logger.warning("Telegram bot не инициализирован, пропускаем update")
         return {"ok": True}
 
-    from aiogram.types import Update
     body = await request.json()
     update = Update(**body)
     await dp.feed_update(bot=bot, update=update)
@@ -177,16 +178,7 @@ async def get_telegram_settings(
             security_telegram=True,
         )
 
-    return TelegramSettingsResponse(
-        telegram_enabled=prefs.telegram_enabled,
-        positions_telegram=prefs.positions_telegram,
-        bots_telegram=prefs.bots_telegram,
-        orders_telegram=prefs.orders_telegram,
-        backtest_telegram=prefs.backtest_telegram,
-        system_telegram=prefs.system_telegram,
-        finance_telegram=prefs.finance_telegram,
-        security_telegram=prefs.security_telegram,
-    )
+    return TelegramSettingsResponse.model_validate(prefs)
 
 
 @router.patch("/settings", response_model=TelegramSettingsResponse)
@@ -199,17 +191,7 @@ async def update_telegram_settings(
     service = NotificationService(db)
     updates_dict = {k: v for k, v in updates.model_dump().items() if v is not None}
     prefs = await service.update_preferences(current_user.id, updates_dict)
-
-    return TelegramSettingsResponse(
-        telegram_enabled=prefs.telegram_enabled,
-        positions_telegram=prefs.positions_telegram,
-        bots_telegram=prefs.bots_telegram,
-        orders_telegram=prefs.orders_telegram,
-        backtest_telegram=prefs.backtest_telegram,
-        system_telegram=prefs.system_telegram,
-        finance_telegram=prefs.finance_telegram,
-        security_telegram=prefs.security_telegram,
-    )
+    return TelegramSettingsResponse.model_validate(prefs)
 
 
 @router.post("/admin/notify", status_code=200)
@@ -224,7 +206,6 @@ async def admin_notify(
     if not settings.telegram_admin_chat_id:
         raise HTTPException(status_code=503, detail="Admin chat ID не настроен")
 
-    from app.modules.telegram.bot import bot
     if bot is None:
         raise HTTPException(status_code=503, detail="Telegram bot не инициализирован")
 

@@ -1,7 +1,7 @@
 """Тесты FastAPI роутера Telegram: webhook, deep link, webapp auth, настройки."""
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from httpx import AsyncClient
@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, hash_password
 from app.modules.auth.models import User, UserRole
-from app.modules.telegram.models import TelegramLink
 from app.modules.telegram.service import TelegramService
 
 pytestmark = pytest.mark.asyncio
