@@ -22,7 +22,7 @@ import { useAuthStore } from '@/stores/auth';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'График', href: '/chart/BTCUSDT', icon: CandlestickChart, matchPrefix: '/chart' },
+  { name: 'График', href: '/chart', icon: CandlestickChart, matchPrefix: '/chart' },
   { name: 'Стратегии', href: '/strategies', icon: Brain },
   { name: 'Боты', href: '/bots', icon: Bot },
   { name: 'Бэктест', href: '/backtest', icon: FlaskConical },
