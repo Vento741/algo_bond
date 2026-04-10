@@ -1584,7 +1584,7 @@ function BacktestHistory({
   };
 
   const selectAll = () => {
-    setSelected(selected.size === visibleRuns.length ? new Set() : new Set(visibleRuns.map((r) => r.id)));
+    setSelected(allSelected ? new Set() : new Set(pagedRuns.map((r) => r.id)));
   };
 
   const hideSelected = () => {
@@ -1659,7 +1659,13 @@ function BacktestHistory({
     );
   }
 
-  const allSelected = selected.size === visibleRuns.length && visibleRuns.length > 0;
+  const PER_PAGE_OPTIONS = [10, 25, 50, 100] as const;
+  const [perPage, setPerPage] = useState(25);
+  const [page, setPage] = useState(0);
+  const totalPages = Math.ceil(visibleRuns.length / perPage);
+  const pagedRuns = visibleRuns.slice(page * perPage, (page + 1) * perPage);
+
+  const allSelected = selected.size === pagedRuns.length && pagedRuns.length > 0;
   const someSelected = selected.size > 0;
 
   return (
@@ -1683,6 +1689,16 @@ function BacktestHistory({
             </Button>
           )}
           <span className="text-xs text-gray-600 font-mono">{visibleRuns.length} запусков</span>
+          {/* Per page selector */}
+          <select
+            value={perPage}
+            onChange={(e) => { setPerPage(Number(e.target.value)); setPage(0); }}
+            className="text-[11px] bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-gray-400 font-mono cursor-pointer focus:outline-none focus:border-brand-premium/30"
+          >
+            {PER_PAGE_OPTIONS.map((n) => (
+              <option key={n} value={n}>{n} / стр</option>
+            ))}
+          </select>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="text-xs text-gray-500 h-7 hover:text-white" onClick={onRefresh}>
@@ -1704,7 +1720,7 @@ function BacktestHistory({
         </div>
       </div>
       {/* List with checkboxes */}
-      {visibleRuns.map((run) => (
+      {pagedRuns.map((run) => (
         <div key={run.id} className="flex items-start gap-2">
           <button type="button" onClick={() => toggleSelect(run.id)} className="mt-4 flex-shrink-0">
             <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
@@ -1718,6 +1734,20 @@ function BacktestHistory({
           </div>
         </div>
       ))}
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <Button variant="ghost" size="sm" className="text-xs h-7" disabled={page === 0} onClick={() => setPage(page - 1)}>
+            Назад
+          </Button>
+          <span className="text-xs text-gray-500 font-mono">
+            {page + 1} / {totalPages}
+          </span>
+          <Button variant="ghost" size="sm" className="text-xs h-7" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
+            Далее
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
