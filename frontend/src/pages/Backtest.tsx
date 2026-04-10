@@ -188,12 +188,20 @@ export function Backtest() {
   const [configsLoading, setConfigsLoading] = useState(true);
   const [selectedConfigId, setSelectedConfigId] = useState('');
 
-  // Form state
-  const [symbol, setSymbol] = useState('BTCUSDT');
-  const [timeframe, setTimeframe] = useState('5m');
-  const [startDate, setStartDate] = useState('2025-01-01');
-  const [endDate, setEndDate] = useState('2026-03-29');
-  const [initialCapital, setInitialCapital] = useState('10000');
+  // Form state - загружаем из localStorage если есть
+  const savedParams = useRef(() => {
+    try {
+      const raw = localStorage.getItem('algobond:backtest-params');
+      return raw ? JSON.parse(raw) as Record<string, string> : null;
+    } catch { return null; }
+  });
+  const saved = savedParams.current();
+  const today = new Date().toISOString().slice(0, 10);
+  const [symbol, setSymbol] = useState(saved?.symbol || 'BTCUSDT');
+  const [timeframe, setTimeframe] = useState(saved?.timeframe || '15m');
+  const [startDate, setStartDate] = useState(saved?.startDate || '2026-01-01');
+  const [endDate, setEndDate] = useState(saved?.endDate || today);
+  const [initialCapital, setInitialCapital] = useState(saved?.initialCapital || '100');
 
   // Result state
   const [result, setResult] = useState<BacktestResult | null>(null);
@@ -276,8 +284,26 @@ export function Backtest() {
     [],
   );
 
+  // При выборе конфига - подставить символ и ТФ
+  const handleConfigChange = useCallback((configId: string) => {
+    setSelectedConfigId(configId);
+    const cfg = configs.find((c) => c.id === configId);
+    if (cfg) {
+      setSymbol(cfg.symbol);
+      const tfMap: Record<string, string> = { '1': '1m', '5': '5m', '15': '15m', '30': '30m', '60': '1h', '240': '4h', 'D': '1D' };
+      setTimeframe(tfMap[cfg.timeframe] || `${cfg.timeframe}m`);
+    }
+  }, [configs]);
+
   const runBacktest = async () => {
     if (!selectedConfigId) return;
+
+    // Сохранить параметры в localStorage
+    try {
+      localStorage.setItem('algobond:backtest-params', JSON.stringify({
+        symbol, timeframe, startDate, endDate, initialCapital,
+      }));
+    } catch {}
 
     setLoading(true);
     setResult(null);
@@ -461,7 +487,7 @@ export function Backtest() {
                     ) : configs.length > 0 ? (
                       <Select
                         value={selectedConfigId}
-                        onChange={setSelectedConfigId}
+                        onChange={handleConfigChange}
                         options={configOptions}
                         className="w-full"
                       />
