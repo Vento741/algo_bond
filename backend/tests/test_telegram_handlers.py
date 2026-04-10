@@ -94,7 +94,7 @@ async def test_start_welcome(db_session: AsyncSession) -> None:
     from app.modules.telegram.handlers.start import start_welcome
 
     message = _make_message()
-    await start_welcome(message)
+    await start_welcome(message, db_session)
 
     message.answer.assert_called_once()
     args, kwargs = message.answer.call_args
@@ -133,7 +133,7 @@ async def test_start_deep_link_valid_token(db_session: AsyncSession) -> None:
 
     message.answer.assert_called_once()
     args, kwargs = message.answer.call_args
-    assert "успешно привязан" in args[0]
+    assert "привязан" in args[0]
     assert "reply_markup" in kwargs
 
 

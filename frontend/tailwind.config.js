@@ -3,6 +3,14 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   darkMode: 'class',
   theme: {
+    screens: {
+      xs: '420px',
+      sm: '640px',
+      md: '768px',
+      lg: '1024px',
+      xl: '1280px',
+      '2xl': '1536px',
+    },
     extend: {
       colors: {
         brand: {
@@ -123,6 +131,12 @@ export default {
           '0%, 100%': { textShadow: '0 0 8px rgba(255, 255, 255, 0.15)' },
           '50%': { textShadow: '0 0 16px rgba(255, 255, 255, 0.3)' },
         },
+        'float-particle': {
+          '0%': { transform: 'translateY(0) scale(1)', opacity: '0' },
+          '15%': { opacity: '1' },
+          '85%': { opacity: '1' },
+          '100%': { transform: 'translateY(-120px) scale(0.3)', opacity: '0' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -135,6 +149,7 @@ export default {
         'notif-fade-in': 'notif-fade-in 0.3s ease-out both',
         'shimmer': 'shimmer 2s linear infinite',
         'price-glow': 'price-glow 3s ease-in-out infinite',
+        'float-particle': 'float-particle 6s ease-in-out infinite',
       },
     },
   },
