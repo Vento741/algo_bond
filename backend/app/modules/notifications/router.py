@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.models import User
 from app.database import get_db
 from app.modules.notifications.schemas import (
     NotificationListResponse,
@@ -20,12 +21,7 @@ from app.modules.notifications.service import NotificationService
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
 DB = Annotated[AsyncSession, Depends(get_db)]
-CurrentUser = Annotated[dict, Depends(get_current_user)]
-
-
-def _user_id(user: dict) -> uuid.UUID:
-    """Извлечь user_id из JWT payload."""
-    return uuid.UUID(user["sub"])
+CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 @router.get("", response_model=NotificationListResponse)
@@ -39,7 +35,7 @@ async def list_notifications(
     """Список уведомлений с пагинацией и фильтром по категории."""
     service = NotificationService(db)
     items, total, unread = await service.get_user_notifications(
-        user_id=_user_id(user),
+        user_id=user.id,
         limit=limit,
         offset=offset,
         type_filter=category,
@@ -58,11 +54,11 @@ async def unread_count(
 ) -> UnreadCountResponse:
     """Количество непрочитанных уведомлений."""
     service = NotificationService(db)
-    count = await service.get_unread_count(_user_id(user))
+    count = await service.get_unread_count(user.id)
     return UnreadCountResponse(count=count)
 
 
-@router.patch("/{notification_id}/read", response_model=NotificationResponse)
+@router.patch("/{notification_id}/read")
 async def mark_read(
     notification_id: uuid.UUID,
     db: DB,
@@ -70,7 +66,7 @@ async def mark_read(
 ) -> dict:
     """Отметить уведомление прочитанным."""
     service = NotificationService(db)
-    ok = await service.mark_read(_user_id(user), notification_id)
+    ok = await service.mark_read(user.id, notification_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Уведомление не найдено")
     return {"ok": True}
@@ -83,7 +79,7 @@ async def mark_all_read(
 ) -> dict:
     """Отметить все уведомления прочитанными."""
     service = NotificationService(db)
-    count = await service.mark_all_read(_user_id(user))
+    count = await service.mark_all_read(user.id)
     return {"updated": count}
 
 
@@ -95,7 +91,7 @@ async def delete_notification(
 ) -> dict:
     """Удалить уведомление."""
     service = NotificationService(db)
-    ok = await service.delete_notification(_user_id(user), notification_id)
+    ok = await service.delete_notification(user.id, notification_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Уведомление не найдено")
     return {"ok": True}
@@ -108,7 +104,7 @@ async def get_preferences(
 ) -> NotificationPreferencesResponse:
     """Получить настройки уведомлений."""
     service = NotificationService(db)
-    prefs = await service.get_preferences(_user_id(user))
+    prefs = await service.get_preferences(user.id)
     if prefs is None:
         return NotificationPreferencesResponse()
     return NotificationPreferencesResponse.model_validate(prefs)
@@ -123,7 +119,7 @@ async def update_preferences(
     """Обновить настройки уведомлений."""
     service = NotificationService(db)
     pref = await service.update_preferences(
-        _user_id(user),
+        user.id,
         body.model_dump(exclude_unset=True),
     )
     return NotificationPreferencesResponse.model_validate(pref)
