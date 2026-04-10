@@ -32,18 +32,26 @@ export function useTelegramAuth(): UseTelegramAuthResult {
       setIsTelegram(true);
       applyTelegramTheme();
 
-      // Если JWT уже есть в localStorage - считаем авторизованным
+      // Если JWT уже есть - проверяем валидность простым API вызовом
       const existingToken = localStorage.getItem("access_token");
       if (existingToken) {
-        useTelegramStore.setState({ isAuthenticated: true });
-        setIsLoading(false);
-        return;
+        try {
+          const { default: api } = await import("@/lib/api");
+          await api.get("/auth/me");
+          useTelegramStore.setState({ isAuthenticated: true });
+          setIsLoading(false);
+          return;
+        } catch {
+          // JWT expired и refresh не помог - очищаем и пробуем initData
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+        }
       }
 
-      // Иначе аутентифицируемся через initData
+      // Аутентифицируемся через initData
       const initData = getTelegramInitData();
       if (!initData) {
-        setError("Не удалось получить данные Telegram");
+        setError("Сессия истекла. Закройте и откройте приложение заново.");
         setIsLoading(false);
         return;
       }
