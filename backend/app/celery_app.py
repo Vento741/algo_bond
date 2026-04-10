@@ -34,6 +34,10 @@ celery.conf.beat_schedule = {
         "task": "market.sync_latest_candles",
         "schedule": 60.0,  # каждую минуту
     },
+    "beat-heartbeat": {
+        "task": "system.beat_heartbeat",
+        "schedule": 60.0,
+    },
 }
 
 celery.autodiscover_tasks([
@@ -42,3 +46,16 @@ celery.autodiscover_tasks([
     "app.modules.market",
     "app.modules.notifications",
 ], related_name="celery_tasks")
+
+
+@celery.task(name="system.beat_heartbeat")
+def beat_heartbeat_task():
+    """Heartbeat задача для мониторинга Celery Beat."""
+    import redis as sync_redis
+    from app.config import settings
+    try:
+        r = sync_redis.from_url(settings.redis_url)
+        r.set("celery-beat:last_run", str(__import__("time").time()), ex=300)
+        r.close()
+    except Exception:
+        pass

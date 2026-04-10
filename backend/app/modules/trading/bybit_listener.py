@@ -1181,6 +1181,12 @@ async def run_listener() -> None:
         try:
             await _refresh_cycle(loop)
             backoff = 1  # Сбросить backoff при успехе
+            # Heartbeat для системного мониторинга
+            try:
+                from app.redis import pool as redis_pool
+                await redis_pool.set("ws_bridge:heartbeat", str(time.time()), ex=60)
+            except Exception:
+                logger.warning("Не удалось записать ws_bridge:heartbeat в Redis")
         except Exception:
             logger.exception("Ошибка в refresh_cycle, backoff=%d сек", backoff)
             backoff = min(backoff * 2, MAX_BACKOFF)
