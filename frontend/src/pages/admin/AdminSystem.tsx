@@ -1182,9 +1182,9 @@ export function AdminSystem() {
                 <p className="text-xs text-gray-400">Общий P&L</p>
                 <p
                   className="text-2xl font-bold font-data"
-                  style={{ color: pnl.total_pnl >= 0 ? '#00E676' : '#FF1744' }}
+                  style={{ color: Number(pnl.total_pnl) >= 0 ? '#00E676' : '#FF1744' }}
                 >
-                  {pnl.total_pnl >= 0 ? '+' : ''}${pnl.total_pnl.toFixed(2)}
+                  {Number(pnl.total_pnl) >= 0 ? '+' : ''}${Number(pnl.total_pnl).toFixed(2)}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -1192,18 +1192,18 @@ export function AdminSystem() {
                   <p className="text-xs text-gray-400">Live P&L</p>
                   <p
                     className="text-lg font-bold font-data"
-                    style={{ color: pnl.live_pnl >= 0 ? '#00E676' : '#FF1744' }}
+                    style={{ color: Number(pnl.live_pnl) >= 0 ? '#00E676' : '#FF1744' }}
                   >
-                    {pnl.live_pnl >= 0 ? '+' : ''}${pnl.live_pnl.toFixed(2)}
+                    {Number(pnl.live_pnl) >= 0 ? '+' : ''}${Number(pnl.live_pnl).toFixed(2)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">Demo P&L</p>
                   <p
                     className="text-lg font-bold font-data"
-                    style={{ color: pnl.demo_pnl >= 0 ? '#00E676' : '#FF1744' }}
+                    style={{ color: Number(pnl.demo_pnl) >= 0 ? '#00E676' : '#FF1744' }}
                   >
-                    {pnl.demo_pnl >= 0 ? '+' : ''}${pnl.demo_pnl.toFixed(2)}
+                    {Number(pnl.demo_pnl) >= 0 ? '+' : ''}${Number(pnl.demo_pnl).toFixed(2)}
                   </p>
                 </div>
               </div>
