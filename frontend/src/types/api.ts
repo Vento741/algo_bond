@@ -355,3 +355,45 @@ export interface AdminLogEntry {
   created_at: string;
   user_email: string | null;
 }
+
+/* ---- Notifications ---- */
+
+export type NotificationType =
+  | 'position_opened' | 'position_closed' | 'tp_hit' | 'sl_hit'
+  | 'bot_started' | 'bot_stopped' | 'bot_error' | 'bot_emergency'
+  | 'order_filled' | 'order_cancelled' | 'order_error'
+  | 'backtest_completed' | 'backtest_failed'
+  | 'connection_lost' | 'connection_restored' | 'system_error'
+  | 'subscription_expiring' | 'payment_success' | 'payment_failed';
+
+export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
+
+export type NotificationCategory = 'positions' | 'bots' | 'orders' | 'backtest' | 'system' | 'billing';
+
+export interface NotificationItem {
+  id: string;
+  type: NotificationType;
+  priority: NotificationPriority;
+  title: string;
+  message: string;
+  data: Record<string, unknown> | null;
+  link: string | null;
+  is_read: boolean;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface NotificationListResponse {
+  items: NotificationItem[];
+  total: number;
+  unread_count: number;
+}
+
+export interface NotificationPreferences {
+  positions_enabled: boolean;
+  bots_enabled: boolean;
+  orders_enabled: boolean;
+  backtest_enabled: boolean;
+  system_enabled: boolean;
+  billing_enabled: boolean;
+}

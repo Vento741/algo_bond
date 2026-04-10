@@ -2,11 +2,13 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { useTradingStream } from '@/hooks/useTradingStream';
+import { useNotificationStream } from '@/hooks/useNotificationStream';
 
 export function DashboardLayout() {
   // Подключаемся к приватному WebSocket потоку торговли
   // isConnected обновляет store - Topbar отображает статус
   useTradingStream();
+  useNotificationStream();
 
   return (
     <div className="min-h-screen bg-brand-bg">
