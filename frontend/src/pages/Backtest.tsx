@@ -1688,17 +1688,24 @@ function BacktestHistory({
               Скрыть ({selected.size})
             </Button>
           )}
-          <span className="text-xs text-gray-600 font-mono">{visibleRuns.length} запусков</span>
-          {/* Per page selector */}
-          <select
-            value={perPage}
-            onChange={(e) => { setPerPage(Number(e.target.value)); setPage(0); }}
-            className="text-[11px] bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-gray-400 font-mono cursor-pointer focus:outline-none focus:border-brand-premium/30"
-          >
+          <div className="h-4 w-px bg-white/10" />
+          <span className="text-[10px] text-gray-600 font-mono">{visibleRuns.length} всего</span>
+          <div className="flex items-center rounded-md bg-white/[0.03] border border-white/[0.06] p-0.5">
             {PER_PAGE_OPTIONS.map((n) => (
-              <option key={n} value={n}>{n} / стр</option>
+              <button
+                key={n}
+                type="button"
+                onClick={() => { setPerPage(n); setPage(0); }}
+                className={`px-2 py-0.5 text-[10px] font-mono rounded transition-all ${
+                  perPage === n
+                    ? 'bg-brand-premium/15 text-brand-premium'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {n}
+              </button>
             ))}
-          </select>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="text-xs text-gray-500 h-7 hover:text-white" onClick={onRefresh}>
@@ -1736,16 +1743,37 @@ function BacktestHistory({
       ))}
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-2">
-          <Button variant="ghost" size="sm" className="text-xs h-7" disabled={page === 0} onClick={() => setPage(page - 1)}>
-            Назад
-          </Button>
-          <span className="text-xs text-gray-500 font-mono">
-            {page + 1} / {totalPages}
-          </span>
-          <Button variant="ghost" size="sm" className="text-xs h-7" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
-            Далее
-          </Button>
+        <div className="flex items-center justify-center gap-1 pt-3">
+          <button
+            type="button"
+            disabled={page === 0}
+            onClick={() => setPage(page - 1)}
+            className="px-2.5 py-1 text-[11px] font-mono rounded-md transition-all disabled:opacity-30 disabled:cursor-not-allowed text-gray-400 hover:text-white hover:bg-white/5"
+          >
+            &larr;
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setPage(i)}
+              className={`w-7 h-7 text-[11px] font-mono rounded-md transition-all ${
+                page === i
+                  ? 'bg-brand-premium/15 text-brand-premium border border-brand-premium/20'
+                  : 'text-gray-500 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {i + 1}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage(page + 1)}
+            className="px-2.5 py-1 text-[11px] font-mono rounded-md transition-all disabled:opacity-30 disabled:cursor-not-allowed text-gray-400 hover:text-white hover:bg-white/5"
+          >
+            &rarr;
+          </button>
         </div>
       )}
     </div>
