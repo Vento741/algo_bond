@@ -73,3 +73,7 @@ strategis_1.pine
 !/docs/superpowers/specs/
 .claude/
 algo_bond.rar
+
+# Sentinel state (runtime, not tracked)
+.claude/state/*.sha
+.claude/state/incident-log.jsonl
