@@ -13,7 +13,7 @@ from app.modules.auth.models import User
 from app.modules.notifications.service import NotificationService
 from aiogram.types import Update
 
-from app.modules.telegram.bot import bot, dp
+import app.modules.telegram.bot as telegram_bot
 from app.modules.telegram.schemas import (
     AdminNotifyRequest,
     TelegramLinkCreate,
@@ -47,13 +47,13 @@ async def telegram_webhook(
     if x_telegram_bot_api_secret_token != settings.telegram_webhook_secret:
         raise HTTPException(status_code=403, detail="Неверный секретный токен")
 
-    if bot is None or dp is None:
+    if telegram_bot.bot is None or telegram_bot.dp is None:
         logger.warning("Telegram bot не инициализирован, пропускаем update")
         return {"ok": True}
 
     body = await request.json()
     update = Update(**body)
-    await dp.feed_update(bot=bot, update=update)
+    await telegram_bot.dp.feed_update(bot=telegram_bot.bot, update=update)
     return {"ok": True}
 
 
@@ -206,11 +206,11 @@ async def admin_notify(
     if not settings.telegram_admin_chat_id:
         raise HTTPException(status_code=503, detail="Admin chat ID не настроен")
 
-    if bot is None:
+    if telegram_bot.bot is None:
         raise HTTPException(status_code=503, detail="Telegram bot не инициализирован")
 
     try:
-        await bot.send_message(
+        await telegram_bot.bot.send_message(
             chat_id=settings.telegram_admin_chat_id,
             text=payload.message,
             parse_mode=payload.parse_mode,
