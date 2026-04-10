@@ -32,6 +32,7 @@ export interface BacktestMetrics {
 interface CachedBacktest {
   metrics: BacktestMetrics;
   trades: BacktestResultTradeEntry[];
+  barTimestamps: Record<number, number>;
   timestamp: number;
 }
 
@@ -40,7 +41,6 @@ interface UseChartBacktestOptions {
   symbol: string;
   interval: string;
   candleSeries: ISeriesApi<'Candlestick'> | null;
-  klines: Array<{ time: number }>;
   enabled: boolean;
 }
 
@@ -81,31 +81,32 @@ function loadCache(configId: string, symbol: string, tf: string): CachedBacktest
   }
 }
 
-function saveCache(configId: string, symbol: string, tf: string, metrics: BacktestMetrics, trades: BacktestResultTradeEntry[]) {
+function saveCache(configId: string, symbol: string, tf: string, metrics: BacktestMetrics, trades: BacktestResultTradeEntry[], barTimestamps: Map<number, number>) {
   try {
-    const data: CachedBacktest = { metrics, trades, timestamp: Date.now() };
+    const data: CachedBacktest = { metrics, trades, barTimestamps: Object.fromEntries(barTimestamps), timestamp: Date.now() };
     localStorage.setItem(getCacheKey(configId, symbol, tf), JSON.stringify(data));
   } catch {
     // localStorage full - ignore
   }
 }
 
-/** Рисует маркеры сделок на графике */
+/** Рисует маркеры сделок на графике используя timestamps из equity_curve */
 function drawTradeMarkers(
   candleSeries: ISeriesApi<'Candlestick'>,
   trades: BacktestResultTradeEntry[],
-  klines: Array<{ time: number }>,
+  barTimestamps: Map<number, number>,
 ): ISeriesMarkersPluginApi<Time> | null {
   const markers: SeriesMarkerBar<Time>[] = [];
 
   for (const trade of trades) {
-    const entryCandle = klines[trade.entry_bar];
-    const exitCandle = klines[trade.exit_bar];
+    const entryTs = barTimestamps.get(trade.entry_bar);
+    const exitTs = barTimestamps.get(trade.exit_bar);
     const isLong = trade.direction === 'long';
 
-    if (entryCandle) {
+    if (entryTs) {
+      const timeSec = entryTs > 1e12 ? Math.floor(entryTs / 1000) : entryTs;
       markers.push({
-        time: entryCandle.time as Time,
+        time: timeSec as Time,
         position: isLong ? 'belowBar' : 'aboveBar',
         color: isLong ? CHART_COLORS.up : CHART_COLORS.down,
         shape: isLong ? 'arrowUp' : 'arrowDown',
@@ -114,13 +115,14 @@ function drawTradeMarkers(
       });
     }
 
-    if (exitCandle && trade.exit_bar !== trade.entry_bar) {
+    if (exitTs && trade.exit_bar !== trade.entry_bar) {
+      const timeSec = exitTs > 1e12 ? Math.floor(exitTs / 1000) : exitTs;
       const reasonLabel = REASON_LABELS[trade.exit_reason?.toLowerCase()] || trade.exit_reason?.toUpperCase() || 'EXIT';
       const pnlStr = `${Number(trade.pnl) >= 0 ? '+' : ''}$${Number(trade.pnl).toFixed(2)}`;
       markers.push({
-        time: exitCandle.time as Time,
+        time: timeSec as Time,
         position: isLong ? 'aboveBar' : 'belowBar',
-        color: trade.pnl >= 0 ? CHART_COLORS.premium : '#FF6D00',
+        color: Number(trade.pnl) >= 0 ? CHART_COLORS.premium : '#FF6D00',
         shape: 'circle',
         text: `${reasonLabel} ${pnlStr}`,
         size: 1,
@@ -140,7 +142,6 @@ export function useChartBacktest({
   symbol,
   interval,
   candleSeries,
-  klines,
   enabled,
 }: UseChartBacktestOptions): UseChartBacktestResult {
   const [metrics, setMetrics] = useState<BacktestMetrics | null>(null);
@@ -151,6 +152,7 @@ export function useChartBacktest({
   const [hasCache, setHasCache] = useState(false);
 
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const barTimestampsRef = useRef<Map<number, number>>(new Map());
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -166,10 +168,10 @@ export function useChartBacktest({
   const applyMarkers = useCallback(
     (tradesList: BacktestResultTradeEntry[]) => {
       clearMarkers();
-      if (!candleSeries || tradesList.length === 0 || klines.length === 0) return;
-      markersPluginRef.current = drawTradeMarkers(candleSeries, tradesList, klines);
+      if (!candleSeries || tradesList.length === 0 || barTimestampsRef.current.size === 0) return;
+      markersPluginRef.current = drawTradeMarkers(candleSeries, tradesList, barTimestampsRef.current);
     },
-    [candleSeries, klines, clearMarkers],
+    [candleSeries, clearMarkers],
   );
 
   // Конвертация результата в метрики
@@ -197,14 +199,15 @@ export function useChartBacktest({
     if (cached) {
       setMetrics(cached.metrics);
       setTrades(cached.trades);
+      barTimestampsRef.current = new Map(Object.entries(cached.barTimestamps).map(([k, v]) => [Number(k), v]));
       setHasCache(true);
-      if (candleSeries && klines.length > 0) {
+      if (candleSeries) {
         applyMarkers(cached.trades);
       }
     } else {
       setHasCache(false);
     }
-  }, [configId, symbol, interval, enabled, candleSeries, klines, clearMarkers, applyMarkers]);
+  }, [configId, symbol, interval, enabled, candleSeries, clearMarkers, applyMarkers]);
 
   // Запуск бэктеста
   const runBacktest = useCallback(async () => {
@@ -283,13 +286,21 @@ export function useChartBacktest({
       );
 
       const m = resultToMetrics(result);
+
+      // Построить карту bar -> timestamp из equity_curve
+      const btMap = new Map<number, number>();
+      for (const pt of result.equity_curve) {
+        btMap.set(pt.bar, pt.timestamp);
+      }
+      barTimestampsRef.current = btMap;
+
       setMetrics(m);
       setTrades(result.trades_log);
       setProgress(100);
       applyMarkers(result.trades_log);
 
       // Кешировать
-      saveCache(configId, symbol, interval, m, result.trades_log);
+      saveCache(configId, symbol, interval, m, result.trades_log, btMap);
       setHasCache(true);
     } catch (err) {
       if (controller.signal.aborted) return;

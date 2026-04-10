@@ -98,7 +98,6 @@ export function Chart() {
     symbol,
     interval,
     candleSeries,
-    klines,
     enabled: backtestActive,
   });
 
