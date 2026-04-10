@@ -963,15 +963,20 @@ function EquityChart({ data }: { data: { time: number; equity: number }[] }) {
       lineWidth: 2,
     });
 
-    const mapped = data.map((d) => ({
-      time: d.time as Time,
-      value: d.equity,
-    }));
-    lineSeries.setData(mapped);
+    // Фильтруем null/NaN значения и сортируем
+    const mapped = data
+      .filter((d) => d.time != null && d.equity != null && !isNaN(d.equity))
+      .map((d) => ({ time: d.time as Time, value: d.equity }));
+
+    if (mapped.length > 0) {
+      lineSeries.setData(mapped);
+    }
     chart.timeScale().fitContent();
 
     // Resize observer
+    let disposed = false;
     const ro = new ResizeObserver((entries) => {
+      if (disposed) return;
       for (const entry of entries) {
         chart.applyOptions({ width: entry.contentRect.width });
       }
@@ -979,6 +984,7 @@ function EquityChart({ data }: { data: { time: number; equity: number }[] }) {
     ro.observe(containerRef.current);
 
     return () => {
+      disposed = true;
       ro.disconnect();
       chart.remove();
     };
