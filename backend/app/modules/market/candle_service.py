@@ -53,6 +53,9 @@ class CandleService:
         candles = await self._query_db(symbol, interval, limit, before)
 
         if candles:
+            # Дозагрузить свежие свечи из Bybit (текущая + незакрытая)
+            if before is None:
+                candles = await self._patch_latest_from_bybit(symbol, interval, candles)
             # Кэшировать latest (без before)
             if before is None:
                 await self._cache_latest(symbol, interval, candles)
@@ -144,6 +147,33 @@ class CandleService:
             await redis_client.set(cache_key, json.dumps(data), ex=CACHE_TTL_CANDLES)
         except Exception:
             logger.warning("Redis cache write failed: %s", cache_key)
+
+    async def _patch_latest_from_bybit(
+        self, symbol: str, interval: str, db_candles: list[CandleResponse]
+    ) -> list[CandleResponse]:
+        """Дозагрузить свежие свечи из Bybit для заполнения gap между DB и текущим моментом."""
+        try:
+            service = MarketService()
+            raw = await service.get_klines(symbol, interval, 10)
+            fresh = [
+                CandleResponse(
+                    timestamp=int(c["timestamp"] / 1000) if c["timestamp"] > 1e12 else int(c["timestamp"]),
+                    open=float(c["open"]),
+                    high=float(c["high"]),
+                    low=float(c["low"]),
+                    close=float(c["close"]),
+                    volume=float(c["volume"]),
+                )
+                for c in raw
+            ]
+            # Merge: DB candles + fresh Bybit candles (deduplicate by timestamp)
+            existing_ts = {c.timestamp for c in db_candles}
+            new_candles = [c for c in fresh if c.timestamp not in existing_ts]
+            if new_candles:
+                return db_candles + sorted(new_candles, key=lambda c: c.timestamp)
+        except Exception:
+            pass
+        return db_candles
 
     async def _fallback_bybit(
         self, symbol: str, interval: str, limit: int
