@@ -11,6 +11,7 @@ import {
   Zap,
   BarChart3,
   CircleDot,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -92,18 +93,29 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       {/* ---- Header ---- */}
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white font-heading tracking-tight">
-            Панель управления
-          </h1>
-          <p className="text-gray-500 text-sm mt-1 font-data">
-            {user?.username ? `${user.username} - ` : ''}обзор торговой активности
-          </p>
-        </div>
-        <div className="hidden sm:flex items-center gap-2 text-xs text-gray-600 font-data">
-          <CircleDot className="h-3 w-3 text-brand-profit animate-pulse" />
-          <span>{activeBots} live</span>
+      <div className="relative">
+        <div className="absolute -inset-x-4 -top-4 h-32 bg-gradient-to-b from-brand-accent/[0.03] to-transparent rounded-2xl pointer-events-none" />
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-brand-accent/20 to-brand-premium/10 border border-brand-accent/20 shadow-lg shadow-brand-accent/5">
+                <LayoutDashboard className="h-6 w-6 text-brand-accent" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white tracking-tight font-[Tektur]">
+                  Панель управления
+                </h1>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {user?.username ? `${user.username} - ` : ''}обзор торговой активности
+                </p>
+              </div>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500 font-data">
+              <CircleDot className="h-3 w-3 text-brand-profit animate-pulse" />
+              <span>{activeBots} live</span>
+            </div>
+          </div>
+          <div className="mt-5 h-px bg-gradient-to-r from-brand-accent/30 via-brand-premium/10 to-transparent" />
         </div>
       </div>
 
@@ -206,7 +218,7 @@ export function Dashboard() {
         {/* ---- Left: Strategies + Live Bots ---- */}
         <div className="lg:col-span-2 space-y-4">
           {/* Live Bots */}
-          <Card className="border-white/[0.06] bg-white/[0.015]">
+          <Card className="border-white/[0.06] bg-white/[0.015] hover:border-white/[0.1] transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm text-white font-heading flex items-center gap-2">
                 <Activity className="h-4 w-4 text-brand-profit" />
@@ -229,9 +241,12 @@ export function Dashboard() {
                   <Loader2 className="h-5 w-5 animate-spin text-gray-600" />
                 </div>
               ) : liveBots.length === 0 ? (
-                <div className="text-center py-6">
-                  <Bot className="h-8 w-8 text-gray-700 mx-auto mb-2" />
-                  <p className="text-gray-600 text-xs">Нет live ботов</p>
+                <div className="text-center py-8">
+                  <div className="relative inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-brand-profit/10 to-brand-profit/[0.03] border border-brand-profit/10 mx-auto mb-3">
+                    <Bot className="h-5 w-5 text-brand-profit/40" />
+                  </div>
+                  <p className="text-xs text-gray-500">Нет live ботов</p>
+                  <p className="text-[10px] text-gray-600 mt-1">Создайте бота для автоматической торговли</p>
                 </div>
               ) : (
                 <div className="space-y-1.5">
@@ -285,7 +300,7 @@ export function Dashboard() {
           </Card>
 
           {/* Strategies */}
-          <Card className="border-white/[0.06] bg-white/[0.015]">
+          <Card className="border-white/[0.06] bg-white/[0.015] hover:border-white/[0.1] transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm text-white font-heading flex items-center gap-2">
                 <Brain className="h-4 w-4 text-brand-accent" />
@@ -308,9 +323,12 @@ export function Dashboard() {
                   <Loader2 className="h-5 w-5 animate-spin text-gray-600" />
                 </div>
               ) : strategies.length === 0 ? (
-                <div className="text-center py-6">
-                  <Brain className="h-8 w-8 text-gray-700 mx-auto mb-2" />
-                  <p className="text-gray-600 text-xs">Стратегии пока не добавлены</p>
+                <div className="text-center py-8">
+                  <div className="relative inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-brand-accent/10 to-brand-accent/[0.03] border border-brand-accent/10 mx-auto mb-3">
+                    <Brain className="h-5 w-5 text-brand-accent/40" />
+                  </div>
+                  <p className="text-xs text-gray-500">Стратегии пока не добавлены</p>
+                  <p className="text-[10px] text-gray-600 mt-1">Добавьте алгоритм для начала торговли</p>
                 </div>
               ) : (
                 <div className="space-y-1.5">
@@ -350,7 +368,7 @@ export function Dashboard() {
         {/* ---- Right Sidebar ---- */}
         <div className="space-y-4">
           {/* Quick Actions */}
-          <Card className="border-white/[0.06] bg-white/[0.015]">
+          <Card className="border-white/[0.06] bg-white/[0.015] hover:border-white/[0.1] transition-all duration-300">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-white font-heading flex items-center gap-2">
                 <Zap className="h-4 w-4 text-brand-premium" />
@@ -395,23 +413,23 @@ export function Dashboard() {
           </Card>
 
           {/* Account Info */}
-          <Card className="border-white/[0.06] bg-white/[0.015]">
+          <Card className="border-white/[0.06] bg-white/[0.015] hover:border-white/[0.1] transition-all duration-300">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-white font-heading">Аккаунт</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-600">Email</span>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500 uppercase tracking-wider">Email</span>
                 <span className="text-gray-400 font-data truncate ml-2 max-w-[160px]">
                   {user?.email}
                 </span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-600">Роль</span>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500 uppercase tracking-wider">Роль</span>
                 <span className="text-gray-400 font-data">{user?.role}</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-600">Статус</span>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500 uppercase tracking-wider">Статус</span>
                 <span className="flex items-center gap-1.5">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${user?.is_active ? 'bg-brand-profit' : 'bg-brand-loss'}`}
@@ -427,7 +445,7 @@ export function Dashboard() {
           </Card>
 
           {/* Performance Summary */}
-          <Card className="border-white/[0.06] bg-white/[0.015]">
+          <Card className="border-white/[0.06] bg-white/[0.015] hover:border-white/[0.1] transition-all duration-300">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-white font-heading flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-brand-accent" />
@@ -485,7 +503,7 @@ interface StatCardProps {
 
 function StatCard({ title, value, icon: Icon, accentColor, loading }: StatCardProps) {
   return (
-    <Card className="border-white/[0.06] bg-white/[0.015] overflow-hidden relative group hover:border-white/[0.12] transition-all duration-200">
+    <Card className="border-white/[0.06] bg-white/[0.015] overflow-hidden relative group hover:border-white/[0.1] transition-all duration-300">
       <div
         className="absolute top-0 left-0 right-0 h-[1px] opacity-40 group-hover:opacity-70 transition-opacity"
         style={{ background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)` }}
@@ -524,7 +542,7 @@ interface MetricRowProps {
 function MetricRow({ label, value, color, loading }: MetricRowProps) {
   return (
     <div className="flex justify-between items-center text-xs">
-      <span className="text-gray-600">{label}</span>
+      <span className="text-gray-500">{label}</span>
       <span className={`font-data font-medium ${loading ? 'text-gray-700' : color}`}>
         {value}
       </span>
