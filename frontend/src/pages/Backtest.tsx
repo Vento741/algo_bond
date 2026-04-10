@@ -915,8 +915,8 @@ function EquityChart({ data }: { data: { time: number; equity: number }[] }) {
 
     const chart = createChart(containerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: '#666',
+        background: { type: ColorType.Solid, color: '#0d0d1a' },
+        textColor: '#8a8a9a',
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: 11,
       },
