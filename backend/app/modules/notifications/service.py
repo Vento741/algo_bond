@@ -60,6 +60,7 @@ class NotificationService:
 
         # Публикация в Redis для real-time доставки
         await self._publish_to_redis(notification)
+        await self._send_to_telegram(notification)
 
         await self.db.commit()
         return notification
@@ -88,6 +89,15 @@ class NotificationService:
             await redis.aclose()
         except Exception:
             logger.exception("Ошибка публикации уведомления в Redis")
+
+    async def _send_to_telegram(self, notification: Notification) -> None:
+        """Отправить уведомление в Telegram (если включено пользователем)."""
+        try:
+            from app.modules.telegram.notifications import TelegramNotifier
+            notifier = TelegramNotifier(self.db)
+            await notifier.on_notification(notification)
+        except Exception:
+            logger.exception("Ошибка отправки уведомления в Telegram")
 
     async def get_user_notifications(
         self,

@@ -30,6 +30,13 @@ class NotificationType(str, enum.Enum):
     SUBSCRIPTION_EXPIRING = "subscription_expiring"
     PAYMENT_SUCCESS = "payment_success"
     PAYMENT_FAILED = "payment_failed"
+    # Финансы
+    DAILY_PNL_REPORT = "daily_pnl_report"
+    BALANCE_CHANGED = "balance_changed"
+    MARGIN_WARNING = "margin_warning"
+    # Безопасность
+    NEW_LOGIN = "new_login"
+    API_KEY_CHANGED = "api_key_changed"
 
 
 class NotificationPriority(str, enum.Enum):
@@ -72,6 +79,15 @@ NOTIFICATION_CATEGORIES: dict[str, list[NotificationType]] = {
         NotificationType.SUBSCRIPTION_EXPIRING,
         NotificationType.PAYMENT_SUCCESS,
         NotificationType.PAYMENT_FAILED,
+    ],
+    "finance": [
+        NotificationType.DAILY_PNL_REPORT,
+        NotificationType.BALANCE_CHANGED,
+        NotificationType.MARGIN_WARNING,
+    ],
+    "security": [
+        NotificationType.NEW_LOGIN,
+        NotificationType.API_KEY_CHANGED,
     ],
 }
 
