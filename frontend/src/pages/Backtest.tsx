@@ -1029,6 +1029,7 @@ function TradesChart({
     // Ensure container has dimensions (lightweight-charts requires non-zero size)
     if (containerRef.current.clientWidth === 0) {
       await new Promise((r) => setTimeout(r, 100));
+      if (!containerRef.current) return;
     }
 
     setLoading(true);
@@ -1058,6 +1059,8 @@ function TradesChart({
         chartRef.current.remove();
         chartRef.current = null;
       }
+
+      if (!containerRef.current) return;
 
       const chart = createChart(containerRef.current, {
         layout: {
