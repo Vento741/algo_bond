@@ -91,7 +91,7 @@ async def test_deep_link_token_expired(db_session: AsyncSession):
         select(TelegramDeepLinkToken).where(
             TelegramDeepLinkToken.token == "b" * 32,
             TelegramDeepLinkToken.expires_at > datetime.now(timezone.utc),
-            TelegramDeepLinkToken.used == False,
+            TelegramDeepLinkToken.used.is_(False),
         )
     )
     assert result.scalar_one_or_none() is None
