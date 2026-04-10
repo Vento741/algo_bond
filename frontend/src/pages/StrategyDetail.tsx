@@ -593,13 +593,65 @@ function ConfigEditorDialog({
   };
 
   /** Сохранить конфиг, вернуть id. Бросает при ошибке. */
+  // Секции конфига, релевантные каждому engine_type
+  const engineSections: Record<string, (keyof FullStrategyConfig)[]> = {
+    lorentzian_knn: [
+      "knn",
+      "trend",
+      "ribbon",
+      "order_flow",
+      "smc",
+      "risk",
+      "filters",
+      "backtest",
+      "live",
+    ],
+    supertrend_squeeze: [
+      "supertrend",
+      "squeeze",
+      "entry",
+      "trend_filter",
+      "risk",
+      "regime",
+      "time_filter",
+      "backtest",
+      "live",
+    ],
+    hybrid_knn_supertrend: [
+      "hybrid",
+      "knn",
+      "supertrend",
+      "squeeze",
+      "entry",
+      "trend_filter",
+      "risk",
+      "regime",
+      "time_filter",
+      "backtest",
+      "live",
+    ],
+  };
+
+  // Отправлять только релевантные секции для engine_type
+  const getCleanConfig = (): Record<string, unknown> => {
+    const sections = engineSections[engineType] || Object.keys(config);
+    const clean: Record<string, unknown> = {};
+    for (const key of sections) {
+      if (key in config) {
+        clean[key] = config[key as keyof FullStrategyConfig];
+      }
+    }
+    return clean;
+  };
+
   const saveConfig = async (): Promise<string> => {
+    const cleanConfig = getCleanConfig();
     if (editingConfig) {
       const payload: StrategyConfigUpdate = {
         name: name.trim(),
         symbol,
         timeframe,
-        config: config as unknown as Record<string, unknown>,
+        config: cleanConfig,
       };
       await api.patch(`/strategies/configs/${editingConfig.id}`, payload);
       return editingConfig.id;
@@ -609,7 +661,7 @@ function ConfigEditorDialog({
       name: name.trim(),
       symbol,
       timeframe,
-      config: config as unknown as Record<string, unknown>,
+      config: cleanConfig,
     };
     const { data } = await api.post<StrategyConfig>(
       "/strategies/configs",
