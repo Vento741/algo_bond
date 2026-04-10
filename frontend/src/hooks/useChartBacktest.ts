@@ -300,6 +300,14 @@ export function useChartBacktest({
     }
   }, [configId, symbol, interval, candleSeries, clearMarkers, applyMarkers, resultToMetrics]);
 
+  // Автозапуск при включении (если нет кеша)
+  useEffect(() => {
+    if (enabled && configId && candleSeries && !metrics && !loading && !hasCache) {
+      runBacktest();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, configId, candleSeries]);
+
   // Cleanup
   useEffect(() => {
     return () => {

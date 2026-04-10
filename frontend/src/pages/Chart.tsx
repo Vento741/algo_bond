@@ -170,15 +170,8 @@ export function Chart() {
   const toggleFullscreen = useCallback(() => setIsFullscreen((v) => !v), []);
 
   const handleToggleBacktest = useCallback(() => {
-    setBacktestActive((prev) => {
-      const next = !prev;
-      if (next && !btMetrics && !btLoading) {
-        // Автозапуск при включении (если нет кеша)
-        setTimeout(() => runBacktest(), 0);
-      }
-      return next;
-    });
-  }, [btMetrics, btLoading, runBacktest]);
+    setBacktestActive((prev) => !prev);
+  }, []);
 
   const handleRefreshBacktest = useCallback(() => {
     runBacktest();
