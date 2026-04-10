@@ -1,7 +1,7 @@
 """Тесты TelegramNotifier: доставка уведомлений в Telegram."""
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +10,6 @@ from app.core.security import hash_password
 from app.modules.auth.models import User, UserRole
 from app.modules.notifications.enums import NotificationPriority, NotificationType
 from app.modules.notifications.models import Notification, NotificationPreference
-from app.modules.telegram.models import TelegramLink
 from app.modules.telegram.service import TelegramService
 
 pytestmark = pytest.mark.asyncio
@@ -31,7 +30,7 @@ async def _create_user(db: AsyncSession, role: UserRole = UserRole.USER) -> User
     return user
 
 
-async def _link_telegram(db: AsyncSession, user: User, telegram_id: int = 111222333) -> TelegramLink:
+async def _link_telegram(db: AsyncSession, user: User, telegram_id: int = 111222333) -> None:
     """Привязать Telegram к пользователю."""
     service = TelegramService(db)
     token_obj = await service.generate_deep_link_token(user.id)

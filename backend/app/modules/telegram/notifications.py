@@ -1,38 +1,43 @@
 """TelegramNotifier: доставка уведомлений в Telegram."""
 
 import logging
+from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.notifications.enums import NotificationPriority, NotificationType, get_category
 from app.modules.notifications.models import Notification
+from app.modules.telegram.formatters import (
+    format_daily_report,
+    format_margin_warning,
+    format_position_closed,
+    format_position_opened,
+)
 from app.modules.telegram.service import TelegramService
 
 logger = logging.getLogger(__name__)
 
-# Категории, доставляемые только администраторам (системные события)
+# Категории, доставляемые только администраторам
 _ADMIN_ONLY_CATEGORIES = {"system"}
+
+_PRIORITY_EMOJI: dict[NotificationPriority, str] = {
+    NotificationPriority.CRITICAL: "🚨",
+    NotificationPriority.HIGH: "❗",
+    NotificationPriority.MEDIUM: "ℹ️",
+    NotificationPriority.LOW: "📌",
+}
 
 
 def _format_message(notification: Notification) -> str:
-    """Сформировать текст Telegram-сообщения из уведомления.
+    """Сформировать текст Telegram-сообщения.
 
-    Для типов с rich-форматтерами используем formatters.py,
-    для остальных - универсальный шаблон title + message.
+    Для известных типов — rich-форматтер из formatters.py,
+    для остальных — универсальный шаблон title + message.
     """
     ntype = notification.type
     data = notification.data or {}
 
     try:
-        from app.modules.telegram.formatters import (
-            format_position_opened,
-            format_position_closed,
-            format_daily_report,
-            format_margin_warning,
-            format_bot_status,
-        )
-        from decimal import Decimal
-
         if ntype == NotificationType.POSITION_OPENED:
             return format_position_opened(
                 symbol=data.get("symbol", ""),
@@ -76,14 +81,7 @@ def _format_message(notification: Notification) -> str:
     except Exception:
         logger.exception("Ошибка форматирования Telegram-уведомления типа %s", ntype)
 
-    # Универсальный шаблон
-    priority_emoji = {
-        NotificationPriority.CRITICAL: "🚨",
-        NotificationPriority.HIGH: "❗",
-        NotificationPriority.MEDIUM: "ℹ️",
-        NotificationPriority.LOW: "📌",
-    }
-    emoji = priority_emoji.get(notification.priority, "ℹ️")
+    emoji = _PRIORITY_EMOJI.get(notification.priority, "ℹ️")
     return f"{emoji} <b>{notification.title}</b>\n{notification.message}"
 
 
@@ -94,15 +92,7 @@ class TelegramNotifier:
         self.db = db
 
     async def on_notification(self, notification: Notification) -> None:
-        """Обработать уведомление: проверить настройки и отправить в Telegram.
-
-        Логика:
-        1. Получить TelegramLink пользователя - если нет, выйти.
-        2. Получить NotificationPreference - если telegram_enabled=False, выйти.
-        3. Определить категорию; если system - отправить только admin-пользователям.
-        4. Проверить {category}_telegram флаг (кроме CRITICAL - отправляется всегда).
-        5. Отправить сообщение через bot.send_message.
-        """
+        """Обработать уведомление и отправить в Telegram при выполнении условий."""
         from app.modules.telegram.bot import bot
         if bot is None:
             return
@@ -112,26 +102,25 @@ class TelegramNotifier:
         if link is None or not link.is_active:
             return
 
-        # Системные уведомления - только для администраторов
+        is_critical = notification.priority == NotificationPriority.CRITICAL
+
+        # Системные уведомления — только для администраторов (даже CRITICAL)
         category = get_category(notification.type)
         if category in _ADMIN_ONLY_CATEGORIES:
-            from app.modules.auth.service import AuthService
-            auth_service = AuthService(self.db)
-            user = await auth_service.get_user_by_id(notification.user_id)
             from app.modules.auth.models import UserRole
+            from app.modules.auth.service import AuthService
+            user = await AuthService(self.db).get_user_by_id(notification.user_id)
             if user.role != UserRole.ADMIN:
                 return
 
-        # CRITICAL отправляется всегда (без проверки telegram-настроек)
-        if notification.priority != NotificationPriority.CRITICAL:
+        # CRITICAL доставляется без проверки telegram-настроек
+        if not is_critical:
             from app.modules.notifications.service import NotificationService
-            notif_service = NotificationService(self.db)
-            prefs = await notif_service.get_preferences(notification.user_id)
+            prefs = await NotificationService(self.db).get_preferences(notification.user_id)
             if prefs is None or not prefs.telegram_enabled:
                 return
-            # Проверить {category}_telegram флаг
-            category_flag = f"{category}_telegram"
-            if not getattr(prefs, category_flag, True):
+            # False для неизвестных категорий — не отправляем если нет явного флага
+            if not getattr(prefs, f"{category}_telegram", False):
                 return
 
         text = _format_message(notification)
