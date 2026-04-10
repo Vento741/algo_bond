@@ -18,7 +18,7 @@ async def start_deep_link(
     """Привязка аккаунта через deep link токен."""
     token = command.args
     if not token:
-        await start_welcome(message)
+        await start_welcome(message, session)
         return
 
     service = TelegramService(session)
@@ -31,8 +31,8 @@ async def start_deep_link(
 
     if link:
         await message.answer(
-            "Аккаунт успешно привязан!\n\n"
-            "Настройте уведомления в ЛК или откройте платформу:",
+            "Аккаунт привязан!\n"
+            "Настройте уведомления: Настройки -> Уведомления",
             reply_markup=webapp_button(),
         )
     else:
@@ -44,20 +44,8 @@ async def start_deep_link(
 
 @router.message(CommandStart())
 async def start_welcome(message: Message, session: AsyncSession) -> None:
-    """Приветственное сообщение. Если аккаунт привязан - показать платформу."""
-    service = TelegramService(session)
-    link = await service.get_link_by_telegram_id(message.from_user.id)
-
-    if link:
-        await message.answer(
-            "<b>AlgoBond</b> - добро пожаловать!\n\n"
-            "Ваш аккаунт привязан. Откройте платформу:",
-            reply_markup=webapp_button(),
-        )
-    else:
-        await message.answer(
-            "<b>AlgoBond</b> - платформа алгоритмической торговли\n\n"
-            "Привяжите аккаунт в ЛК для получения уведомлений "
-            "и доступа к платформе через Telegram.",
-            reply_markup=webapp_button(),
-        )
+    """Короткое приветствие."""
+    await message.answer(
+        "<b>AlgoBond</b> - алготрейдинг криптофьючерсов",
+        reply_markup=webapp_button(),
+    )
