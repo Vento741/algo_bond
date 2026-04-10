@@ -15,6 +15,9 @@ import {
   Settings,
   CreditCard,
   Bell,
+  DollarSign,
+  ShieldAlert,
+  Scale,
 } from 'lucide-react';
 import { useNotificationStore } from '@/stores/notifications';
 import type { NotificationItem as NotificationItemType, NotificationType } from '@/types/api';
@@ -41,6 +44,11 @@ const TYPE_ICONS: Record<NotificationType, ReactNode> = {
   subscription_expiring: <CreditCard className="h-4 w-4 text-brand-premium" />,
   payment_success: <CreditCard className="h-4 w-4 text-brand-profit" />,
   payment_failed: <CreditCard className="h-4 w-4 text-brand-loss" />,
+  daily_pnl_report: <DollarSign className="h-4 w-4 text-brand-profit" />,
+  balance_changed: <Scale className="h-4 w-4 text-brand-accent" />,
+  margin_warning: <AlertTriangle className="h-4 w-4 text-brand-premium" />,
+  new_login: <ShieldAlert className="h-4 w-4 text-brand-premium" />,
+  api_key_changed: <ShieldAlert className="h-4 w-4 text-brand-loss" />,
 };
 
 const PRIORITY_BG: Record<string, string> = {

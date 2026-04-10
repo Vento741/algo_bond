@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Settings as SettingsIcon,
   User,
@@ -25,6 +25,12 @@ import {
   LineChart,
   Link2,
   ShieldCheck,
+  MessageCircle,
+  CheckCircle2,
+  Unlink,
+  DollarSign,
+  ShieldAlert,
+  Monitor,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,7 +48,13 @@ import {
 import { useToast } from '@/components/ui/toast';
 import { useAuthStore } from '@/stores/auth';
 import api from '@/lib/api';
-import type { ExchangeAccount, ExchangeAccountCreate, UserSettings } from '@/types/api';
+import type {
+  ExchangeAccount,
+  ExchangeAccountCreate,
+  UserSettings,
+  TelegramLinkStatus,
+  TelegramSettings,
+} from '@/types/api';
 
 /* ---- Константы ---- */
 
@@ -128,6 +140,29 @@ export function Settings() {
   const [savingNotifPrefs, setSavingNotifPrefs] = useState(false);
   const [notifPrefsOriginal, setNotifPrefsOriginal] = useState(notifPrefs);
 
+  /* Telegram */
+  const [tgLink, setTgLink] = useState<TelegramLinkStatus | null>(null);
+  const [loadingTg, setLoadingTg] = useState(true);
+  const [linkingTg, setLinkingTg] = useState(false);
+  const [unlinkingTg, setUnlinkingTg] = useState(false);
+  const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
+  const tgPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  /* Telegram настройки уведомлений */
+  const [tgSettings, setTgSettings] = useState<TelegramSettings>({
+    telegram_enabled: false,
+    positions_telegram: true,
+    bots_telegram: true,
+    orders_telegram: false,
+    backtest_telegram: true,
+    system_telegram: true,
+    finance_telegram: true,
+    security_telegram: true,
+  });
+  const [loadingTgSettings, setLoadingTgSettings] = useState(true);
+  const [savingTgSettings, setSavingTgSettings] = useState(false);
+  const [tgSettingsOriginal, setTgSettingsOriginal] = useState(tgSettings);
+
   /* Синхронизация имени пользователя из стора */
   useEffect(() => {
     if (user?.username) setUsername(user.username);
@@ -174,11 +209,41 @@ export function Settings() {
       .finally(() => setLoadingNotifPrefs(false));
   }, []);
 
+  const loadTgLink = useCallback(() => {
+    setLoadingTg(true);
+    api
+      .get('/telegram/link')
+      .then(({ data }) => setTgLink(data as TelegramLinkStatus))
+      .catch(() => setTgLink({ is_linked: false, telegram_username: null, linked_at: null, telegram_enabled: false }))
+      .finally(() => setLoadingTg(false));
+  }, []);
+
+  const loadTgSettings = useCallback(() => {
+    setLoadingTgSettings(true);
+    api
+      .get('/telegram/settings')
+      .then(({ data }) => {
+        setTgSettings(data as TelegramSettings);
+        setTgSettingsOriginal(data as TelegramSettings);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingTgSettings(false));
+  }, []);
+
   useEffect(() => {
     loadAccounts();
     loadSettings();
     loadNotifPrefs();
-  }, [loadAccounts, loadSettings, loadNotifPrefs]);
+    loadTgLink();
+    loadTgSettings();
+  }, [loadAccounts, loadSettings, loadNotifPrefs, loadTgLink, loadTgSettings]);
+
+  /* Очистка polling при размонтировании */
+  useEffect(() => {
+    return () => {
+      if (tgPollRef.current) clearInterval(tgPollRef.current);
+    };
+  }, []);
 
   /* Сохранение профиля */
   function handleSaveProfile() {
@@ -247,7 +312,73 @@ export function Settings() {
       .finally(() => setSavingNotifPrefs(false));
   }
 
+  /* Привязка Telegram: получить deep link, открыть в новой вкладке, polling */
+  function handleLinkTelegram() {
+    setLinkingTg(true);
+    api
+      .post('/telegram/link')
+      .then(({ data }) => {
+        window.open(data.deep_link_url, '_blank', 'noopener,noreferrer');
+        // Polling каждые 3 сек, макс 2 минуты
+        let elapsed = 0;
+        tgPollRef.current = setInterval(() => {
+          elapsed += 3000;
+          api
+            .get('/telegram/link')
+            .then(({ data: linkData }) => {
+              if (linkData.is_linked) {
+                clearInterval(tgPollRef.current!);
+                tgPollRef.current = null;
+                setTgLink(linkData as TelegramLinkStatus);
+                setLinkingTg(false);
+                toast('Telegram успешно привязан', 'success');
+                loadTgSettings();
+              }
+            })
+            .catch(() => {});
+          if (elapsed >= 120000) {
+            clearInterval(tgPollRef.current!);
+            tgPollRef.current = null;
+            setLinkingTg(false);
+          }
+        }, 3000);
+      })
+      .catch(() => {
+        toast('Ошибка создания ссылки', 'error');
+        setLinkingTg(false);
+      });
+  }
+
+  /* Отвязка Telegram */
+  function handleUnlinkTelegram() {
+    setUnlinkingTg(true);
+    api
+      .delete('/telegram/link')
+      .then(() => {
+        setTgLink({ is_linked: false, telegram_username: null, linked_at: null, telegram_enabled: false });
+        setShowUnlinkConfirm(false);
+        toast('Telegram отвязан', 'success');
+      })
+      .catch(() => toast('Ошибка отвязки', 'error'))
+      .finally(() => setUnlinkingTg(false));
+  }
+
+  /* Сохранение TG-настроек уведомлений */
+  function handleSaveTgSettings() {
+    setSavingTgSettings(true);
+    api
+      .patch('/telegram/settings', tgSettings)
+      .then(({ data }) => {
+        setTgSettings(data as TelegramSettings);
+        setTgSettingsOriginal(data as TelegramSettings);
+        toast('Telegram-настройки сохранены', 'success');
+      })
+      .catch(() => toast('Ошибка сохранения', 'error'))
+      .finally(() => setSavingTgSettings(false));
+  }
+
   const notifPrefsChanged = JSON.stringify(notifPrefs) !== JSON.stringify(notifPrefsOriginal);
+  const tgSettingsChanged = JSON.stringify(tgSettings) !== JSON.stringify(tgSettingsOriginal);
 
   /* Проверка, изменились ли настройки */
   const settingsChanged =
@@ -610,6 +741,130 @@ export function Settings() {
             </CardContent>
           </Card>
 
+          {/* ---- Telegram ---- */}
+          <Card className="border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-all duration-300">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-white flex items-center gap-2">
+                <MessageCircle className="h-4 w-4 text-[#26A5E4]" />
+                Telegram
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingTg ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                </div>
+              ) : tgLink?.is_linked ? (
+                /* --- Привязан --- */
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 p-3.5 rounded-xl bg-[#26A5E4]/[0.06] border border-[#26A5E4]/20">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#26A5E4]/10 flex-shrink-0">
+                      <MessageCircle className="h-5 w-5 text-[#26A5E4]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-white">
+                          {tgLink.telegram_username ? `@${tgLink.telegram_username}` : 'Привязан'}
+                        </p>
+                        <CheckCircle2 className="h-3.5 w-3.5 text-brand-profit flex-shrink-0" />
+                      </div>
+                      {tgLink.linked_at && (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Привязан {formatDate(tgLink.linked_at)}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={tgSettings.telegram_enabled}
+                      aria-label="Telegram уведомления"
+                      onClick={() => {
+                        const next = { ...tgSettings, telegram_enabled: !tgSettings.telegram_enabled };
+                        setTgSettings(next);
+                        api.patch('/telegram/settings', { telegram_enabled: next.telegram_enabled })
+                          .then(({ data }) => {
+                            setTgSettings(data as TelegramSettings);
+                            setTgSettingsOriginal(data as TelegramSettings);
+                          })
+                          .catch(() => toast('Ошибка', 'error'));
+                      }}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none ${tgSettings.telegram_enabled ? 'bg-[#26A5E4]' : 'bg-gray-600'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${tgSettings.telegram_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+
+                  {showUnlinkConfirm ? (
+                    <div className="p-3.5 rounded-xl bg-brand-loss/5 border border-brand-loss/20 space-y-3">
+                      <p className="text-xs text-gray-300">Отвязать Telegram аккаунт? Уведомления перестанут приходить.</p>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={handleUnlinkTelegram}
+                          disabled={unlinkingTg}
+                          className="flex-1 bg-brand-loss/20 text-brand-loss hover:bg-brand-loss/30 border border-brand-loss/30 min-h-[36px]"
+                        >
+                          {unlinkingTg ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Отвязать'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setShowUnlinkConfirm(false)}
+                          className="flex-1 text-gray-400 hover:text-white min-h-[36px]"
+                        >
+                          Отмена
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowUnlinkConfirm(true)}
+                      className="w-full text-gray-500 hover:text-brand-loss hover:bg-brand-loss/5 min-h-[36px] border border-white/[0.04] hover:border-brand-loss/20 transition-all"
+                    >
+                      <Unlink className="mr-1.5 h-3.5 w-3.5" />
+                      Отвязать Telegram
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                /* --- Не привязан --- */
+                <div className="space-y-4">
+                  <div className="flex flex-col items-center py-6 text-center gap-3">
+                    <div className="w-14 h-14 rounded-2xl bg-[#26A5E4]/10 border border-[#26A5E4]/20 flex items-center justify-center">
+                      <MessageCircle className="h-7 w-7 text-[#26A5E4]/60" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">Telegram не привязан</p>
+                      <p className="text-xs text-gray-500 mt-1 max-w-[220px]">
+                        Получайте уведомления о сделках и статусе ботов прямо в Telegram
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleLinkTelegram}
+                    disabled={linkingTg}
+                    className="w-full min-h-[44px] bg-[#26A5E4]/15 text-[#26A5E4] hover:bg-[#26A5E4]/25 border border-[#26A5E4]/30 hover:border-[#26A5E4]/50 transition-all shadow-sm shadow-[#26A5E4]/5"
+                  >
+                    {linkingTg ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Ожидание привязки...
+                      </>
+                    ) : (
+                      <>
+                        <MessageCircle className="mr-2 h-4 w-4" />
+                        Привязать Telegram
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* ---- Уведомления ---- */}
           <Card className="border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-all duration-300">
             <CardHeader className="pb-3">
@@ -619,56 +874,98 @@ export function Settings() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {loadingNotifPrefs ? (
+              {loadingNotifPrefs || loadingTgSettings ? (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                 </div>
               ) : (
                 <>
+                  {/* Заголовок колонок */}
+                  <div className="flex items-center gap-3 px-3 pb-1">
+                    <div className="flex-1 min-w-0" />
+                    <div className="flex items-center gap-4 flex-shrink-0">
+                      <div className="flex items-center gap-1 w-10 justify-center">
+                        <Monitor className="h-3 w-3 text-gray-500" />
+                        <span className="text-[10px] text-gray-500 uppercase tracking-wider">Web</span>
+                      </div>
+                      <div className={`flex items-center gap-1 w-10 justify-center ${!tgLink?.is_linked ? 'opacity-40' : ''}`}>
+                        <MessageCircle className="h-3 w-3 text-[#26A5E4]" />
+                        <span className="text-[10px] text-[#26A5E4] uppercase tracking-wider">TG</span>
+                      </div>
+                    </div>
+                  </div>
+
                   {([
-                    { key: 'positions_enabled', label: 'Позиции', desc: 'Открытие, закрытие, TP/SL', icon: TrendingUp },
-                    { key: 'bots_enabled', label: 'Боты', desc: 'Старт, стоп, ошибки', icon: Bot, critical: true },
-                    { key: 'orders_enabled', label: 'Ордера', desc: 'Исполнение, отмена, ошибки', icon: ClipboardList },
-                    { key: 'backtest_enabled', label: 'Бэктесты', desc: 'Завершение, ошибки', icon: BarChart3 },
-                    { key: 'system_enabled', label: 'Системные', desc: 'Соединение, ошибки сервисов', icon: Cog, critical: true },
-                    { key: 'billing_enabled', label: 'Биллинг', desc: 'Подписки, платежи', icon: CreditCard },
+                    { webKey: 'positions_enabled', tgKey: 'positions_telegram', label: 'Позиции', desc: 'Открытие, закрытие, TP/SL', icon: TrendingUp },
+                    { webKey: 'bots_enabled', tgKey: 'bots_telegram', label: 'Боты', desc: 'Старт, стоп, ошибки', icon: Bot, critical: true },
+                    { webKey: 'orders_enabled', tgKey: 'orders_telegram', label: 'Ордера', desc: 'Исполнение, отмена', icon: ClipboardList },
+                    { webKey: 'backtest_enabled', tgKey: 'backtest_telegram', label: 'Бэктесты', desc: 'Завершение, ошибки', icon: BarChart3 },
+                    { webKey: 'system_enabled', tgKey: 'system_telegram', label: 'Системные', desc: 'Соединение, ошибки сервисов', icon: Cog, critical: true, adminOnly: true },
+                    { webKey: 'billing_enabled', tgKey: null, label: 'Биллинг', desc: 'Подписки, платежи', icon: CreditCard },
+                    { webKey: null, tgKey: 'finance_telegram', label: 'Финансы', desc: 'P&L отчёты, баланс, маржа', icon: DollarSign },
+                    { webKey: null, tgKey: 'security_telegram', label: 'Безопасность', desc: 'Вход, изменение ключей', icon: ShieldAlert },
                   ] as const).map((cat) => {
                     const Icon = cat.icon;
-                    const enabled = notifPrefs[cat.key];
+                    const webEnabled = cat.webKey ? notifPrefs[cat.webKey as keyof typeof notifPrefs] : null;
+                    const tgEnabled = cat.tgKey ? tgSettings[cat.tgKey as keyof TelegramSettings] : null;
+                    const tgDisabled = !tgLink?.is_linked || !tgSettings.telegram_enabled;
                     return (
                       <div
-                        key={cat.key}
-                        className="flex items-center justify-between gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.03] transition-colors"
+                        key={cat.label}
+                        className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.03] transition-colors"
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <Icon className={`h-4 w-4 flex-shrink-0 ${enabled ? 'text-brand-accent' : 'text-gray-600'} transition-colors`} />
-                          <div className="min-w-0">
+                        <Icon className={`h-4 w-4 flex-shrink-0 ${(webEnabled ?? tgEnabled) ? 'text-brand-accent' : 'text-gray-600'} transition-colors`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
                             <p className="text-sm text-white truncate">{cat.label}</p>
-                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{cat.desc}</p>
+                            {'adminOnly' in cat && cat.adminOnly && (
+                              <span className="text-[10px] text-gray-600 flex-shrink-0">* адм.</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">{cat.desc}</p>
+                        </div>
+                        <div className="flex items-center gap-4 flex-shrink-0">
+                          {/* Web toggle */}
+                          <div className="w-10 flex justify-center">
+                            {webEnabled !== null ? (
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={webEnabled as boolean}
+                                aria-label={`${cat.label} Web`}
+                                onClick={() => setNotifPrefs((prev) => ({ ...prev, [cat.webKey as string]: !prev[cat.webKey as keyof typeof prev] }))}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none ${webEnabled ? 'bg-brand-profit' : 'bg-gray-600'}`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${webEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                              </button>
+                            ) : <div className="w-9" />}
+                          </div>
+                          {/* TG toggle */}
+                          <div className="w-10 flex justify-center">
+                            {tgEnabled !== null ? (
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={tgEnabled as boolean}
+                                aria-label={`${cat.label} TG`}
+                                disabled={tgDisabled}
+                                onClick={() => setTgSettings((prev) => ({ ...prev, [cat.tgKey as string]: !prev[cat.tgKey as keyof TelegramSettings] }))}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none disabled:opacity-30 disabled:cursor-not-allowed ${tgEnabled && !tgDisabled ? 'bg-[#26A5E4]' : 'bg-gray-600'}`}
+                              >
+                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${tgEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                              </button>
+                            ) : <div className="w-9" />}
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={enabled}
-                          aria-label={`${cat.label}: ${enabled ? 'включено' : 'выключено'}`}
-                          onClick={() => setNotifPrefs((prev) => ({ ...prev, [cat.key]: !prev[cat.key] }))}
-                          className={`
-                            relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors
-                            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brand-bg
-                            ${enabled ? 'bg-brand-profit' : 'bg-gray-600'}
-                          `}
-                        >
-                          <span
-                            className={`
-                              inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform
-                              ${enabled ? 'translate-x-6' : 'translate-x-1'}
-                            `}
-                          />
-                        </button>
                       </div>
                     );
                   })}
+
+                  {!tgLink?.is_linked && (
+                    <p className="text-xs text-gray-600 px-1">
+                      * TG-уведомления требуют привязки Telegram аккаунта выше.
+                    </p>
+                  )}
 
                   <div className="p-3 rounded-lg bg-brand-loss/5 border border-brand-loss/10">
                     <div className="flex items-start gap-2">
@@ -682,24 +979,44 @@ export function Settings() {
 
                   <Separator className="bg-white/5" />
 
-                  <Button
-                    onClick={handleSaveNotifPrefs}
-                    disabled={!notifPrefsChanged || savingNotifPrefs}
-                    className={`w-full min-h-[44px] transition-all duration-300 ${
-                      notifPrefsChanged
-                        ? 'bg-brand-premium text-brand-bg hover:bg-brand-premium/90 shadow-md shadow-brand-premium/20'
-                        : 'bg-white/[0.04] text-gray-500 border border-white/[0.06]'
-                    } disabled:opacity-40`}
-                  >
-                    {savingNotifPrefs ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Save className="mr-2 h-4 w-4" />
-                        Сохранить настройки
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleSaveNotifPrefs}
+                      disabled={!notifPrefsChanged || savingNotifPrefs}
+                      className={`flex-1 min-h-[44px] transition-all duration-300 ${
+                        notifPrefsChanged
+                          ? 'bg-brand-premium text-brand-bg hover:bg-brand-premium/90 shadow-md shadow-brand-premium/20'
+                          : 'bg-white/[0.04] text-gray-500 border border-white/[0.06]'
+                      } disabled:opacity-40`}
+                    >
+                      {savingNotifPrefs ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Web
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={handleSaveTgSettings}
+                      disabled={!tgSettingsChanged || savingTgSettings || !tgLink?.is_linked}
+                      className={`flex-1 min-h-[44px] transition-all duration-300 ${
+                        tgSettingsChanged && tgLink?.is_linked
+                          ? 'bg-[#26A5E4]/15 text-[#26A5E4] hover:bg-[#26A5E4]/25 border border-[#26A5E4]/30'
+                          : 'bg-white/[0.04] text-gray-500 border border-white/[0.06]'
+                      } disabled:opacity-40`}
+                    >
+                      {savingTgSettings ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          TG
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </>
               )}
             </CardContent>

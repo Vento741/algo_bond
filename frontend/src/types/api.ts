@@ -364,11 +364,13 @@ export type NotificationType =
   | 'order_filled' | 'order_cancelled' | 'order_error'
   | 'backtest_completed' | 'backtest_failed'
   | 'connection_lost' | 'connection_restored' | 'system_error'
-  | 'subscription_expiring' | 'payment_success' | 'payment_failed';
+  | 'subscription_expiring' | 'payment_success' | 'payment_failed'
+  | 'daily_pnl_report' | 'balance_changed' | 'margin_warning'
+  | 'new_login' | 'api_key_changed';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
 
-export type NotificationCategory = 'positions' | 'bots' | 'orders' | 'backtest' | 'system' | 'billing';
+export type NotificationCategory = 'positions' | 'bots' | 'orders' | 'backtest' | 'system' | 'billing' | 'finance' | 'security';
 
 export interface NotificationItem {
   id: string;
@@ -396,4 +398,28 @@ export interface NotificationPreferences {
   backtest_enabled: boolean;
   system_enabled: boolean;
   billing_enabled: boolean;
+}
+
+export interface TelegramLinkStatus {
+  is_linked: boolean;
+  telegram_username: string | null;
+  linked_at: string | null;
+  telegram_enabled: boolean;
+}
+
+export interface TelegramLinkCreate {
+  deep_link_url: string;
+  token: string;
+  expires_in_seconds: number;
+}
+
+export interface TelegramSettings {
+  telegram_enabled: boolean;
+  positions_telegram: boolean;
+  bots_telegram: boolean;
+  orders_telegram: boolean;
+  backtest_telegram: boolean;
+  system_telegram: boolean;
+  finance_telegram: boolean;
+  security_telegram: boolean;
 }
