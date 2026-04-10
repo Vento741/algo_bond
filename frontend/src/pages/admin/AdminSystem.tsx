@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, Fragment } from 'react';
+import { useEffect, useState, useCallback, Fragment } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -31,14 +31,14 @@ import {
   Pencil,
   Save,
   X as XIcon,
-} from 'lucide-react';
-import api from '@/lib/api';
-import { useAppStore } from '@/stores/app';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Select, type SelectOption } from '@/components/ui/select';
+} from "lucide-react";
+import api from "@/lib/api";
+import { useAppStore } from "@/stores/app";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Select, type SelectOption } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -49,7 +49,8 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
   AlertDialogCancel,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
+import SentinelSection from "./SentinelSection";
 
 // ---------------------------------------------------------------------------
 // Interfaces
@@ -170,42 +171,48 @@ function formatUptime(seconds: number): string {
   if (d > 0) parts.push(`${d}d`);
   if (h > 0 || d > 0) parts.push(`${h}h`);
   parts.push(`${m}m`);
-  return parts.join(' ');
+  return parts.join(" ");
 }
 
 function statusColor(status: string): string {
   switch (status.toLowerCase()) {
-    case 'healthy':
-    case 'ok':
-    case 'running':
-      return '#00E676';
-    case 'degraded':
-    case 'warning':
-      return '#FFD700';
-    case 'down':
-    case 'error':
-    case 'unhealthy':
-      return '#FF1744';
+    case "healthy":
+    case "ok":
+    case "running":
+      return "#00E676";
+    case "degraded":
+    case "warning":
+      return "#FFD700";
+    case "down":
+    case "error":
+    case "unhealthy":
+      return "#FF1744";
     default:
-      return '#6b7280';
+      return "#6b7280";
   }
 }
 
 function progressColor(percent: number): string {
-  if (percent < 60) return '#00E676';
-  if (percent < 80) return '#FFD700';
-  return '#FF1744';
+  if (percent < 60) return "#00E676";
+  if (percent < 80) return "#FFD700";
+  return "#FF1744";
 }
 
-type ModuleName = 'trading' | 'market' | 'backtest' | 'strategy' | 'auth' | 'other';
+type ModuleName =
+  | "trading"
+  | "market"
+  | "backtest"
+  | "strategy"
+  | "auth"
+  | "other";
 
 const MODULE_COLORS: Record<ModuleName, { bg: string; text: string }> = {
-  trading: { bg: 'bg-[#FF1744]/10', text: 'text-[#FF1744]' },
-  market: { bg: 'bg-[#FFD700]/10', text: 'text-[#FFD700]' },
-  backtest: { bg: 'bg-[#4488ff]/10', text: 'text-[#4488ff]' },
-  strategy: { bg: 'bg-purple-500/10', text: 'text-purple-400' },
-  auth: { bg: 'bg-gray-500/10', text: 'text-gray-400' },
-  other: { bg: 'bg-gray-500/10', text: 'text-gray-400' },
+  trading: { bg: "bg-[#FF1744]/10", text: "text-[#FF1744]" },
+  market: { bg: "bg-[#FFD700]/10", text: "text-[#FFD700]" },
+  backtest: { bg: "bg-[#4488ff]/10", text: "text-[#4488ff]" },
+  strategy: { bg: "bg-purple-500/10", text: "text-purple-400" },
+  auth: { bg: "bg-gray-500/10", text: "text-gray-400" },
+  other: { bg: "bg-gray-500/10", text: "text-gray-400" },
 };
 
 function getModuleColor(mod: string): { bg: string; text: string } {
@@ -214,23 +221,29 @@ function getModuleColor(mod: string): { bg: string; text: string } {
 }
 
 const MODULE_OPTIONS: SelectOption[] = [
-  { value: '', label: 'Все модули' },
-  { value: 'trading', label: 'Trading' },
-  { value: 'backtest', label: 'Backtest' },
-  { value: 'market', label: 'Market' },
-  { value: 'strategy', label: 'Strategy' },
-  { value: 'auth', label: 'Auth' },
-  { value: 'other', label: 'Other' },
+  { value: "", label: "Все модули" },
+  { value: "trading", label: "Trading" },
+  { value: "backtest", label: "Backtest" },
+  { value: "market", label: "Market" },
+  { value: "strategy", label: "Strategy" },
+  { value: "auth", label: "Auth" },
+  { value: "other", label: "Other" },
 ];
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function ProgressBar({ percent, className }: { percent: number; className?: string }) {
+function ProgressBar({
+  percent,
+  className,
+}: {
+  percent: number;
+  className?: string;
+}) {
   const color = progressColor(percent);
   return (
-    <div className={`h-1.5 rounded-full bg-white/5 mt-2 ${className ?? ''}`}>
+    <div className={`h-1.5 rounded-full bg-white/5 mt-2 ${className ?? ""}`}>
       <div
         className="h-full rounded-full transition-all duration-500"
         style={{ width: `${Math.min(percent, 100)}%`, backgroundColor: color }}
@@ -262,10 +275,11 @@ function MetricCard({
           <p className="text-lg font-bold font-data text-white mt-1">{value}</p>
           {sub && <p className="text-xs text-gray-500 mt-0.5">{sub}</p>}
         </div>
-        <div className={`flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg ${iconColor ? '' : 'bg-white/5'}`}
+        <div
+          className={`flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg ${iconColor ? "" : "bg-white/5"}`}
           style={iconColor ? { backgroundColor: `${iconColor}15` } : undefined}
         >
-          <Icon className="h-4 w-4" style={{ color: iconColor ?? '#9ca3af' }} />
+          <Icon className="h-4 w-4" style={{ color: iconColor ?? "#9ca3af" }} />
         </div>
       </div>
       {progress !== undefined && <ProgressBar percent={progress} />}
@@ -283,7 +297,7 @@ function CardSkeleton() {
 
 export function AdminSystem() {
   // State
-  const [activeTab, setActiveTab] = useState('redis');
+  const [activeTab, setActiveTab] = useState("redis");
   const [health, setHealth] = useState<HealthData | null>(null);
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [redis, setRedis] = useState<RedisData | null>(null);
@@ -293,7 +307,7 @@ export function AdminSystem() {
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [pnl, setPnl] = useState<PnlData | null>(null);
 
-  const [errorModule, setErrorModule] = useState('');
+  const [errorModule, setErrorModule] = useState("");
   const [expandedError, setExpandedError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [excludeDemo, setExcludeDemo] = useState(false);
@@ -302,7 +316,7 @@ export function AdminSystem() {
   const [reconciling, setReconciling] = useState(false);
   const [reconcileResult, setReconcileResult] = useState<string | null>(null);
   const [editingVersion, setEditingVersion] = useState(false);
-  const [versionDraft, setVersionDraft] = useState('');
+  const [versionDraft, setVersionDraft] = useState("");
   const [savingVersion, setSavingVersion] = useState(false);
   const fetchAppVersion = useAppStore((s) => s.fetchVersion);
 
@@ -310,7 +324,7 @@ export function AdminSystem() {
     if (!versionDraft.trim()) return;
     setSavingVersion(true);
     try {
-      await api.put('/admin/system/version', { version: versionDraft.trim() });
+      await api.put("/admin/system/version", { version: versionDraft.trim() });
       if (config) setConfig({ ...config, app_version: versionDraft.trim() });
       await fetchAppVersion();
       setEditingVersion(false);
@@ -324,7 +338,7 @@ export function AdminSystem() {
   // Fetch functions
   const fetchHealth = useCallback(async () => {
     try {
-      const { data } = await api.get<HealthData>('/admin/system/health');
+      const { data } = await api.get<HealthData>("/admin/system/health");
       setHealth(data);
     } catch {
       // silent
@@ -333,7 +347,7 @@ export function AdminSystem() {
 
   const fetchMetrics = useCallback(async () => {
     try {
-      const { data } = await api.get<MetricsData>('/admin/system/metrics');
+      const { data } = await api.get<MetricsData>("/admin/system/metrics");
       setMetrics(data);
     } catch {
       // silent
@@ -342,7 +356,7 @@ export function AdminSystem() {
 
   const fetchRedis = useCallback(async () => {
     try {
-      const { data } = await api.get<RedisData>('/admin/system/redis');
+      const { data } = await api.get<RedisData>("/admin/system/redis");
       setRedis(data);
     } catch {
       // silent
@@ -351,7 +365,7 @@ export function AdminSystem() {
 
   const fetchDb = useCallback(async () => {
     try {
-      const { data } = await api.get<DbData>('/admin/system/db');
+      const { data } = await api.get<DbData>("/admin/system/db");
       setDb(data);
     } catch {
       // silent
@@ -360,7 +374,7 @@ export function AdminSystem() {
 
   const fetchCelery = useCallback(async () => {
     try {
-      const { data } = await api.get<CeleryData>('/admin/system/celery');
+      const { data } = await api.get<CeleryData>("/admin/system/celery");
       setCelery(data);
     } catch {
       // silent
@@ -371,7 +385,9 @@ export function AdminSystem() {
     try {
       const params: Record<string, string | number> = { limit: 50, offset: 0 };
       if (errorModule) params.module = errorModule;
-      const { data } = await api.get<ErrorsData>('/admin/system/errors', { params });
+      const { data } = await api.get<ErrorsData>("/admin/system/errors", {
+        params,
+      });
       setErrors(data);
     } catch {
       // silent
@@ -380,7 +396,7 @@ export function AdminSystem() {
 
   const fetchConfig = useCallback(async () => {
     try {
-      const { data } = await api.get<ConfigData>('/admin/system/config');
+      const { data } = await api.get<ConfigData>("/admin/system/config");
       setConfig(data);
     } catch {
       // silent
@@ -389,7 +405,7 @@ export function AdminSystem() {
 
   const fetchPnl = useCallback(async () => {
     try {
-      const { data } = await api.get<PnlData>('/admin/system/platform-pnl', {
+      const { data } = await api.get<PnlData>("/admin/system/platform-pnl", {
         params: { exclude_demo: excludeDemo },
       });
       setPnl(data);
@@ -419,7 +435,7 @@ export function AdminSystem() {
   const flushRedis = useCallback(async () => {
     setFlushing(true);
     try {
-      await api.post('/admin/system/redis/flush');
+      await api.post("/admin/system/redis/flush");
       await fetchRedis();
     } finally {
       setFlushing(false);
@@ -431,11 +447,16 @@ export function AdminSystem() {
     setReconciling(true);
     setReconcileResult(null);
     try {
-      const { data } = await api.post<{ bots_checked: number; corrections: number }>('/admin/system/reconcile-all');
-      setReconcileResult(`Проверено: ${data.bots_checked}, исправлено: ${data.corrections}`);
+      const { data } = await api.post<{
+        bots_checked: number;
+        corrections: number;
+      }>("/admin/system/reconcile-all");
+      setReconcileResult(
+        `Проверено: ${data.bots_checked}, исправлено: ${data.corrections}`,
+      );
       await fetchPnl();
     } catch {
-      setReconcileResult('Ошибка при сверке');
+      setReconcileResult("Ошибка при сверке");
     } finally {
       setReconciling(false);
     }
@@ -443,7 +464,7 @@ export function AdminSystem() {
 
   // Copy error
   const copyError = useCallback((item: ErrorItem) => {
-    const text = `[${item.module}] ${item.message}${item.traceback ? `\n\n${item.traceback}` : ''}`;
+    const text = `[${item.module}] ${item.message}${item.traceback ? `\n\n${item.traceback}` : ""}`;
     navigator.clipboard.writeText(text).then(() => {
       setCopiedId(item.id);
       setTimeout(() => setCopiedId(null), 2000);
@@ -482,7 +503,7 @@ export function AdminSystem() {
 
   // 30 sec: errors (only when tab active)
   useEffect(() => {
-    if (activeTab === 'errors') {
+    if (activeTab === "errors") {
       fetchErrors();
       const id = setInterval(fetchErrors, 30000);
       return () => clearInterval(id);
@@ -491,34 +512,55 @@ export function AdminSystem() {
 
   // config: only on tab switch
   useEffect(() => {
-    if (activeTab === 'config') fetchConfig();
+    if (activeTab === "config") fetchConfig();
   }, [activeTab, fetchConfig]);
 
   // ---------------------------------------------------------------------------
   // Alert detection
   // ---------------------------------------------------------------------------
 
-  const alerts: { level: 'critical' | 'warning'; text: string }[] = [];
+  const alerts: { level: "critical" | "warning"; text: string }[] = [];
 
   if (metrics) {
-    if (metrics.cpu_percent > 90) alerts.push({ level: 'critical', text: `CPU ${metrics.cpu_percent.toFixed(0)}%` });
-    if (metrics.memory_percent > 80) alerts.push({ level: 'warning', text: `RAM ${metrics.memory_percent.toFixed(0)}%` });
-    if (metrics.disk_percent > 90) alerts.push({ level: 'critical', text: `Disk ${metrics.disk_percent.toFixed(0)}%` });
+    if (metrics.cpu_percent > 90)
+      alerts.push({
+        level: "critical",
+        text: `CPU ${metrics.cpu_percent.toFixed(0)}%`,
+      });
+    if (metrics.memory_percent > 80)
+      alerts.push({
+        level: "warning",
+        text: `RAM ${metrics.memory_percent.toFixed(0)}%`,
+      });
+    if (metrics.disk_percent > 90)
+      alerts.push({
+        level: "critical",
+        text: `Disk ${metrics.disk_percent.toFixed(0)}%`,
+      });
   }
 
   if (health) {
     for (const svc of health.services) {
-      if (svc.status.toLowerCase() === 'down' || svc.status.toLowerCase() === 'error') {
-        alerts.push({ level: 'critical', text: `${svc.name} не доступен` });
+      if (
+        svc.status.toLowerCase() === "down" ||
+        svc.status.toLowerCase() === "error"
+      ) {
+        alerts.push({ level: "critical", text: `${svc.name} не доступен` });
       }
-      if (svc.name.toLowerCase().includes('bybit') && svc.latency_ms > 500) {
-        alerts.push({ level: 'warning', text: `Bybit задержка ${svc.latency_ms}ms` });
+      if (svc.name.toLowerCase().includes("bybit") && svc.latency_ms > 500) {
+        alerts.push({
+          level: "warning",
+          text: `Bybit задержка ${svc.latency_ms}ms`,
+        });
       }
     }
   }
 
   if (redis && redis.hit_rate_percent < 50) {
-    alerts.push({ level: 'warning', text: `Redis hit rate ${redis.hit_rate_percent.toFixed(0)}%` });
+    alerts.push({
+      level: "warning",
+      text: `Redis hit rate ${redis.hit_rate_percent.toFixed(0)}%`,
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -557,8 +599,12 @@ export function AdminSystem() {
                   className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: statusColor(svc.status) }}
                 />
-                <span className="text-gray-300 whitespace-nowrap">{svc.name}</span>
-                <span className="font-data text-gray-500">{svc.latency_ms}ms</span>
+                <span className="text-gray-300 whitespace-nowrap">
+                  {svc.name}
+                </span>
+                <span className="font-data text-gray-500">
+                  {svc.latency_ms}ms
+                </span>
               </div>
             ))
           ) : (
@@ -575,7 +621,7 @@ export function AdminSystem() {
           <Clock className="h-3.5 w-3.5" />
           <span>Uptime:</span>
           <span className="font-data text-white">
-            {health ? formatUptime(health.uptime_seconds) : '--'}
+            {health ? formatUptime(health.uptime_seconds) : "--"}
           </span>
         </div>
       </div>
@@ -584,15 +630,17 @@ export function AdminSystem() {
       {alerts.length > 0 && (
         <div
           className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${
-            alerts.some((a) => a.level === 'critical')
-              ? 'border-[#FF1744]/30 bg-[#FF1744]/5'
-              : 'border-[#FFD700]/30 bg-[#FFD700]/5'
+            alerts.some((a) => a.level === "critical")
+              ? "border-[#FF1744]/30 bg-[#FF1744]/5"
+              : "border-[#FFD700]/30 bg-[#FFD700]/5"
           }`}
         >
           <AlertTriangle
             className="h-4 w-4 flex-shrink-0"
             style={{
-              color: alerts.some((a) => a.level === 'critical') ? '#FF1744' : '#FFD700',
+              color: alerts.some((a) => a.level === "critical")
+                ? "#FF1744"
+                : "#FFD700",
             }}
           />
           <div className="flex flex-wrap items-center gap-2">
@@ -601,8 +649,9 @@ export function AdminSystem() {
                 key={i}
                 className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium"
                 style={{
-                  backgroundColor: a.level === 'critical' ? '#FF174415' : '#FFD70015',
-                  color: a.level === 'critical' ? '#FF1744' : '#FFD700',
+                  backgroundColor:
+                    a.level === "critical" ? "#FF174415" : "#FFD70015",
+                  color: a.level === "critical" ? "#FF1744" : "#FFD700",
                 }}
               >
                 {a.text}
@@ -644,6 +693,10 @@ export function AdminSystem() {
             <Settings className="h-3.5 w-3.5 mr-1" />
             Конфиг
           </TabsTrigger>
+          <TabsTrigger value="sentinel">
+            <Bot className="h-3.5 w-3.5 mr-1" />
+            Sentinel
+          </TabsTrigger>
         </TabsList>
 
         {/* ---- TAB: Redis ---- */}
@@ -655,15 +708,23 @@ export function AdminSystem() {
                   <MetricCard
                     title="Использовано памяти"
                     value={`${redis.used_memory_mb.toFixed(1)} MB`}
-                    sub={`Пик: ${redis.peak_memory_mb.toFixed(1)} MB / Макс: ${redis.max_memory_mb > 0 ? `${redis.max_memory_mb.toFixed(0)} MB` : 'Не ограничено'}`}
+                    sub={`Пик: ${redis.peak_memory_mb.toFixed(1)} MB / Макс: ${redis.max_memory_mb > 0 ? `${redis.max_memory_mb.toFixed(0)} MB` : "Не ограничено"}`}
                     icon={MemoryStick}
                     iconColor="#4488ff"
-                    progress={redis.max_memory_mb > 0 ? (redis.used_memory_mb / redis.max_memory_mb) * 100 : undefined}
+                    progress={
+                      redis.max_memory_mb > 0
+                        ? (redis.used_memory_mb / redis.max_memory_mb) * 100
+                        : undefined
+                    }
                   />
                   <MetricCard
                     title="Всего ключей"
                     value={redis.total_keys.toLocaleString()}
-                    sub={Object.entries(redis.keys_by_db).map(([k, v]) => `${k}: ${v}`).join(', ') || 'Нет данных'}
+                    sub={
+                      Object.entries(redis.keys_by_db)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(", ") || "Нет данных"
+                    }
                     icon={Database}
                     iconColor="#FFD700"
                   />
@@ -672,7 +733,13 @@ export function AdminSystem() {
                     value={`${redis.hit_rate_percent.toFixed(1)}%`}
                     sub={`${redis.hits.toLocaleString()} hits / ${redis.misses.toLocaleString()} misses`}
                     icon={Activity}
-                    iconColor={redis.hit_rate_percent >= 80 ? '#00E676' : redis.hit_rate_percent >= 50 ? '#FFD700' : '#FF1744'}
+                    iconColor={
+                      redis.hit_rate_percent >= 80
+                        ? "#00E676"
+                        : redis.hit_rate_percent >= 50
+                          ? "#FFD700"
+                          : "#FF1744"
+                    }
                     progress={redis.hit_rate_percent}
                   />
                   <MetricCard
@@ -689,7 +756,9 @@ export function AdminSystem() {
                   />
                 </>
               ) : (
-                Array.from({ length: 5 }).map((_, i) => <CardSkeleton key={i} />)
+                Array.from({ length: 5 }).map((_, i) => (
+                  <CardSkeleton key={i} />
+                ))
               )}
             </div>
 
@@ -697,7 +766,11 @@ export function AdminSystem() {
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" size="sm" disabled={flushing}>
-                    {flushing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                    {flushing ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Trash2 className="h-4 w-4 mr-2" />
+                    )}
                     Очистить кеш
                   </Button>
                 </AlertDialogTrigger>
@@ -705,12 +778,15 @@ export function AdminSystem() {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Очистить Redis кеш?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Все кешированные данные будут удалены. Это может временно замедлить работу платформы.
+                      Все кешированные данные будут удалены. Это может временно
+                      замедлить работу платформы.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Отмена</AlertDialogCancel>
-                    <AlertDialogAction onClick={flushRedis}>Очистить</AlertDialogAction>
+                    <AlertDialogAction onClick={flushRedis}>
+                      Очистить
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
@@ -729,7 +805,9 @@ export function AdminSystem() {
                     value={`${db.active_connections} / ${db.max_connections}`}
                     icon={Network}
                     iconColor="#4488ff"
-                    progress={(db.active_connections / db.max_connections) * 100}
+                    progress={
+                      (db.active_connections / db.max_connections) * 100
+                    }
                   />
                   <MetricCard
                     title="Размер БД"
@@ -756,17 +834,28 @@ export function AdminSystem() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-white/5">
-                        <th className="text-left text-gray-400 font-medium px-4 py-2">Таблица</th>
-                        <th className="text-right text-gray-400 font-medium px-4 py-2">Строк</th>
-                        <th className="text-right text-gray-400 font-medium px-4 py-2">Размер</th>
+                        <th className="text-left text-gray-400 font-medium px-4 py-2">
+                          Таблица
+                        </th>
+                        <th className="text-right text-gray-400 font-medium px-4 py-2">
+                          Строк
+                        </th>
+                        <th className="text-right text-gray-400 font-medium px-4 py-2">
+                          Размер
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {[...db.tables]
                         .sort((a, b) => b.size_mb - a.size_mb)
                         .map((t) => (
-                          <tr key={t.name} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
-                            <td className="px-4 py-2 text-gray-300">{t.name}</td>
+                          <tr
+                            key={t.name}
+                            className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]"
+                          >
+                            <td className="px-4 py-2 text-gray-300">
+                              {t.name}
+                            </td>
                             <td className="px-4 py-2 text-right font-data text-gray-300">
                               {t.row_count.toLocaleString()}
                             </td>
@@ -798,7 +887,7 @@ export function AdminSystem() {
                   <MetricCard
                     title="Воркеры"
                     value={celery.workers.length}
-                    sub={`${celery.workers.filter((w) => w.status === 'online').length} онлайн`}
+                    sub={`${celery.workers.filter((w) => w.status === "online").length} онлайн`}
                     icon={Cpu}
                     iconColor="#00E676"
                   />
@@ -807,7 +896,9 @@ export function AdminSystem() {
                     value={celery.queue_length}
                     sub={`Активных: ${celery.active_tasks}`}
                     icon={ListChecks}
-                    iconColor={celery.queue_length > 100 ? '#FF1744' : '#FFD700'}
+                    iconColor={
+                      celery.queue_length > 100 ? "#FF1744" : "#FFD700"
+                    }
                   />
                   <MetricCard
                     title="Активные боты"
@@ -819,15 +910,19 @@ export function AdminSystem() {
                     title="Beat последний запуск"
                     value={
                       celery.beat_last_run
-                        ? new Date(celery.beat_last_run).toLocaleTimeString('ru-RU')
-                        : 'Нет данных'
+                        ? new Date(celery.beat_last_run).toLocaleTimeString(
+                            "ru-RU",
+                          )
+                        : "Нет данных"
                     }
                     icon={Timer}
                     iconColor="#FFD700"
                   />
                 </>
               ) : (
-                Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)
+                Array.from({ length: 4 }).map((_, i) => (
+                  <CardSkeleton key={i} />
+                ))
               )}
             </div>
 
@@ -841,16 +936,29 @@ export function AdminSystem() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-white/5">
-                        <th className="text-left text-gray-400 font-medium px-4 py-2">Имя</th>
-                        <th className="text-left text-gray-400 font-medium px-4 py-2">Статус</th>
-                        <th className="text-right text-gray-400 font-medium px-4 py-2">Активных</th>
-                        <th className="text-right text-gray-400 font-medium px-4 py-2">Обработано</th>
+                        <th className="text-left text-gray-400 font-medium px-4 py-2">
+                          Имя
+                        </th>
+                        <th className="text-left text-gray-400 font-medium px-4 py-2">
+                          Статус
+                        </th>
+                        <th className="text-right text-gray-400 font-medium px-4 py-2">
+                          Активных
+                        </th>
+                        <th className="text-right text-gray-400 font-medium px-4 py-2">
+                          Обработано
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {celery.workers.map((w) => (
-                        <tr key={w.name} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
-                          <td className="px-4 py-2 text-gray-300 font-data text-xs">{w.name}</td>
+                        <tr
+                          key={w.name}
+                          className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]"
+                        >
+                          <td className="px-4 py-2 text-gray-300 font-data text-xs">
+                            {w.name}
+                          </td>
                           <td className="px-4 py-2">
                             <span
                               className="inline-flex items-center gap-1 text-xs"
@@ -858,13 +966,19 @@ export function AdminSystem() {
                             >
                               <span
                                 className="w-1.5 h-1.5 rounded-full"
-                                style={{ backgroundColor: statusColor(w.status) }}
+                                style={{
+                                  backgroundColor: statusColor(w.status),
+                                }}
                               />
                               {w.status}
                             </span>
                           </td>
-                          <td className="px-4 py-2 text-right font-data text-gray-300">{w.active_tasks}</td>
-                          <td className="px-4 py-2 text-right font-data text-gray-300">{w.processed.toLocaleString()}</td>
+                          <td className="px-4 py-2 text-right font-data text-gray-300">
+                            {w.active_tasks}
+                          </td>
+                          <td className="px-4 py-2 text-right font-data text-gray-300">
+                            {w.processed.toLocaleString()}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -906,20 +1020,28 @@ export function AdminSystem() {
                   />
                   <MetricCard
                     title="Load Average"
-                    value={(metrics.load_average || []).map((v) => v.toFixed(2)).join(' / ') || 'N/A'}
+                    value={
+                      (metrics.load_average || [])
+                        .map((v) => v.toFixed(2))
+                        .join(" / ") || "N/A"
+                    }
                     sub="1m / 5m / 15m"
                     icon={Activity}
                     iconColor="#4488ff"
                   />
                 </>
               ) : (
-                Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)
+                Array.from({ length: 4 }).map((_, i) => (
+                  <CardSkeleton key={i} />
+                ))
               )}
             </div>
 
             {/* Network latencies */}
             <div>
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Сетевые задержки</h3>
+              <h3 className="text-sm font-medium text-gray-400 mb-2">
+                Сетевые задержки
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {health ? (
                   <>
@@ -934,7 +1056,9 @@ export function AdminSystem() {
                     ))}
                   </>
                 ) : (
-                  Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <CardSkeleton key={i} />
+                  ))
                 )}
               </div>
             </div>
@@ -967,9 +1091,15 @@ export function AdminSystem() {
                       <thead>
                         <tr className="border-b border-white/5">
                           <th className="w-8 px-2 py-2" />
-                          <th className="text-left text-gray-400 font-medium px-4 py-2 whitespace-nowrap">Время</th>
-                          <th className="text-left text-gray-400 font-medium px-4 py-2">Модуль</th>
-                          <th className="text-left text-gray-400 font-medium px-4 py-2">Сообщение</th>
+                          <th className="text-left text-gray-400 font-medium px-4 py-2 whitespace-nowrap">
+                            Время
+                          </th>
+                          <th className="text-left text-gray-400 font-medium px-4 py-2">
+                            Модуль
+                          </th>
+                          <th className="text-left text-gray-400 font-medium px-4 py-2">
+                            Сообщение
+                          </th>
                           <th className="w-10 px-2 py-2" />
                         </tr>
                       </thead>
@@ -981,7 +1111,9 @@ export function AdminSystem() {
                             <Fragment key={item.id}>
                               <tr
                                 className="border-b border-white/5 hover:bg-white/[0.02] cursor-pointer"
-                                onClick={() => setExpandedError(isExpanded ? null : item.id)}
+                                onClick={() =>
+                                  setExpandedError(isExpanded ? null : item.id)
+                                }
                               >
                                 <td className="px-2 py-2 text-gray-500">
                                   {isExpanded ? (
@@ -991,10 +1123,14 @@ export function AdminSystem() {
                                   )}
                                 </td>
                                 <td className="px-4 py-2 font-data text-xs text-gray-400 whitespace-nowrap">
-                                  {new Date(item.timestamp).toLocaleTimeString('ru-RU')}
+                                  {new Date(item.timestamp).toLocaleTimeString(
+                                    "ru-RU",
+                                  )}
                                 </td>
                                 <td className="px-4 py-2">
-                                  <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${mc.bg} ${mc.text}`}>
+                                  <span
+                                    className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${mc.bg} ${mc.text}`}
+                                  >
                                     {item.module}
                                   </span>
                                 </td>
@@ -1026,12 +1162,18 @@ export function AdminSystem() {
                                     </pre>
                                     {item.bot_id && (
                                       <p className="text-xs text-gray-500 mt-2">
-                                        Bot ID: <span className="font-data">{item.bot_id}</span>
+                                        Bot ID:{" "}
+                                        <span className="font-data">
+                                          {item.bot_id}
+                                        </span>
                                       </p>
                                     )}
                                     {item.user_email && (
                                       <p className="text-xs text-gray-500 mt-1">
-                                        Email: <span className="font-data">{item.user_email}</span>
+                                        Email:{" "}
+                                        <span className="font-data">
+                                          {item.user_email}
+                                        </span>
                                       </p>
                                     )}
                                   </td>
@@ -1060,7 +1202,8 @@ export function AdminSystem() {
 
             {errors && errors.total > 0 && (
               <p className="text-xs text-gray-500 text-right">
-                Показано {errors.items.length} из <span className="font-data">{errors.total}</span>
+                Показано {errors.items.length} из{" "}
+                <span className="font-data">{errors.total}</span>
               </p>
             )}
           </div>
@@ -1073,16 +1216,25 @@ export function AdminSystem() {
               {/* Env vars */}
               <div className="rounded-xl border border-white/5 bg-[#1a1a2e] overflow-hidden">
                 <div className="px-4 py-3 border-b border-white/5">
-                  <h3 className="text-sm font-medium text-white">Переменные окружения</h3>
+                  <h3 className="text-sm font-medium text-white">
+                    Переменные окружения
+                  </h3>
                 </div>
                 {config ? (
                   <div className="overflow-x-auto max-h-80 overflow-y-auto">
                     <table className="w-full text-sm">
                       <tbody>
                         {Object.entries(config.env_vars).map(([key, val]) => (
-                          <tr key={key} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
-                            <td className="px-4 py-1.5 text-gray-400 font-data text-xs whitespace-nowrap">{key}</td>
-                            <td className="px-4 py-1.5 text-gray-300 font-data text-xs break-all">{val}</td>
+                          <tr
+                            key={key}
+                            className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]"
+                          >
+                            <td className="px-4 py-1.5 text-gray-400 font-data text-xs whitespace-nowrap">
+                              {key}
+                            </td>
+                            <td className="px-4 py-1.5 text-gray-300 font-data text-xs break-all">
+                              {val}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1104,14 +1256,22 @@ export function AdminSystem() {
                     <div className="rounded-xl border border-white/5 bg-[#1a1a2e] p-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs text-gray-400">Версия приложения</p>
+                          <p className="text-xs text-gray-400">
+                            Версия приложения
+                          </p>
                           {editingVersion ? (
                             <div className="flex items-center gap-2 mt-1">
                               <input
                                 className="w-24 bg-white/5 border border-white/10 rounded px-2 py-1 text-sm font-data text-white focus:outline-none focus:border-brand-premium"
                                 value={versionDraft}
-                                onChange={(e) => setVersionDraft(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') saveVersion(); if (e.key === 'Escape') setEditingVersion(false); }}
+                                onChange={(e) =>
+                                  setVersionDraft(e.target.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveVersion();
+                                  if (e.key === "Escape")
+                                    setEditingVersion(false);
+                                }}
                                 autoFocus
                                 placeholder="0.0.0"
                               />
@@ -1131,9 +1291,14 @@ export function AdminSystem() {
                             </div>
                           ) : (
                             <div className="flex items-center gap-2 mt-1">
-                              <p className="text-lg font-bold font-data text-white">{config.app_version}</p>
+                              <p className="text-lg font-bold font-data text-white">
+                                {config.app_version}
+                              </p>
                               <button
-                                onClick={() => { setVersionDraft(config.app_version); setEditingVersion(true); }}
+                                onClick={() => {
+                                  setVersionDraft(config.app_version);
+                                  setEditingVersion(true);
+                                }}
                                 className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors"
                               >
                                 <Pencil className="h-3 w-3" />
@@ -1141,8 +1306,14 @@ export function AdminSystem() {
                             </div>
                           )}
                         </div>
-                        <div className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg" style={{ backgroundColor: '#FFD70015' }}>
-                          <Settings className="h-4 w-4" style={{ color: '#FFD700' }} />
+                        <div
+                          className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg"
+                          style={{ backgroundColor: "#FFD70015" }}
+                        >
+                          <Settings
+                            className="h-4 w-4"
+                            style={{ color: "#FFD700" }}
+                          />
                         </div>
                       </div>
                     </div>
@@ -1171,48 +1342,69 @@ export function AdminSystem() {
             </div>
 
             {/* Docker containers */}
-            {config && config.docker_containers && config.docker_containers.length > 0 && (
-              <div className="rounded-xl border border-white/5 bg-[#1a1a2e] overflow-hidden">
-                <div className="px-4 py-3 border-b border-white/5">
-                  <h3 className="text-sm font-medium text-white">Docker контейнеры</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-white/5">
-                        <th className="text-left text-gray-400 font-medium px-4 py-2">Контейнер</th>
-                        <th className="text-left text-gray-400 font-medium px-4 py-2">Статус</th>
-                        <th className="text-left text-gray-400 font-medium px-4 py-2">Uptime</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {config.docker_containers.map((c) => (
-                        <tr key={c.name} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
-                          <td className="px-4 py-2 text-gray-300 flex items-center gap-2">
-                            <Container className="h-3.5 w-3.5 text-gray-500" />
-                            {c.name}
-                          </td>
-                          <td className="px-4 py-2">
-                            <span
-                              className="inline-flex items-center gap-1 text-xs"
-                              style={{ color: statusColor(c.status) }}
-                            >
-                              <span
-                                className="w-1.5 h-1.5 rounded-full"
-                                style={{ backgroundColor: statusColor(c.status) }}
-                              />
-                              {c.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2 text-gray-400 font-data text-xs">{c.uptime}</td>
+            {config &&
+              config.docker_containers &&
+              config.docker_containers.length > 0 && (
+                <div className="rounded-xl border border-white/5 bg-[#1a1a2e] overflow-hidden">
+                  <div className="px-4 py-3 border-b border-white/5">
+                    <h3 className="text-sm font-medium text-white">
+                      Docker контейнеры
+                    </h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/5">
+                          <th className="text-left text-gray-400 font-medium px-4 py-2">
+                            Контейнер
+                          </th>
+                          <th className="text-left text-gray-400 font-medium px-4 py-2">
+                            Статус
+                          </th>
+                          <th className="text-left text-gray-400 font-medium px-4 py-2">
+                            Uptime
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {config.docker_containers.map((c) => (
+                          <tr
+                            key={c.name}
+                            className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]"
+                          >
+                            <td className="px-4 py-2 text-gray-300 flex items-center gap-2">
+                              <Container className="h-3.5 w-3.5 text-gray-500" />
+                              {c.name}
+                            </td>
+                            <td className="px-4 py-2">
+                              <span
+                                className="inline-flex items-center gap-1 text-xs"
+                                style={{ color: statusColor(c.status) }}
+                              >
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full"
+                                  style={{
+                                    backgroundColor: statusColor(c.status),
+                                  }}
+                                />
+                                {c.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-gray-400 font-data text-xs">
+                              {c.uptime}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="sentinel">
+          <SentinelSection />
         </TabsContent>
       </Tabs>
 
@@ -1244,9 +1436,12 @@ export function AdminSystem() {
                 <p className="text-xs text-gray-400">Общий P&L</p>
                 <p
                   className="text-2xl font-bold font-data"
-                  style={{ color: Number(pnl.total_pnl) >= 0 ? '#00E676' : '#FF1744' }}
+                  style={{
+                    color: Number(pnl.total_pnl) >= 0 ? "#00E676" : "#FF1744",
+                  }}
                 >
-                  {Number(pnl.total_pnl) >= 0 ? '+' : ''}${Number(pnl.total_pnl).toFixed(2)}
+                  {Number(pnl.total_pnl) >= 0 ? "+" : ""}$
+                  {Number(pnl.total_pnl).toFixed(2)}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -1254,24 +1449,40 @@ export function AdminSystem() {
                   <p className="text-xs text-gray-400">Live P&L</p>
                   <p
                     className="text-lg font-bold font-data"
-                    style={{ color: Number(pnl.live_pnl) >= 0 ? '#00E676' : '#FF1744' }}
+                    style={{
+                      color: Number(pnl.live_pnl) >= 0 ? "#00E676" : "#FF1744",
+                    }}
                   >
-                    {Number(pnl.live_pnl) >= 0 ? '+' : ''}${Number(pnl.live_pnl).toFixed(2)}
+                    {Number(pnl.live_pnl) >= 0 ? "+" : ""}$
+                    {Number(pnl.live_pnl).toFixed(2)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-400">Demo P&L</p>
                   <p
                     className="text-lg font-bold font-data"
-                    style={{ color: Number(pnl.demo_pnl) >= 0 ? '#00E676' : '#FF1744' }}
+                    style={{
+                      color: Number(pnl.demo_pnl) >= 0 ? "#00E676" : "#FF1744",
+                    }}
                   >
-                    {Number(pnl.demo_pnl) >= 0 ? '+' : ''}${Number(pnl.demo_pnl).toFixed(2)}
+                    {Number(pnl.demo_pnl) >= 0 ? "+" : ""}$
+                    {Number(pnl.demo_pnl).toFixed(2)}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3 text-xs text-gray-500">
-                <span>Всего ботов: <span className="font-data text-gray-300">{pnl.total_bots}</span></span>
-                <span>Активных: <span className="font-data text-gray-300">{pnl.active_bots}</span></span>
+                <span>
+                  Всего ботов:{" "}
+                  <span className="font-data text-gray-300">
+                    {pnl.total_bots}
+                  </span>
+                </span>
+                <span>
+                  Активных:{" "}
+                  <span className="font-data text-gray-300">
+                    {pnl.active_bots}
+                  </span>
+                </span>
               </div>
             </div>
           ) : (
@@ -1293,13 +1504,16 @@ export function AdminSystem() {
               Сверка P&L
             </h3>
             <p className="text-xs text-gray-400 mb-4">
-              Сравнение P&L всех ботов с данными Bybit и исправление расхождений.
+              Сравнение P&L всех ботов с данными Bybit и исправление
+              расхождений.
             </p>
           </div>
 
           <div className="space-y-3">
             {reconcileResult && (
-              <Badge variant={reconcileResult.includes('Ошибка') ? 'loss' : 'profit'}>
+              <Badge
+                variant={reconcileResult.includes("Ошибка") ? "loss" : "profit"}
+              >
                 {reconcileResult}
               </Badge>
             )}
@@ -1322,15 +1536,19 @@ export function AdminSystem() {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Запустить сверку всех ботов?</AlertDialogTitle>
+                  <AlertDialogTitle>
+                    Запустить сверку всех ботов?
+                  </AlertDialogTitle>
                   <AlertDialogDescription>
-                    Будет выполнено сравнение P&L каждого бота с данными Bybit API.
-                    Расхождения будут исправлены автоматически.
+                    Будет выполнено сравнение P&L каждого бота с данными Bybit
+                    API. Расхождения будут исправлены автоматически.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Отмена</AlertDialogCancel>
-                  <AlertDialogAction onClick={reconcileAll}>Запустить</AlertDialogAction>
+                  <AlertDialogAction onClick={reconcileAll}>
+                    Запустить
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
