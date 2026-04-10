@@ -82,12 +82,12 @@ export function Dashboard() {
   const botsWithTrades = liveBots.filter((b) => b.total_trades > 0);
   const avgWinRate =
     botsWithTrades.length > 0
-      ? botsWithTrades.reduce((sum, b) => sum + b.win_rate, 0) / botsWithTrades.length
+      ? botsWithTrades.reduce((sum, b) => sum + Number(b.win_rate), 0) / botsWithTrades.length
       : 0;
 
   // Max drawdown: максимальный из всех live ботов
   const maxDrawdown =
-    liveBots.length > 0 ? Math.max(...liveBots.map((b) => Math.abs(b.max_drawdown))) : 0;
+    liveBots.length > 0 ? Math.max(...liveBots.map((b) => Math.abs(Number(b.max_drawdown)))) : 0;
 
   return (
     <div className="space-y-6">
@@ -273,7 +273,7 @@ export function Dashboard() {
                             {formatPnl(botPnl)}
                           </p>
                           <p className="text-[10px] text-gray-600 font-data">
-                            WR {formatPercent(bot.win_rate)}
+                            WR {formatPercent(Number(bot.win_rate))}
                           </p>
                         </div>
                       </Link>
@@ -440,7 +440,7 @@ export function Dashboard() {
                 value={
                   loadingBots
                     ? '---'
-                    : `+$${Math.max(0, ...liveBots.map((b) => b.max_pnl)).toFixed(2)}`
+                    : `+$${Math.max(0, ...liveBots.map((b) => Number(b.max_pnl))).toFixed(2)}`
                 }
                 color="text-brand-profit"
                 loading={loadingBots}
