@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   Brain,
   ArrowLeft,
@@ -19,29 +19,30 @@ import {
   Upload,
   Play,
   CopyPlus,
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
-import { SymbolSearch } from '@/components/ui/symbol-search';
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SymbolSearch } from "@/components/ui/symbol-search";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { useToast } from '@/components/ui/toast';
-import { useAuthStore } from '@/stores/auth';
-import api from '@/lib/api';
+} from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
+import { useAuthStore } from "@/stores/auth";
+import api from "@/lib/api";
 import type {
   StrategyDetail as StrategyDetailType,
   StrategyConfig,
   StrategyConfigCreate,
   StrategyConfigUpdate,
-} from '@/types/api';
+} from "@/types/api";
 
 /* ================================================================
    Типы конфигурации стратегии
@@ -149,7 +150,7 @@ const DEFAULT_CONFIG: FullStrategyConfig = {
   },
   ribbon: {
     use: true,
-    type: 'EMA',
+    type: "EMA",
     mas: [9, 14, 21, 35, 55, 89, 144, 233],
     threshold: 4,
   },
@@ -192,28 +193,27 @@ const DEFAULT_CONFIG: FullStrategyConfig = {
   live: {
     order_size: 30,
     leverage: 1,
-    on_reverse: 'ignore',
+    on_reverse: "ignore",
   },
 };
 
-
 const TIMEFRAMES = [
-  { value: '1', label: '1m' },
-  { value: '5', label: '5m' },
-  { value: '15', label: '15m' },
-  { value: '60', label: '1h' },
-  { value: '240', label: '4h' },
+  { value: "1", label: "1m" },
+  { value: "5", label: "5m" },
+  { value: "15", label: "15m" },
+  { value: "60", label: "1h" },
+  { value: "240", label: "4h" },
 ];
 
 const RIBBON_TYPES = [
-  { value: 'EMA', label: 'EMA' },
-  { value: 'SMA', label: 'SMA' },
+  { value: "EMA", label: "EMA" },
+  { value: "SMA", label: "SMA" },
 ];
 
 const ON_REVERSE_OPTIONS = [
-  { value: 'ignore', label: 'Игнорировать (текущее поведение)' },
-  { value: 'close', label: 'Закрыть позицию' },
-  { value: 'reverse', label: 'Развернуть позицию' },
+  { value: "ignore", label: "Игнорировать (текущее поведение)" },
+  { value: "close", label: "Закрыть позицию" },
+  { value: "reverse", label: "Развернуть позицию" },
 ];
 
 /* ================================================================
@@ -225,10 +225,19 @@ function mergeConfig(
   source: Record<string, unknown>,
 ): FullStrategyConfig {
   const result = structuredClone(defaults);
-  for (const sectionKey of Object.keys(defaults) as (keyof FullStrategyConfig)[]) {
+  for (const sectionKey of Object.keys(
+    defaults,
+  ) as (keyof FullStrategyConfig)[]) {
     const srcSection = source[sectionKey];
-    if (srcSection && typeof srcSection === 'object' && !Array.isArray(srcSection)) {
-      const defaultSection = result[sectionKey] as unknown as Record<string, unknown>;
+    if (
+      srcSection &&
+      typeof srcSection === "object" &&
+      !Array.isArray(srcSection)
+    ) {
+      const defaultSection = result[sectionKey] as unknown as Record<
+        string,
+        unknown
+      >;
       const sourceSection = srcSection as Record<string, unknown>;
       for (const key of Object.keys(defaultSection)) {
         if (key in sourceSection) {
@@ -268,7 +277,9 @@ function CollapsibleSection({
       >
         <div>
           <span className="text-sm font-medium text-white">{title}</span>
-          <span className="block text-xs text-gray-400 mt-0.5">{description}</span>
+          <span className="block text-xs text-gray-400 mt-0.5">
+            {description}
+          </span>
         </div>
         {open ? (
           <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" />
@@ -347,14 +358,14 @@ function ToggleField({ label, value, onChange }: ToggleFieldProps) {
         className={`
           relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full
           border border-white/10 transition-colors
-          ${value ? 'bg-brand-profit/30' : 'bg-white/5'}
+          ${value ? "bg-brand-profit/30" : "bg-white/5"}
         `}
       >
         <span
           className={`
             pointer-events-none inline-block h-4 w-4 rounded-full
             shadow-sm transition-transform
-            ${value ? 'translate-x-4 bg-brand-profit' : 'translate-x-0 bg-gray-500'}
+            ${value ? "translate-x-4 bg-brand-profit" : "translate-x-0 bg-gray-500"}
           `}
         />
       </button>
@@ -423,9 +434,9 @@ function ConfigEditorDialog({
   const [saving, setSaving] = useState(false);
 
   // Основные поля
-  const [name, setName] = useState('');
-  const [symbol, setSymbol] = useState('RIVERUSDT');
-  const [timeframe, setTimeframe] = useState('5');
+  const [name, setName] = useState("");
+  const [symbol, setSymbol] = useState("RIVERUSDT");
+  const [timeframe, setTimeframe] = useState("5");
 
   // Секции конфига
   const [config, setConfig] = useState<FullStrategyConfig>(DEFAULT_CONFIG);
@@ -439,9 +450,9 @@ function ConfigEditorDialog({
       setTimeframe(editingConfig.timeframe);
       setConfig(mergeConfig(DEFAULT_CONFIG, editingConfig.config));
     } else {
-      setName('');
-      setSymbol('RIVERUSDT');
-      setTimeframe('5');
+      setName("");
+      setSymbol("RIVERUSDT");
+      setTimeframe("5");
       setConfig(mergeConfig(DEFAULT_CONFIG, defaultConfig));
     }
   }, [open, editingConfig, defaultConfig]);
@@ -476,24 +487,30 @@ function ConfigEditorDialog({
       timeframe,
       config: config as unknown as Record<string, unknown>,
     };
-    const { data } = await api.post<StrategyConfig>('/strategies/configs', payload);
+    const { data } = await api.post<StrategyConfig>(
+      "/strategies/configs",
+      payload,
+    );
     return data.id;
   };
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      toast('Введите название конфигурации', 'error');
+      toast("Введите название конфигурации", "error");
       return;
     }
 
     setSaving(true);
     try {
       await saveConfig();
-      toast(editingConfig ? 'Конфигурация обновлена' : 'Конфигурация создана', 'success');
+      toast(
+        editingConfig ? "Конфигурация обновлена" : "Конфигурация создана",
+        "success",
+      );
       onSaved();
       onClose();
     } catch {
-      toast('Ошибка сохранения конфигурации', 'error');
+      toast("Ошибка сохранения конфигурации", "error");
     } finally {
       setSaving(false);
     }
@@ -503,9 +520,9 @@ function ConfigEditorDialog({
     const fullConfig = { name, symbol, timeframe, config };
     try {
       await navigator.clipboard.writeText(JSON.stringify(fullConfig, null, 2));
-      toast('JSON скопирован в буфер обмена', 'success');
+      toast("JSON скопирован в буфер обмена", "success");
     } catch {
-      toast('Не удалось скопировать в буфер обмена', 'error');
+      toast("Не удалось скопировать в буфер обмена", "error");
     }
   };
 
@@ -513,29 +530,35 @@ function ConfigEditorDialog({
     try {
       const text = await navigator.clipboard.readText();
       const parsed: unknown = JSON.parse(text);
-      if (typeof parsed !== 'object' || parsed === null) {
-        toast('Невалидный JSON: ожидается объект', 'error');
+      if (typeof parsed !== "object" || parsed === null) {
+        toast("Невалидный JSON: ожидается объект", "error");
         return;
       }
       const obj = parsed as Record<string, unknown>;
 
-      if ('config' in obj && typeof obj.config === 'object' && obj.config !== null) {
-        if (typeof obj.name === 'string') setName(obj.name);
-        if (typeof obj.symbol === 'string') setSymbol(obj.symbol);
-        if (typeof obj.timeframe === 'string') setTimeframe(obj.timeframe);
-        setConfig(mergeConfig(DEFAULT_CONFIG, obj.config as Record<string, unknown>));
+      if (
+        "config" in obj &&
+        typeof obj.config === "object" &&
+        obj.config !== null
+      ) {
+        if (typeof obj.name === "string") setName(obj.name);
+        if (typeof obj.symbol === "string") setSymbol(obj.symbol);
+        if (typeof obj.timeframe === "string") setTimeframe(obj.timeframe);
+        setConfig(
+          mergeConfig(DEFAULT_CONFIG, obj.config as Record<string, unknown>),
+        );
       } else {
         setConfig(mergeConfig(DEFAULT_CONFIG, obj));
       }
-      toast('JSON вставлен из буфера обмена', 'success');
+      toast("JSON вставлен из буфера обмена", "success");
     } catch {
-      toast('Не удалось прочитать JSON из буфера обмена', 'error');
+      toast("Не удалось прочитать JSON из буфера обмена", "error");
     }
   };
 
   const handleSaveAndBacktest = async () => {
     if (!name.trim()) {
-      toast('Введите название конфигурации', 'error');
+      toast("Введите название конфигурации", "error");
       return;
     }
 
@@ -546,7 +569,7 @@ function ConfigEditorDialog({
       onClose();
       navigate(`/backtest?config_id=${configId}`);
     } catch {
-      toast('Ошибка сохранения конфигурации', 'error');
+      toast("Ошибка сохранения конфигурации", "error");
     } finally {
       setSaving(false);
     }
@@ -557,7 +580,9 @@ function ConfigEditorDialog({
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader onClose={onClose}>
           <DialogTitle>
-            {editingConfig ? 'Редактировать конфигурацию' : 'Создать конфигурацию'}
+            {editingConfig
+              ? "Редактировать конфигурацию"
+              : "Создать конфигурацию"}
           </DialogTitle>
         </DialogHeader>
 
@@ -579,10 +604,7 @@ function ConfigEditorDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs text-gray-400">Символ</Label>
-                <SymbolSearch
-                  value={symbol}
-                  onChange={setSymbol}
-                />
+                <SymbolSearch value={symbol} onChange={setSymbol} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-gray-400">Таймфрейм</Label>
@@ -605,21 +627,21 @@ function ConfigEditorDialog({
               <NumberField
                 label="Соседи (neighbors)"
                 value={config.knn.neighbors}
-                onChange={(v) => updateSection('knn', { neighbors: v })}
+                onChange={(v) => updateSection("knn", { neighbors: v })}
                 min={1}
                 max={50}
               />
               <NumberField
                 label="Глубина (lookback)"
                 value={config.knn.lookback}
-                onChange={(v) => updateSection('knn', { lookback: v })}
+                onChange={(v) => updateSection("knn", { lookback: v })}
                 min={10}
                 max={200}
               />
               <NumberField
                 label="Вес (weight)"
                 value={config.knn.weight}
-                onChange={(v) => updateSection('knn', { weight: v })}
+                onChange={(v) => updateSection("knn", { weight: v })}
                 min={0}
                 max={1}
                 step={0.1}
@@ -627,58 +649,55 @@ function ConfigEditorDialog({
               <NumberField
                 label="RSI период"
                 value={config.knn.rsi_period}
-                onChange={(v) => updateSection('knn', { rsi_period: v })}
+                onChange={(v) => updateSection("knn", { rsi_period: v })}
                 min={1}
               />
               <NumberField
                 label="WT Channel Length"
                 value={config.knn.wt_ch_len}
-                onChange={(v) => updateSection('knn', { wt_ch_len: v })}
+                onChange={(v) => updateSection("knn", { wt_ch_len: v })}
                 min={1}
               />
               <NumberField
                 label="WT Average Length"
                 value={config.knn.wt_avg_len}
-                onChange={(v) => updateSection('knn', { wt_avg_len: v })}
+                onChange={(v) => updateSection("knn", { wt_avg_len: v })}
                 min={1}
               />
               <NumberField
                 label="CCI период"
                 value={config.knn.cci_period}
-                onChange={(v) => updateSection('knn', { cci_period: v })}
+                onChange={(v) => updateSection("knn", { cci_period: v })}
                 min={1}
               />
               <NumberField
                 label="ADX период"
                 value={config.knn.adx_period}
-                onChange={(v) => updateSection('knn', { adx_period: v })}
+                onChange={(v) => updateSection("knn", { adx_period: v })}
                 min={1}
               />
             </div>
           </CollapsibleSection>
 
           {/* Секция 3: Trend */}
-          <CollapsibleSection
-            title="Trend"
-            description="EMA фильтры тренда"
-          >
+          <CollapsibleSection title="Trend" description="EMA фильтры тренда">
             <div className="grid grid-cols-3 gap-3">
               <NumberField
                 label="EMA Fast"
                 value={config.trend.ema_fast}
-                onChange={(v) => updateSection('trend', { ema_fast: v })}
+                onChange={(v) => updateSection("trend", { ema_fast: v })}
                 min={1}
               />
               <NumberField
                 label="EMA Slow"
                 value={config.trend.ema_slow}
-                onChange={(v) => updateSection('trend', { ema_slow: v })}
+                onChange={(v) => updateSection("trend", { ema_slow: v })}
                 min={1}
               />
               <NumberField
                 label="EMA Filter"
                 value={config.trend.ema_filter}
-                onChange={(v) => updateSection('trend', { ema_filter: v })}
+                onChange={(v) => updateSection("trend", { ema_filter: v })}
                 min={1}
               />
             </div>
@@ -692,7 +711,7 @@ function ConfigEditorDialog({
             <ToggleField
               label="Использовать"
               value={config.ribbon.use}
-              onChange={(v) => updateSection('ribbon', { use: v })}
+              onChange={(v) => updateSection("ribbon", { use: v })}
             />
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -700,19 +719,19 @@ function ConfigEditorDialog({
                 <Select
                   options={RIBBON_TYPES}
                   value={config.ribbon.type}
-                  onChange={(v) => updateSection('ribbon', { type: v })}
+                  onChange={(v) => updateSection("ribbon", { type: v })}
                 />
               </div>
               <NumberField
                 label="Порог (threshold)"
                 value={config.ribbon.threshold}
-                onChange={(v) => updateSection('ribbon', { threshold: v })}
+                onChange={(v) => updateSection("ribbon", { threshold: v })}
                 min={1}
               />
             </div>
             <MasArrayField
               value={config.ribbon.mas}
-              onChange={(v) => updateSection('ribbon', { mas: v })}
+              onChange={(v) => updateSection("ribbon", { mas: v })}
             />
           </CollapsibleSection>
 
@@ -724,19 +743,21 @@ function ConfigEditorDialog({
             <ToggleField
               label="Использовать"
               value={config.order_flow.use}
-              onChange={(v) => updateSection('order_flow', { use: v })}
+              onChange={(v) => updateSection("order_flow", { use: v })}
             />
             <div className="grid grid-cols-2 gap-3">
               <NumberField
                 label="CVD период"
                 value={config.order_flow.cvd_period}
-                onChange={(v) => updateSection('order_flow', { cvd_period: v })}
+                onChange={(v) => updateSection("order_flow", { cvd_period: v })}
                 min={1}
               />
               <NumberField
                 label="CVD порог"
                 value={config.order_flow.cvd_threshold}
-                onChange={(v) => updateSection('order_flow', { cvd_threshold: v })}
+                onChange={(v) =>
+                  updateSection("order_flow", { cvd_threshold: v })
+                }
                 min={0}
                 max={1}
                 step={0.1}
@@ -752,26 +773,28 @@ function ConfigEditorDialog({
             <ToggleField
               label="Использовать"
               value={config.smc.use}
-              onChange={(v) => updateSection('smc', { use: v })}
+              onChange={(v) => updateSection("smc", { use: v })}
             />
             <div className="grid grid-cols-3 gap-3">
               <NumberField
                 label="FVG мин. размер"
                 value={config.smc.fvg_min_size}
-                onChange={(v) => updateSection('smc', { fvg_min_size: v })}
+                onChange={(v) => updateSection("smc", { fvg_min_size: v })}
                 min={0}
                 step={0.1}
               />
               <NumberField
                 label="Ликвидность lookback"
                 value={config.smc.liquidity_lookback}
-                onChange={(v) => updateSection('smc', { liquidity_lookback: v })}
+                onChange={(v) =>
+                  updateSection("smc", { liquidity_lookback: v })
+                }
                 min={1}
               />
               <NumberField
                 label="BOS pivot"
                 value={config.smc.bos_pivot}
-                onChange={(v) => updateSection('smc', { bos_pivot: v })}
+                onChange={(v) => updateSection("smc", { bos_pivot: v })}
                 min={1}
               />
             </div>
@@ -786,27 +809,29 @@ function ConfigEditorDialog({
               <NumberField
                 label="ATR период"
                 value={config.risk.atr_period}
-                onChange={(v) => updateSection('risk', { atr_period: v })}
+                onChange={(v) => updateSection("risk", { atr_period: v })}
                 min={1}
               />
               <NumberField
                 label="Stop (ATR x)"
                 value={config.risk.stop_atr_mult}
-                onChange={(v) => updateSection('risk', { stop_atr_mult: v })}
+                onChange={(v) => updateSection("risk", { stop_atr_mult: v })}
                 min={0.5}
                 step={0.5}
               />
               <NumberField
                 label="Take Profit (ATR x)"
                 value={config.risk.tp_atr_mult}
-                onChange={(v) => updateSection('risk', { tp_atr_mult: v })}
+                onChange={(v) => updateSection("risk", { tp_atr_mult: v })}
                 min={1}
                 step={1}
               />
               <NumberField
                 label="Trailing (ATR x)"
                 value={config.risk.trailing_atr_mult}
-                onChange={(v) => updateSection('risk', { trailing_atr_mult: v })}
+                onChange={(v) =>
+                  updateSection("risk", { trailing_atr_mult: v })
+                }
                 min={1}
                 step={1}
               />
@@ -814,20 +839,22 @@ function ConfigEditorDialog({
             <ToggleField
               label="Трейлинг-стоп"
               value={config.risk.use_trailing}
-              onChange={(v) => updateSection('risk', { use_trailing: v })}
+              onChange={(v) => updateSection("risk", { use_trailing: v })}
             />
             <div className="grid grid-cols-2 gap-3 mt-3">
               <NumberField
                 label="Min баров до trailing"
                 value={config.risk.min_bars_trailing}
-                onChange={(v) => updateSection('risk', { min_bars_trailing: v })}
+                onChange={(v) =>
+                  updateSection("risk", { min_bars_trailing: v })
+                }
                 min={0}
                 max={50}
               />
               <NumberField
                 label="Cooldown после стопа"
                 value={config.risk.cooldown_bars}
-                onChange={(v) => updateSection('risk', { cooldown_bars: v })}
+                onChange={(v) => updateSection("risk", { cooldown_bars: v })}
                 min={0}
                 max={50}
                 suffix="баров"
@@ -843,7 +870,7 @@ function ConfigEditorDialog({
             <ToggleField
               label="Multi-level TP (частичное закрытие)"
               value={config.risk.use_multi_tp}
-              onChange={(v) => updateSection('risk', { use_multi_tp: v })}
+              onChange={(v) => updateSection("risk", { use_multi_tp: v })}
             />
             {config.risk.use_multi_tp && (
               <div className="space-y-2 mt-3">
@@ -855,7 +882,7 @@ function ConfigEditorDialog({
                       onChange={(v) => {
                         const levels = [...config.risk.tp_levels];
                         levels[idx] = { ...levels[idx], atr_mult: v };
-                        updateSection('risk', { tp_levels: levels });
+                        updateSection("risk", { tp_levels: levels });
                       }}
                       min={1}
                       suffix="× ATR"
@@ -866,7 +893,7 @@ function ConfigEditorDialog({
                       onChange={(v) => {
                         const levels = [...config.risk.tp_levels];
                         levels[idx] = { ...levels[idx], close_pct: v };
-                        updateSection('risk', { tp_levels: levels });
+                        updateSection("risk", { tp_levels: levels });
                       }}
                       min={1}
                       max={100}
@@ -880,7 +907,7 @@ function ConfigEditorDialog({
               <ToggleField
                 label="Безубыток при TP1 (SL → цена входа)"
                 value={config.risk.use_breakeven}
-                onChange={(v) => updateSection('risk', { use_breakeven: v })}
+                onChange={(v) => updateSection("risk", { use_breakeven: v })}
               />
             </div>
           </CollapsibleSection>
@@ -894,26 +921,28 @@ function ConfigEditorDialog({
               <NumberField
                 label="ADX период"
                 value={config.filters.adx_period}
-                onChange={(v) => updateSection('filters', { adx_period: v })}
+                onChange={(v) => updateSection("filters", { adx_period: v })}
                 min={1}
               />
               <NumberField
                 label="ADX порог"
                 value={config.filters.adx_threshold}
-                onChange={(v) => updateSection('filters', { adx_threshold: v })}
+                onChange={(v) => updateSection("filters", { adx_threshold: v })}
                 min={0}
               />
               <NumberField
                 label="Объём множитель"
                 value={config.filters.volume_mult}
-                onChange={(v) => updateSection('filters', { volume_mult: v })}
+                onChange={(v) => updateSection("filters", { volume_mult: v })}
                 min={0}
                 step={0.1}
               />
               <NumberField
                 label="Min confluence"
                 value={config.filters.min_confluence}
-                onChange={(v) => updateSection('filters', { min_confluence: v })}
+                onChange={(v) =>
+                  updateSection("filters", { min_confluence: v })
+                }
                 min={0}
                 max={5.5}
                 step={0.5}
@@ -932,18 +961,20 @@ function ConfigEditorDialog({
                 <NumberField
                   label="Плечо"
                   value={config.live.leverage}
-                  onChange={(v) => updateSection('live', { leverage: v })}
+                  onChange={(v) => updateSection("live", { leverage: v })}
                   min={1}
                   max={100}
                   suffix="×"
                 />
               </div>
               <div className="flex-1 space-y-1.5">
-                <Label className="text-xs text-gray-400">При обратном сигнале</Label>
+                <Label className="text-xs text-gray-400">
+                  При обратном сигнале
+                </Label>
                 <Select
                   options={ON_REVERSE_OPTIONS}
                   value={config.live.on_reverse}
-                  onChange={(v) => updateSection('live', { on_reverse: v })}
+                  onChange={(v) => updateSection("live", { on_reverse: v })}
                 />
               </div>
             </div>
@@ -951,11 +982,13 @@ function ConfigEditorDialog({
             {/* Бэктест / Live - бок о бок */}
             <div className="grid grid-cols-2 gap-4 pt-3 mt-3 border-t border-white/5">
               <div className="space-y-2.5">
-                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Бэктест</span>
+                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                  Бэктест
+                </span>
                 <NumberField
                   label="Ордер"
                   value={config.backtest.order_size}
-                  onChange={(v) => updateSection('backtest', { order_size: v })}
+                  onChange={(v) => updateSection("backtest", { order_size: v })}
                   min={1}
                   max={100}
                   suffix="%"
@@ -963,18 +996,20 @@ function ConfigEditorDialog({
                 <NumberField
                   label="Комиссия"
                   value={config.backtest.commission}
-                  onChange={(v) => updateSection('backtest', { commission: v })}
+                  onChange={(v) => updateSection("backtest", { commission: v })}
                   min={0}
                   step={0.01}
                   suffix="%"
                 />
               </div>
               <div className="space-y-2.5">
-                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Live / Demo</span>
+                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                  Live / Demo
+                </span>
                 <NumberField
                   label="Ордер"
                   value={config.live.order_size}
-                  onChange={(v) => updateSection('live', { order_size: v })}
+                  onChange={(v) => updateSection("live", { order_size: v })}
                   min={1}
                   max={100}
                   suffix="%"
@@ -1041,7 +1076,7 @@ function ConfigEditorDialog({
                 ) : (
                   <Save className="mr-1.5 h-3.5 w-3.5" />
                 )}
-                {editingConfig ? 'Сохранить' : 'Создать'}
+                {editingConfig ? "Сохранить" : "Создать"}
               </Button>
             </div>
           </div>
@@ -1050,6 +1085,10 @@ function ConfigEditorDialog({
     </Dialog>
   );
 }
+
+/* ================================================================
+   Константы пагинации
+   ================================================================ */
 
 /* ================================================================
    Карточка конфига
@@ -1063,6 +1102,8 @@ interface ConfigCardProps {
   onExport: (cfg: StrategyConfig) => void;
   deleting: boolean;
   duplicating: boolean;
+  selected: boolean;
+  onSelect: (checked: boolean) => void;
 }
 
 function ConfigCard({
@@ -1073,29 +1114,48 @@ function ConfigCard({
   onExport,
   deleting,
   duplicating,
+  selected,
+  onSelect,
 }: ConfigCardProps) {
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+    <div
+      className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+        selected
+          ? "border-brand-accent/30 bg-brand-accent/5"
+          : "border-white/5 bg-white/[0.02] hover:bg-white/[0.04]"
+      }`}
+    >
+      {/* Checkbox */}
+      <Checkbox
+        checked={selected}
+        onChange={onSelect}
+        aria-label={`Выбрать ${cfg.name}`}
+        className="shrink-0"
+      />
+
+      {/* Info */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <Settings className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+          <Settings className="h-3.5 w-3.5 text-gray-400 shrink-0 hidden sm:block" />
           <span className="text-sm font-medium text-white truncate">
             {cfg.name}
           </span>
         </div>
-        <div className="flex items-center gap-2 mt-1.5">
+        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
           <Badge variant="accent">{cfg.symbol}</Badge>
           <Badge variant="default">{cfg.timeframe}m</Badge>
           <span className="text-xs text-gray-600">
-            {new Date(cfg.created_at).toLocaleDateString('ru-RU')}
+            {new Date(cfg.created_at).toLocaleDateString("ru-RU")}
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-1 ml-3 shrink-0">
+
+      {/* Actions */}
+      <div className="flex items-center gap-1 shrink-0">
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-gray-400 hover:text-white"
+          className="h-8 w-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 text-gray-400 hover:text-white"
           onClick={() => onEdit(cfg)}
           title="Редактировать"
         >
@@ -1104,7 +1164,7 @@ function ConfigCard({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-gray-400 hover:text-brand-accent"
+          className="h-8 w-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 text-gray-400 hover:text-brand-accent hidden sm:inline-flex"
           onClick={() => onDuplicate(cfg)}
           disabled={duplicating}
           title="Дублировать"
@@ -1118,7 +1178,7 @@ function ConfigCard({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-gray-400 hover:text-brand-premium"
+          className="h-8 w-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 text-gray-400 hover:text-brand-premium hidden sm:inline-flex"
           onClick={() => onExport(cfg)}
           title="Экспорт в JSON"
         >
@@ -1127,7 +1187,7 @@ function ConfigCard({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-gray-400 hover:text-brand-loss"
+          className="h-8 w-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 text-gray-400 hover:text-brand-loss"
           onClick={() => onDelete(cfg.id)}
           disabled={deleting}
           title="Удалить"
@@ -1151,7 +1211,7 @@ export function StrategyDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { toast } = useToast();
   const { user } = useAuthStore();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === "admin";
 
   const [strategy, setStrategy] = useState<StrategyDetailType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1160,19 +1220,21 @@ export function StrategyDetail() {
 
   // Редактирование версии (admin)
   const [editingVersion, setEditingVersion] = useState(false);
-  const [versionDraft, setVersionDraft] = useState('');
+  const [versionDraft, setVersionDraft] = useState("");
   const [savingVersion, setSavingVersion] = useState(false);
 
   const saveVersion = useCallback(async () => {
     if (!strategy || !versionDraft.trim()) return;
     setSavingVersion(true);
     try {
-      const { data } = await api.patch(`/strategies/${strategy.id}`, { version: versionDraft.trim() });
+      const { data } = await api.patch(`/strategies/${strategy.id}`, {
+        version: versionDraft.trim(),
+      });
       setStrategy(data);
       setEditingVersion(false);
-      toast('Версия обновлена', 'success');
+      toast("Версия обновлена", "success");
     } catch {
-      toast('Ошибка обновления версии', 'error');
+      toast("Ошибка обновления версии", "error");
     } finally {
       setSavingVersion(false);
     }
@@ -1182,10 +1244,53 @@ export function StrategyDetail() {
   const [configs, setConfigs] = useState<StrategyConfig[]>([]);
   const [configsLoading, setConfigsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [configFilter, setConfigFilter] = useState("");
+
+  const filteredConfigs = configs.filter((c) => {
+    if (!configFilter) return true;
+    const q = configFilter.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q)
+    );
+  });
+
+  const toggleSelect = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredConfigs.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredConfigs.map((c) => c.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    for (const id of selectedIds) {
+      try {
+        await api.delete(`/strategies/configs/${id}`);
+      } catch {
+        /* skip failed */
+      }
+    }
+    setSelectedIds(new Set());
+    fetchConfigs();
+    toast(`Удалено ${selectedIds.size} конфигов`, "success");
+  };
 
   // Диалог редактора
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editingConfig, setEditingConfig] = useState<StrategyConfig | null>(null);
+  const [editingConfig, setEditingConfig] = useState<StrategyConfig | null>(
+    null,
+  );
 
   // Дублирование
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
@@ -1202,8 +1307,8 @@ export function StrategyDetail() {
       .catch((err) => {
         setError(
           err.response?.status === 404
-            ? 'Стратегия не найдена'
-            : 'Ошибка загрузки',
+            ? "Стратегия не найдена"
+            : "Ошибка загрузки",
         );
       })
       .finally(() => setLoading(false));
@@ -1214,7 +1319,7 @@ export function StrategyDetail() {
     if (!strategy) return;
     setConfigsLoading(true);
     api
-      .get<StrategyConfig[]>('/strategies/configs/my', {
+      .get<StrategyConfig[]>("/strategies/configs/my", {
         params: { strategy_id: strategy.id },
       })
       .then(({ data }) => setConfigs(data))
@@ -1251,10 +1356,10 @@ export function StrategyDetail() {
     setDeletingId(id);
     try {
       await api.delete(`/strategies/configs/${id}`);
-      toast('Конфигурация удалена', 'success');
+      toast("Конфигурация удалена", "success");
       fetchConfigs();
     } catch {
-      toast('Ошибка удаления', 'error');
+      toast("Ошибка удаления", "error");
     } finally {
       setDeletingId(null);
     }
@@ -1271,11 +1376,11 @@ export function StrategyDetail() {
         timeframe: cfg.timeframe,
         config: cfg.config,
       };
-      await api.post('/strategies/configs', payload);
-      toast('Конфигурация дублирована', 'success');
+      await api.post("/strategies/configs", payload);
+      toast("Конфигурация дублирована", "success");
       fetchConfigs();
     } catch {
-      toast('Ошибка дублирования', 'error');
+      toast("Ошибка дублирования", "error");
     } finally {
       setDuplicatingId(null);
     }
@@ -1290,17 +1395,17 @@ export function StrategyDetail() {
       config: cfg.config,
     };
     const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-      type: 'application/json',
+      type: "application/json",
     });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `${cfg.name.replace(/[^a-zA-Z0-9а-яА-ЯёЁ_-]/g, '_')}.json`;
+    a.download = `${cfg.name.replace(/[^a-zA-Z0-9а-яА-ЯёЁ_-]/g, "_")}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast('Конфигурация экспортирована', 'success');
+    toast("Конфигурация экспортирована", "success");
   };
 
   /* Импорт конфига из .json файла */
@@ -1311,21 +1416,25 @@ export function StrategyDetail() {
     try {
       const text = await file.text();
       const parsed: unknown = JSON.parse(text);
-      if (typeof parsed !== 'object' || parsed === null) {
-        toast('Невалидный JSON: ожидается объект', 'error');
+      if (typeof parsed !== "object" || parsed === null) {
+        toast("Невалидный JSON: ожидается объект", "error");
         return;
       }
 
       const obj = parsed as Record<string, unknown>;
       const configData =
-        'config' in obj && typeof obj.config === 'object' && obj.config !== null
+        "config" in obj && typeof obj.config === "object" && obj.config !== null
           ? (obj.config as Record<string, unknown>)
           : obj;
 
       const importName =
-        typeof obj.name === 'string' ? `${obj.name} (импорт)` : `Импорт ${file.name}`;
-      const importSymbol = typeof obj.symbol === 'string' ? obj.symbol : 'BTCUSDT';
-      const importTimeframe = typeof obj.timeframe === 'string' ? obj.timeframe : '5';
+        typeof obj.name === "string"
+          ? `${obj.name} (импорт)`
+          : `Импорт ${file.name}`;
+      const importSymbol =
+        typeof obj.symbol === "string" ? obj.symbol : "BTCUSDT";
+      const importTimeframe =
+        typeof obj.timeframe === "string" ? obj.timeframe : "5";
 
       const payload: StrategyConfigCreate = {
         strategy_id: strategy.id,
@@ -1335,15 +1444,15 @@ export function StrategyDetail() {
         config: configData,
       };
 
-      await api.post('/strategies/configs', payload);
-      toast('Конфигурация импортирована', 'success');
+      await api.post("/strategies/configs", payload);
+      toast("Конфигурация импортирована", "success");
       fetchConfigs();
     } catch {
-      toast('Ошибка импорта: невалидный JSON файл', 'error');
+      toast("Ошибка импорта: невалидный JSON файл", "error");
     } finally {
       // Сброс input, чтобы можно было загрузить тот же файл повторно
       if (importInputRef.current) {
-        importInputRef.current.value = '';
+        importInputRef.current.value = "";
       }
     }
   };
@@ -1368,7 +1477,7 @@ export function StrategyDetail() {
         <Card className="border-white/5 bg-white/[0.02]">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Brain className="h-12 w-12 text-gray-600 mb-4" />
-            <p className="text-gray-400 text-lg">{error || 'Не найдено'}</p>
+            <p className="text-gray-400 text-lg">{error || "Не найдено"}</p>
           </CardContent>
         </Card>
       </div>
@@ -1379,7 +1488,11 @@ export function StrategyDetail() {
     <div className="space-y-6">
       {/* Back link */}
       <Link to="/strategies">
-        <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-gray-400 hover:text-white"
+        >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Назад к стратегиям
         </Button>
@@ -1401,7 +1514,10 @@ export function StrategyDetail() {
             </span>
             {isAdmin && (
               <button
-                onClick={() => { setVersionDraft(strategy.version); setEditingVersion(true); }}
+                onClick={() => {
+                  setVersionDraft(strategy.version);
+                  setEditingVersion(true);
+                }}
                 className="p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors"
                 title="Изменить версию"
               >
@@ -1428,7 +1544,7 @@ export function StrategyDetail() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-400 leading-relaxed">
-                {strategy.description || 'Описание не указано'}
+                {strategy.description || "Описание не указано"}
               </p>
             </CardContent>
           </Card>
@@ -1469,23 +1585,75 @@ export function StrategyDetail() {
                 <div className="text-center py-8">
                   <Settings className="h-8 w-8 text-gray-700 mx-auto mb-2" />
                   <p className="text-sm text-gray-400">
-                    Нет конфигураций. Создайте первую для запуска бота или бэктеста.
+                    Нет конфигураций. Создайте первую для запуска бота или
+                    бэктеста.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {configs.map((cfg) => (
-                    <ConfigCard
-                      key={cfg.id}
-                      config={cfg}
-                      onEdit={handleEditConfig}
-                      onDelete={handleDeleteConfig}
-                      onDuplicate={handleDuplicateConfig}
-                      onExport={handleExportConfig}
-                      deleting={deletingId === cfg.id}
-                      duplicating={duplicatingId === cfg.id}
+                <div className="space-y-3">
+                  {/* Toolbar: filter + bulk actions */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <Input
+                      placeholder="Поиск по имени или символу..."
+                      value={configFilter}
+                      onChange={(e) => setConfigFilter(e.target.value)}
+                      className="h-8 text-xs bg-white/[0.03] border-white/[0.06] w-full sm:w-56"
                     />
-                  ))}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={toggleSelectAll}
+                        className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors px-2 py-1 rounded border border-white/[0.06] hover:border-white/[0.1]"
+                      >
+                        <Checkbox
+                          checked={
+                            filteredConfigs.length > 0 &&
+                            selectedIds.size === filteredConfigs.length
+                          }
+                          className="h-3.5 w-3.5"
+                          tabIndex={-1}
+                        />
+                        {selectedIds.size === filteredConfigs.length &&
+                        filteredConfigs.length > 0
+                          ? "Снять все"
+                          : "Выбрать все"}
+                      </button>
+                      {selectedIds.size > 0 && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={handleBulkDelete}
+                          className="h-7 text-xs gap-1"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Удалить ({selectedIds.size})
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Config list */}
+                  <div className="space-y-2">
+                    {filteredConfigs.map((cfg) => (
+                      <ConfigCard
+                        key={cfg.id}
+                        config={cfg}
+                        onEdit={handleEditConfig}
+                        onDelete={handleDeleteConfig}
+                        onDuplicate={handleDuplicateConfig}
+                        onExport={handleExportConfig}
+                        deleting={deletingId === cfg.id}
+                        duplicating={duplicatingId === cfg.id}
+                        selected={selectedIds.has(cfg.id)}
+                        onSelect={(checked) => toggleSelect(cfg.id, checked)}
+                      />
+                    ))}
+                  </div>
+
+                  {configFilter && filteredConfigs.length === 0 && (
+                    <p className="text-xs text-gray-500 text-center py-4">
+                      Ничего не найдено по запросу "{configFilter}"
+                    </p>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -1564,22 +1732,37 @@ export function StrategyDetail() {
                       className="w-20 bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs font-mono text-white focus:outline-none focus:border-brand-premium"
                       value={versionDraft}
                       onChange={(e) => setVersionDraft(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') saveVersion(); if (e.key === 'Escape') setEditingVersion(false); }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveVersion();
+                        if (e.key === "Escape") setEditingVersion(false);
+                      }}
                       autoFocus
                     />
-                    <button onClick={saveVersion} disabled={savingVersion} className="p-0.5 rounded hover:bg-white/10 text-brand-profit transition-colors">
+                    <button
+                      onClick={saveVersion}
+                      disabled={savingVersion}
+                      className="p-0.5 rounded hover:bg-white/10 text-brand-profit transition-colors"
+                    >
                       <Save className="h-3 w-3" />
                     </button>
-                    <button onClick={() => setEditingVersion(false)} className="p-0.5 rounded hover:bg-white/10 text-gray-400 transition-colors">
+                    <button
+                      onClick={() => setEditingVersion(false)}
+                      className="p-0.5 rounded hover:bg-white/10 text-gray-400 transition-colors"
+                    >
                       <X className="h-3 w-3" />
                     </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-gray-300 font-mono">{strategy.version}</span>
+                    <span className="text-gray-300 font-mono">
+                      {strategy.version}
+                    </span>
                     {isAdmin && (
                       <button
-                        onClick={() => { setVersionDraft(strategy.version); setEditingVersion(true); }}
+                        onClick={() => {
+                          setVersionDraft(strategy.version);
+                          setEditingVersion(true);
+                        }}
                         className="p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors"
                       >
                         <Pencil className="h-3 w-3" />
@@ -1591,7 +1774,7 @@ export function StrategyDetail() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Создана</span>
                 <span className="text-gray-300 text-xs">
-                  {new Date(strategy.created_at).toLocaleDateString('ru-RU')}
+                  {new Date(strategy.created_at).toLocaleDateString("ru-RU")}
                 </span>
               </div>
             </CardContent>
@@ -1611,7 +1794,7 @@ export function StrategyDetail() {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Символы</span>
                   <span className="text-gray-300 text-xs">
-                    {[...new Set(configs.map((c) => c.symbol))].join(', ')}
+                    {[...new Set(configs.map((c) => c.symbol))].join(", ")}
                   </span>
                 </div>
               </CardContent>
