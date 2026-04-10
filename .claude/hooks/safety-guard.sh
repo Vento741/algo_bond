@@ -33,8 +33,18 @@ BLOCKED_PATTERNS=(
   "wget.*|.*sh"
 )
 
+# SSH к jeremy-vps: пропускаем blocked patterns (remote команды безопасны)
+IS_SSH_VPS=false
+if echo "$CMD" | grep -qi "^ssh jeremy-vps\|^ssh.*jeremy-vps"; then
+  IS_SSH_VPS=true
+fi
+
 for pattern in "${BLOCKED_PATTERNS[@]}"; do
   if echo "$CMD" | grep -qi "$pattern"; then
+    # Разрешить на VPS: cat .env, echo secrets (remote операции)
+    if [[ "$IS_SSH_VPS" == "true" ]]; then
+      continue
+    fi
     echo "BLOCKED: опасная команда '$pattern'" >&2
     exit 2
   fi
@@ -52,17 +62,19 @@ if echo "$CMD" | grep -qi "git reset --hard$"; then
   exit 2
 fi
 
-# === 4. Системные пути в командах ===
-SYSTEM_DIRS=("/etc/" "/usr/" "/var/log/" "/root/" "/home/" "/tmp/" "/boot/" "/sbin/" "/proc/" "/sys/")
-for dir in "${SYSTEM_DIRS[@]}"; do
-  if echo "$CMD" | grep -qi "docker.*exec\|docker.*run"; then
-    continue
-  fi
-  if echo "$CMD" | grep -q "$dir"; then
-    echo "BLOCKED: системный путь $dir в команде" >&2
-    exit 2
-  fi
-done
+# === 4. Системные пути в командах (пропуск SSH к jeremy-vps и docker exec/run) ===
+if ! echo "$CMD" | grep -qi "ssh jeremy-vps\|ssh.*jeremy-vps"; then
+  SYSTEM_DIRS=("/etc/" "/usr/" "/var/log/" "/root/" "/home/" "/tmp/" "/boot/" "/sbin/" "/proc/" "/sys/")
+  for dir in "${SYSTEM_DIRS[@]}"; do
+    if echo "$CMD" | grep -qi "docker.*exec\|docker.*run"; then
+      continue
+    fi
+    if echo "$CMD" | grep -q "$dir"; then
+      echo "BLOCKED: системный путь $dir в команде" >&2
+      exit 2
+    fi
+  done
+fi
 
 # === 5. Relative path escape ===
 if echo "$CMD" | grep -qE "\.\./\.\./\.\." ; then
