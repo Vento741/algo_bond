@@ -1,5 +1,6 @@
 """Обработчики административных команд /admin, /health, /logs, /users."""
 
+import asyncio
 import uuid
 
 from aiogram import Router
@@ -8,10 +9,70 @@ from aiogram.types import Message
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.auth.models import User
 from app.modules.telegram.keyboards import admin_panel
 from app.modules.trading.models import Bot, BotStatus
 
 router = Router(name="admin")
+
+_SEPARATOR = "━━━━━━━━━━━━━━━━━"
+
+
+async def check_health(session: AsyncSession) -> list[str]:
+    """Проверить состояние сервисов и вернуть список строк с результатами."""
+    lines: list[str] = []
+
+    try:
+        await session.execute(select(func.now()))
+        lines.append("Database: OK")
+    except Exception as exc:
+        lines.append(f"Database: FAIL ({exc})")
+
+    try:
+        from app.redis import pool as redis_pool
+        await redis_pool.ping()
+        lines.append("Redis: OK")
+    except Exception as exc:
+        lines.append(f"Redis: FAIL ({exc})")
+
+    # inspector.stats() синхронный - запускаем в thread чтобы не блокировать event loop
+    try:
+        from app.celery_app import celery_app
+        inspector = celery_app.control.inspect(timeout=2.0)
+        stats = await asyncio.to_thread(inspector.stats)
+        if stats:
+            lines.append(f"Celery: OK ({len(stats)} workers)")
+        else:
+            lines.append("Celery: нет активных воркеров")
+    except Exception as exc:
+        lines.append(f"Celery: FAIL ({exc})")
+
+    return lines
+
+
+async def get_platform_stats(session: AsyncSession) -> tuple[int, int, int, int]:
+    """Получить статистику платформы: (total_users, active_users, total_bots, running_bots)."""
+    total_users = (
+        await session.execute(select(func.count()).select_from(User))
+    ).scalar_one() or 0
+
+    active_users = (
+        await session.execute(
+            select(func.count()).select_from(User).where(User.is_active.is_(True))
+        )
+    ).scalar_one() or 0
+
+    total_bots = (
+        await session.execute(select(func.count()).select_from(Bot))
+    ).scalar_one() or 0
+
+    running_bots = (
+        await session.execute(
+            select(func.count()).select_from(Bot).where(Bot.status == BotStatus.RUNNING)
+        )
+    ).scalar_one() or 0
+
+    return total_users, active_users, total_bots, running_bots
 
 
 @router.message(Command("admin"))
@@ -31,36 +92,7 @@ async def health_command(
     message: Message, session: AsyncSession, user_id: uuid.UUID
 ) -> None:
     """Проверить состояние сервисов: БД, Redis, Celery."""
-    lines = ["<b>Health Check</b>", "━━━━━━━━━━━━━━━━━"]
-
-    # Проверка БД
-    try:
-        await session.execute(select(func.now()))
-        lines.append("Database: OK")
-    except Exception as exc:
-        lines.append(f"Database: FAIL ({exc})")
-
-    # Проверка Redis
-    try:
-        from app.redis import pool as redis_pool
-        await redis_pool.ping()
-        lines.append("Redis: OK")
-    except Exception as exc:
-        lines.append(f"Redis: FAIL ({exc})")
-
-    # Проверка Celery (через Redis broker)
-    try:
-        from app.celery_app import celery_app
-        inspector = celery_app.control.inspect(timeout=2.0)
-        stats = inspector.stats()
-        if stats:
-            worker_count = len(stats)
-            lines.append(f"Celery: OK ({worker_count} workers)")
-        else:
-            lines.append("Celery: нет активных воркеров")
-    except Exception as exc:
-        lines.append(f"Celery: FAIL ({exc})")
-
+    lines = [f"<b>Health Check</b>", _SEPARATOR] + await check_health(session)
     await message.answer("\n".join(lines))
 
 
@@ -80,33 +112,10 @@ async def users_command(
     message: Message, session: AsyncSession, user_id: uuid.UUID
 ) -> None:
     """Статистика пользователей и ботов."""
-    from app.modules.auth.models import User
-
-    # Считаем пользователей
-    users_result = await session.execute(
-        select(func.count()).select_from(User)
-    )
-    total_users = users_result.scalar_one() or 0
-
-    active_users_result = await session.execute(
-        select(func.count()).select_from(User).where(User.is_active.is_(True))
-    )
-    active_users = active_users_result.scalar_one() or 0
-
-    # Считаем ботов
-    bots_result = await session.execute(
-        select(func.count()).select_from(Bot)
-    )
-    total_bots = bots_result.scalar_one() or 0
-
-    running_bots_result = await session.execute(
-        select(func.count()).select_from(Bot).where(Bot.status == BotStatus.RUNNING)
-    )
-    running_bots = running_bots_result.scalar_one() or 0
-
+    total_users, active_users, total_bots, running_bots = await get_platform_stats(session)
     lines = [
         "<b>Статистика платформы</b>",
-        "━━━━━━━━━━━━━━━━━",
+        _SEPARATOR,
         f"Пользователей: {total_users} (активных: {active_users})",
         f"Ботов: {total_bots} (запущено: {running_bots})",
     ]

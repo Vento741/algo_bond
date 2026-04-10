@@ -1,7 +1,6 @@
 """Тесты Telegram bot handlers: start, help, status, admin, callbacks."""
 
 import uuid
-from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,9 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
 from app.modules.auth.models import User, UserRole
-from app.modules.telegram.models import TelegramDeepLinkToken, TelegramLink
 from app.modules.telegram.service import TelegramService
-from app.modules.trading.models import Bot, BotMode, BotStatus
 
 pytestmark = pytest.mark.asyncio
 

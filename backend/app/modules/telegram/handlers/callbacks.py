@@ -1,12 +1,15 @@
 """Обработчики inline callback кнопок."""
 
 import uuid
+from datetime import datetime, timezone
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.auth.models import User
+from app.modules.telegram.keyboards import confirm_close_position, webapp_button
 from app.modules.trading.models import Bot, BotStatus, Position, PositionStatus
 
 router = Router(name="callbacks")
@@ -39,8 +42,6 @@ async def callback_bot_start(
     if bot.status == BotStatus.RUNNING:
         await query.answer("Бот уже запущен", show_alert=True)
         return
-
-    from datetime import datetime, timezone
 
     bot.status = BotStatus.RUNNING
     bot.started_at = datetime.now(timezone.utc)
@@ -78,8 +79,6 @@ async def callback_bot_stop(
         await query.answer("Бот уже остановлен", show_alert=True)
         return
 
-    from datetime import datetime, timezone
-
     bot.status = BotStatus.STOPPED
     bot.stopped_at = datetime.now(timezone.utc)
     await session.commit()
@@ -105,7 +104,6 @@ async def callback_close_position(
         await query.answer("Некорректный ID позиции", show_alert=True)
         return
 
-    # Проверяем существование позиции и принадлежность пользователю
     result = await session.execute(
         select(Position)
         .join(Bot, Position.bot_id == Bot.id)
@@ -121,8 +119,6 @@ async def callback_close_position(
         await query.answer("Позиция уже закрыта", show_alert=True)
         return
 
-    from app.modules.telegram.keyboards import confirm_close_position
-
     await query.message.edit_reply_markup(
         reply_markup=confirm_close_position(position_id_str)
     )
@@ -133,7 +129,11 @@ async def callback_close_position(
 async def callback_confirm_close(
     query: CallbackQuery, session: AsyncSession, user_id: uuid.UUID
 ) -> None:
-    """Подтвердить закрытие позиции (помечает на закрытие в БД)."""
+    """Подтвердить закрытие позиции.
+
+    Реальное закрытие выполняется bot_worker через биржевой API.
+    Перенаправляем на платформу для безопасного ручного закрытия.
+    """
     position_id_str = query.data.split(":", 1)[1]
     try:
         position_id = uuid.UUID(position_id_str)
@@ -156,17 +156,9 @@ async def callback_confirm_close(
         await query.answer("Позиция уже закрыта", show_alert=True)
         return
 
-    # Закрытие позиции через бота выполняется bot_worker.
-    # Telegram-закрытие: перенаправляем на платформу для безопасного ручного закрытия.
-    from app.modules.telegram.keyboards import webapp_button
-    from app.config import settings
-
     await query.answer("Откройте платформу для закрытия позиции", show_alert=True)
     await query.message.edit_reply_markup(
-        reply_markup=webapp_button(
-            "Закрыть на платформе",
-            f"/bots",
-        )
+        reply_markup=webapp_button("Закрыть на платформе", "/bots")
     )
 
 
@@ -185,23 +177,9 @@ async def callback_admin_health(
     query: CallbackQuery, session: AsyncSession, user_id: uuid.UUID
 ) -> None:
     """Health check через кнопку админ-панели."""
-    from sqlalchemy import func
+    from app.modules.telegram.handlers.admin import check_health, _SEPARATOR
 
-    lines = ["<b>Health Check</b>", "━━━━━━━━━━━━━━━━━"]
-
-    try:
-        await session.execute(select(func.now()))
-        lines.append("Database: OK")
-    except Exception as exc:
-        lines.append(f"Database: FAIL ({exc})")
-
-    try:
-        from app.redis import pool as redis_pool
-        await redis_pool.ping()
-        lines.append("Redis: OK")
-    except Exception as exc:
-        lines.append(f"Redis: FAIL ({exc})")
-
+    lines = ["<b>Health Check</b>", _SEPARATOR] + await check_health(session)
     await query.answer()
     await query.message.answer("\n".join(lines))
 
@@ -221,28 +199,12 @@ async def callback_admin_users(
     query: CallbackQuery, session: AsyncSession, user_id: uuid.UUID
 ) -> None:
     """Статистика пользователей через кнопку."""
-    from sqlalchemy import func
+    from app.modules.telegram.handlers.admin import get_platform_stats, _SEPARATOR
 
-    from app.modules.auth.models import User
-
-    users_result = await session.execute(
-        select(func.count()).select_from(User)
-    )
-    total_users = users_result.scalar_one() or 0
-
-    active_users_result = await session.execute(
-        select(func.count()).select_from(User).where(User.is_active.is_(True))
-    )
-    active_users = active_users_result.scalar_one() or 0
-
-    running_bots_result = await session.execute(
-        select(func.count()).select_from(Bot).where(Bot.status == BotStatus.RUNNING)
-    )
-    running_bots = running_bots_result.scalar_one() or 0
-
+    total_users, active_users, _total_bots, running_bots = await get_platform_stats(session)
     lines = [
         "<b>Пользователи</b>",
-        "━━━━━━━━━━━━━━━━━",
+        _SEPARATOR,
         f"Всего: {total_users} (активных: {active_users})",
         f"Ботов запущено: {running_bots}",
     ]

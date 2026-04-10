@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.telegram.formatters import format_bot_status
-from app.modules.telegram.keyboards import bot_control_buttons, position_buttons
+from app.modules.telegram.keyboards import bot_control_buttons, position_buttons, webapp_button
 from app.modules.trading.models import Bot, BotStatus, Position, PositionStatus
 
 router = Router(name="status")
@@ -94,8 +94,6 @@ async def balance_command(
     message: Message, session: AsyncSession, user_id: uuid.UUID
 ) -> None:
     """Информация о балансе - предлагает открыть платформу."""
-    from app.modules.telegram.keyboards import webapp_button
-
     await message.answer(
         "Актуальный баланс счёта доступен на платформе:",
         reply_markup=webapp_button("Открыть баланс", "/dashboard"),
