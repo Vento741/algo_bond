@@ -29,7 +29,7 @@ export function Chart() {
   const { symbol: paramSymbol } = useParams<{ symbol: string }>();
   const navigate = useNavigate();
 
-  const [symbol, setSymbol] = useState(paramSymbol || 'BTCUSDT');
+  const [symbol, setSymbol] = useState(paramSymbol || '');
   const [interval, setInterval] = useState('15');
 
   // Загрузить предпочтения пользователя при первом открытии (без paramSymbol)
@@ -42,7 +42,10 @@ export function Chart() {
         navigate(`/chart/${sym}`, { replace: true });
         if (data.default_timeframe) setInterval(data.default_timeframe);
       })
-      .catch(() => {});
+      .catch(() => {
+        setSymbol('BTCUSDT');
+        navigate('/chart/BTCUSDT', { replace: true });
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [klines, setKlines] = useState<KlineData[]>([]);
