@@ -23,15 +23,7 @@ import { CookieBanner } from "@/components/CookieBanner";
 import { AnalyticsProvider } from "@/components/AnalyticsProvider";
 import { ToastProvider } from "@/components/ui/toast";
 
-// Telegram Mini App (lazy loaded to isolate crashes)
-import { lazy, Suspense } from "react";
-const TelegramLayout = lazy(() => import("@/layouts/TelegramLayout"));
-const TgDashboard = lazy(() => import("@/pages/tg/TgDashboard"));
-const TgBots = lazy(() => import("@/pages/tg/TgBots"));
-const TgBotDetail = lazy(() => import("@/pages/tg/TgBotDetail"));
-const TgChart = lazy(() => import("@/pages/tg/TgChart"));
-const TgBacktest = lazy(() => import("@/pages/tg/TgBacktest"));
-const TgSettings = lazy(() => import("@/pages/tg/TgSettings"));
+// Telegram Mini App - temporarily replaced with diagnostic route
 
 // Admin pages
 import { AdminDashboard } from "@/pages/admin/AdminDashboard";
