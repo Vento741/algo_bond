@@ -1564,6 +1564,8 @@ function BacktestHistory({
 }) {
   const [hiddenIds, setHiddenIds] = useState<string[]>(getHiddenIds);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [perPage, setPerPage] = useState(25);
+  const [page, setPage] = useState(0);
 
   const visibleRuns = runs
     .filter((r) => !hiddenIds.includes(r.id))
@@ -1660,8 +1662,6 @@ function BacktestHistory({
   }
 
   const PER_PAGE_OPTIONS = [10, 25, 50, 100] as const;
-  const [perPage, setPerPage] = useState(25);
-  const [page, setPage] = useState(0);
   const totalPages = Math.ceil(visibleRuns.length / perPage);
   const pagedRuns = visibleRuns.slice(page * perPage, (page + 1) * perPage);
 
