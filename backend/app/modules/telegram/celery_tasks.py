@@ -9,6 +9,9 @@ from app.celery_app import celery
 
 logger = logging.getLogger(__name__)
 
+_MARGIN_THRESHOLD = 80.0
+_WARNING_COOLDOWN_SECONDS = 3600
+
 
 def _import_all_models() -> None:
     """Импорт всех моделей для резолва SQLAlchemy relationships."""
@@ -47,7 +50,7 @@ async def _send_daily_pnl_report() -> dict:
     from app.modules.notifications.models import NotificationPreference
     from app.modules.telegram.formatters import format_daily_report
     from app.modules.telegram.models import TelegramLink
-    from app.modules.trading.models import Bot as TradingBot, BotStatus, Position, PositionStatus
+    from app.modules.trading.models import Bot as TradingBot, Position, PositionStatus
 
     if not settings.telegram_bot_token:
         logger.warning("TELEGRAM_BOT_TOKEN не задан, пропуск дневного отчета")
@@ -59,54 +62,57 @@ async def _send_daily_pnl_report() -> dict:
     errors = 0
 
     async with session_factory() as session:
-        # Получаем всех пользователей с включенным telegram
-        result = await session.execute(
+        user_ids_result = await session.execute(
             select(NotificationPreference.user_id)
             .where(NotificationPreference.telegram_enabled.is_(True))
         )
-        user_ids = list(result.scalars().all())
+        user_ids = list(user_ids_result.scalars().all())
 
         if not user_ids:
             return {"sent": 0, "skipped": 0}
 
-        # Начало сегодняшнего дня UTC
-        now = datetime.now(timezone.utc)
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Батчевый запрос всех активных TelegramLink для найденных пользователей
+        links_result = await session.execute(
+            select(TelegramLink).where(
+                and_(
+                    TelegramLink.user_id.in_(user_ids),
+                    TelegramLink.is_active.is_(True),
+                )
+            )
+        )
+        links_by_user = {link.user_id: link for link in links_result.scalars().all()}
+
+        from collections import defaultdict
+
+        positions_with_user_result = await session.execute(
+            select(Position, TradingBot.user_id).where(
+                and_(
+                    Position.status == PositionStatus.CLOSED,
+                    Position.closed_at >= today_start,
+                )
+            ).join(TradingBot, TradingBot.id == Position.bot_id)
+            .where(TradingBot.user_id.in_(user_ids))
+        )
+        positions_by_user = defaultdict(list)
+        for position, uid in positions_with_user_result:
+            positions_by_user[uid].append(position)
 
         async with Bot(
             token=settings.telegram_bot_token,
             default=DefaultBotProperties(parse_mode=ParseMode.HTML),
         ) as temp_bot:
             for user_id in user_ids:
-                # Проверяем наличие TelegramLink
-                link_result = await session.execute(
-                    select(TelegramLink).where(
-                        and_(
-                            TelegramLink.user_id == user_id,
-                            TelegramLink.is_active.is_(True),
-                        )
-                    )
-                )
-                link = link_result.scalar_one_or_none()
+                link = links_by_user.get(user_id)
                 if link is None:
                     skipped += 1
                     continue
 
-                # Получаем закрытые позиции за сегодня
-                positions_result = await session.execute(
-                    select(Position).where(
-                        and_(
-                            Position.status == PositionStatus.CLOSED,
-                            Position.closed_at >= today_start,
-                        )
-                    ).join(TradingBot, TradingBot.id == Position.bot_id)
-                    .where(TradingBot.user_id == user_id)
-                )
-                positions = list(positions_result.scalars().all())
-
+                positions = positions_by_user[user_id]
                 trades_count = len(positions)
+
                 if trades_count == 0:
-                    # Нет сделок за день, но отчет все равно отправляем
                     text = format_daily_report(
                         total_pnl=Decimal("0"),
                         trades_count=0,
@@ -119,35 +125,29 @@ async def _send_daily_pnl_report() -> dict:
                         balance=Decimal("0"),
                     )
                 else:
-                    total_pnl = sum(
-                        (p.realized_pnl or Decimal("0")) for p in positions
-                    )
-                    wins = sum(1 for p in positions if (p.realized_pnl or Decimal("0")) > 0)
-                    losses = trades_count - wins
-
-                    best_pos = max(positions, key=lambda p: p.realized_pnl or Decimal("0"))
-                    worst_pos = min(positions, key=lambda p: p.realized_pnl or Decimal("0"))
+                    pnls = [p.realized_pnl or Decimal("0") for p in positions]
+                    total_pnl = sum(pnls)
+                    wins = sum(1 for v in pnls if v > 0)
+                    best_pos = positions[pnls.index(max(pnls))]
+                    worst_pos = positions[pnls.index(min(pnls))]
 
                     text = format_daily_report(
                         total_pnl=Decimal(str(total_pnl)),
                         trades_count=trades_count,
                         wins=wins,
-                        losses=losses,
+                        losses=trades_count - wins,
                         best_trade=best_pos.symbol,
                         best_pnl=Decimal(str(best_pos.realized_pnl or 0)),
                         worst_trade=worst_pos.symbol,
                         worst_pnl=Decimal(str(worst_pos.realized_pnl or 0)),
-                        balance=Decimal("0"),  # баланс не критичен для отчета
+                        balance=Decimal("0"),
                     )
 
                 try:
                     await temp_bot.send_message(chat_id=link.chat_id, text=text)
                     sent += 1
                 except Exception as e:
-                    logger.error(
-                        "Ошибка отправки дневного отчета пользователю %s: %s",
-                        user_id, e,
-                    )
+                    logger.error("Ошибка отправки дневного отчета пользователю %s: %s", user_id, e)
                     errors += 1
 
     logger.info("Дневной P&L отчет: sent=%d, skipped=%d, errors=%d", sent, skipped, errors)
@@ -156,8 +156,6 @@ async def _send_daily_pnl_report() -> dict:
 
 async def _check_margin_warnings() -> dict:
     """Async реализация проверки маржи и отправки предупреждений."""
-    import asyncio as _asyncio
-
     from sqlalchemy import and_, select
 
     import redis as sync_redis
@@ -176,131 +174,126 @@ async def _check_margin_warnings() -> dict:
     from app.modules.telegram.models import TelegramLink
     from app.modules.trading.models import Bot as TradingBot, BotStatus
 
-    MARGIN_THRESHOLD = 80.0
-    WARNING_COOLDOWN_SECONDS = 3600  # не спамим чаще раза в час
-
     if not settings.telegram_bot_token:
         logger.warning("TELEGRAM_BOT_TOKEN не задан, пропуск проверки маржи")
         return {"checked": 0, "warned": 0, "error": "no_token"}
 
+    redis_client = sync_redis.from_url(settings.redis_url)
     session_factory = create_standalone_session()
     checked = 0
     warned = 0
     errors = 0
 
-    # Redis для отслеживания времени последнего предупреждения
     try:
-        redis_client = sync_redis.from_url(settings.redis_url)
-    except Exception as e:
-        logger.error("Не удалось подключиться к Redis: %s", e)
-        return {"checked": 0, "warned": 0, "error": "redis_unavailable"}
+        async with session_factory() as session:
+            user_ids_result = await session.execute(
+                select(NotificationPreference.user_id)
+                .where(NotificationPreference.telegram_enabled.is_(True))
+                .join(
+                    TradingBot,
+                    and_(
+                        TradingBot.user_id == NotificationPreference.user_id,
+                        TradingBot.status == BotStatus.RUNNING,
+                    )
+                )
+                .distinct()
+            )
+            user_ids = list(user_ids_result.scalars().all())
 
-    async with session_factory() as session:
-        # Пользователи с telegram_enabled и активными ботами
-        result = await session.execute(
-            select(NotificationPreference.user_id)
-            .where(NotificationPreference.telegram_enabled.is_(True))
-            .join(
-                TradingBot,
-                and_(
-                    TradingBot.user_id == NotificationPreference.user_id,
-                    TradingBot.status == BotStatus.RUNNING,
+            if not user_ids:
+                return {"checked": 0, "warned": 0}
+
+            # Фильтруем пользователей на cooldown через Redis (пакетом)
+            redis_keys = [f"telegram:margin_warning:{uid}" for uid in user_ids]
+            cooldown_flags = redis_client.mget(redis_keys)
+            active_user_ids = [
+                uid for uid, flag in zip(user_ids, cooldown_flags) if flag is None
+            ]
+
+            if not active_user_ids:
+                return {"checked": 0, "warned": 0}
+
+            # Батчевый запрос TelegramLink
+            links_result = await session.execute(
+                select(TelegramLink).where(
+                    and_(
+                        TelegramLink.user_id.in_(active_user_ids),
+                        TelegramLink.is_active.is_(True),
+                    )
                 )
             )
-            .distinct()
-        )
-        user_ids = list(result.scalars().all())
+            links_by_user = {link.user_id: link for link in links_result.scalars().all()}
 
-        if not user_ids:
-            redis_client.close()
-            return {"checked": 0, "warned": 0}
-
-        async with Bot(
-            token=settings.telegram_bot_token,
-            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-        ) as temp_bot:
-            for user_id in user_ids:
-                # Проверяем TelegramLink
-                link_result = await session.execute(
-                    select(TelegramLink).where(
-                        and_(
-                            TelegramLink.user_id == user_id,
-                            TelegramLink.is_active.is_(True),
-                        )
+            # Батчевый запрос ExchangeAccount (live-first для каждого пользователя)
+            accounts_result = await session.execute(
+                select(ExchangeAccount).where(
+                    and_(
+                        ExchangeAccount.user_id.in_(active_user_ids),
+                        ExchangeAccount.is_active.is_(True),
                     )
-                )
-                link = link_result.scalar_one_or_none()
-                if link is None:
-                    continue
+                ).order_by(ExchangeAccount.user_id, ExchangeAccount.is_testnet.asc())
+            )
+            accounts_by_user: dict = {}
+            for account in accounts_result.scalars().all():
+                # Берем первый аккаунт на пользователя (live-first из-за order_by)
+                if account.user_id not in accounts_by_user:
+                    accounts_by_user[account.user_id] = account
 
-                # Проверяем cooldown через Redis
-                redis_key = f"telegram:margin_warning:{user_id}"
-                if redis_client.exists(redis_key):
-                    continue
-
-                # Получаем активный exchange account
-                account_result = await session.execute(
-                    select(ExchangeAccount).where(
-                        and_(
-                            ExchangeAccount.user_id == user_id,
-                            ExchangeAccount.is_active.is_(True),
-                        )
-                    )
-                    .order_by(ExchangeAccount.is_testnet.asc())
-                    .limit(1)
-                )
-                account = account_result.scalar_one_or_none()
-                if account is None:
-                    continue
-
-                checked += 1
-
-                try:
-                    api_key = decrypt_value(account.api_key_encrypted)
-                    api_secret = decrypt_value(account.api_secret_encrypted)
-                    client = BybitClient(
-                        api_key=api_key,
-                        api_secret=api_secret,
-                        demo=account.is_testnet,
-                    )
-
-                    balance_data = await _asyncio.to_thread(
-                        client.get_wallet_balance, "USDT"
-                    )
-
-                    wallet_balance = Decimal(str(balance_data.get("wallet_balance", 0)))
-                    available = Decimal(str(balance_data.get("available", 0)))
-
-                    if wallet_balance <= 0:
+            async with Bot(
+                token=settings.telegram_bot_token,
+                default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+            ) as temp_bot:
+                for user_id in active_user_ids:
+                    link = links_by_user.get(user_id)
+                    account = accounts_by_user.get(user_id)
+                    if link is None or account is None:
                         continue
 
-                    # Использованная маржа = баланс - доступные средства
-                    used_margin = max(Decimal("0"), wallet_balance - available)
-                    margin_pct = float(used_margin / wallet_balance * 100)
+                    checked += 1
 
-                    if margin_pct >= MARGIN_THRESHOLD:
-                        text = format_margin_warning(
-                            margin_pct=Decimal(str(margin_pct)),
-                            balance=wallet_balance,
-                            used_margin=used_margin,
+                    try:
+                        api_key = decrypt_value(account.api_key_encrypted)
+                        api_secret = decrypt_value(account.api_secret_encrypted)
+                        client = BybitClient(
+                            api_key=api_key,
+                            api_secret=api_secret,
+                            demo=account.is_testnet,
                         )
-                        await temp_bot.send_message(chat_id=link.chat_id, text=text)
 
-                        # Ставим cooldown на 1 час
-                        redis_client.set(redis_key, "1", ex=WARNING_COOLDOWN_SECONDS)
-                        warned += 1
+                        balance_data = await asyncio.to_thread(
+                            client.get_wallet_balance, "USDT"
+                        )
 
-                except Exception as e:
-                    logger.error(
-                        "Ошибка проверки маржи для пользователя %s: %s",
-                        user_id, e,
-                    )
-                    errors += 1
+                        wallet_balance = Decimal(str(balance_data.get("wallet_balance", 0)))
+                        available = Decimal(str(balance_data.get("available", 0)))
 
-    try:
+                        if wallet_balance <= 0:
+                            continue
+
+                        # wallet_balance - available = маржа под открытыми позициями
+                        used_margin = max(Decimal("0"), wallet_balance - available)
+                        margin_pct = float(used_margin / wallet_balance * 100)
+
+                        if margin_pct >= _MARGIN_THRESHOLD:
+                            text = format_margin_warning(
+                                margin_pct=Decimal(str(margin_pct)),
+                                balance=wallet_balance,
+                                used_margin=used_margin,
+                            )
+                            await temp_bot.send_message(chat_id=link.chat_id, text=text)
+                            redis_client.set(
+                                f"telegram:margin_warning:{user_id}",
+                                "1",
+                                ex=_WARNING_COOLDOWN_SECONDS,
+                            )
+                            warned += 1
+
+                    except Exception as e:
+                        logger.error("Ошибка проверки маржи для пользователя %s: %s", user_id, e)
+                        errors += 1
+
+    finally:
         redis_client.close()
-    except Exception:
-        pass
 
     logger.info("Проверка маржи: checked=%d, warned=%d, errors=%d", checked, warned, errors)
     return {"checked": checked, "warned": warned, "errors": errors}
