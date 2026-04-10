@@ -1627,19 +1627,30 @@ function BacktestHistory({
             Запустите бэктест, и он появится здесь
           </p>
           {hiddenIds.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-6 text-xs text-gray-500 hover:text-white"
-              onClick={() => {
-                localStorage.removeItem(LS_HIDDEN_KEY);
-                setHiddenIds([]);
-                onRefresh();
-              }}
-            >
-              <CircleDot className="h-3 w-3 mr-1.5" />
-              Показать скрытые ({hiddenIds.length})
-            </Button>
+            <div className="flex items-center gap-2 mt-6">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-gray-500 hover:text-white"
+                onClick={() => {
+                  localStorage.removeItem(LS_HIDDEN_KEY);
+                  setHiddenIds([]);
+                  onRefresh();
+                }}
+              >
+                <CircleDot className="h-3 w-3 mr-1.5" />
+                Показать скрытые ({hiddenIds.length})
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-brand-loss hover:bg-brand-loss/10"
+                onClick={deleteAllHidden}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Удалить все скрытые
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
