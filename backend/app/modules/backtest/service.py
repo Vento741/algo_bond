@@ -115,6 +115,21 @@ class BacktestService:
         await self.db.commit()
         return backtest_result
 
+    async def delete_run(
+        self, run_id: uuid.UUID, user_id: uuid.UUID
+    ) -> None:
+        """Удалить запуск бэктеста и его результаты."""
+        run = await self.get_run(run_id, user_id)
+        # Удалить результат если есть
+        result = await self.db.execute(
+            select(BacktestResult).where(BacktestResult.run_id == run_id)
+        )
+        backtest_result = result.scalar_one_or_none()
+        if backtest_result:
+            await self.db.delete(backtest_result)
+        await self.db.delete(run)
+        await self.db.commit()
+
     async def update_run_status(
         self,
         run_id: uuid.UUID,
