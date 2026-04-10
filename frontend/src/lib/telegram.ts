@@ -27,11 +27,12 @@ interface TelegramWebApp {
     button_text_color?: string;
     secondary_bg_color?: string;
   };
-  colorScheme: 'light' | 'dark';
+  colorScheme: "light" | "dark";
   isExpanded: boolean;
   expand(): void;
   ready(): void;
   close(): void;
+  openLink(url: string): void;
   BackButton: {
     isVisible: boolean;
     show(): void;
@@ -52,8 +53,10 @@ interface TelegramWebApp {
     offClick(callback: () => void): void;
   };
   HapticFeedback: {
-    impactOccurred(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'): void;
-    notificationOccurred(type: 'error' | 'success' | 'warning'): void;
+    impactOccurred(
+      style: "light" | "medium" | "heavy" | "rigid" | "soft",
+    ): void;
+    notificationOccurred(type: "error" | "success" | "warning"): void;
     selectionChanged(): void;
   };
   version: string;
@@ -97,11 +100,14 @@ export function applyTelegramTheme(): void {
   const params = twa.themeParams;
   const root = document.documentElement;
 
-  if (params.bg_color) root.style.setProperty('--tg-bg', params.bg_color);
-  if (params.text_color) root.style.setProperty('--tg-text', params.text_color);
-  if (params.hint_color) root.style.setProperty('--tg-hint', params.hint_color);
-  if (params.link_color) root.style.setProperty('--tg-link', params.link_color);
-  if (params.button_color) root.style.setProperty('--tg-btn-bg', params.button_color);
-  if (params.button_text_color) root.style.setProperty('--tg-btn-text', params.button_text_color);
-  if (params.secondary_bg_color) root.style.setProperty('--tg-secondary-bg', params.secondary_bg_color);
+  if (params.bg_color) root.style.setProperty("--tg-bg", params.bg_color);
+  if (params.text_color) root.style.setProperty("--tg-text", params.text_color);
+  if (params.hint_color) root.style.setProperty("--tg-hint", params.hint_color);
+  if (params.link_color) root.style.setProperty("--tg-link", params.link_color);
+  if (params.button_color)
+    root.style.setProperty("--tg-btn-bg", params.button_color);
+  if (params.button_text_color)
+    root.style.setProperty("--tg-btn-text", params.button_text_color);
+  if (params.secondary_bg_color)
+    root.style.setProperty("--tg-secondary-bg", params.secondary_bg_color);
 }
