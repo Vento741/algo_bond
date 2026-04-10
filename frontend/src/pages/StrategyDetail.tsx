@@ -118,6 +118,65 @@ interface LiveConfig {
   on_reverse: string;
 }
 
+interface HybridConfig {
+  knn_min_confidence: number;
+  knn_min_score: number;
+  use_knn_direction: boolean;
+  knn_boost_threshold: number;
+  knn_boost_mult: number;
+}
+
+interface SuperTrendConfig {
+  st1_period: number;
+  st1_mult: number;
+  st2_period: number;
+  st2_mult: number;
+  st3_period: number;
+  st3_mult: number;
+  min_agree: number;
+}
+
+interface SqueezeConfig {
+  use: boolean;
+  bb_period: number;
+  bb_mult: number;
+  kc_period: number;
+  kc_mult: number;
+  mom_period: number;
+  min_duration: number;
+  duration_norm: number;
+  max_weight: number;
+}
+
+interface EntryConfig {
+  rsi_period: number;
+  rsi_long_max: number;
+  rsi_short_min: number;
+  use_volume: boolean;
+  volume_mult: number;
+}
+
+interface TrendFilterConfig {
+  ema_period: number;
+  use_adx: boolean;
+  adx_period: number;
+  adx_threshold: number;
+}
+
+interface TimeFilterConfig {
+  use: boolean;
+  block_start_utc: number;
+  block_end_utc: number;
+}
+
+interface RegimeConfig {
+  use: boolean;
+  adx_ranging: number;
+  atr_high_vol_pct: number;
+  vol_scale: number;
+  skip_ranging: boolean;
+}
+
 interface FullStrategyConfig {
   knn: KnnConfig;
   trend: TrendConfig;
@@ -128,6 +187,13 @@ interface FullStrategyConfig {
   filters: FiltersConfig;
   backtest: BacktestConfig;
   live: LiveConfig;
+  hybrid: HybridConfig;
+  supertrend: SuperTrendConfig;
+  squeeze: SqueezeConfig;
+  entry: EntryConfig;
+  trend_filter: TrendFilterConfig;
+  time_filter: TimeFilterConfig;
+  regime: RegimeConfig;
 }
 
 /* ================================================================
@@ -198,6 +264,58 @@ const DEFAULT_CONFIG: FullStrategyConfig = {
     order_size: 30,
     leverage: 1,
     on_reverse: "ignore",
+  },
+  hybrid: {
+    knn_min_confidence: 55,
+    knn_min_score: 0.1,
+    use_knn_direction: true,
+    knn_boost_threshold: 75,
+    knn_boost_mult: 1.3,
+  },
+  supertrend: {
+    st1_period: 10,
+    st1_mult: 1.0,
+    st2_period: 11,
+    st2_mult: 3.0,
+    st3_period: 10,
+    st3_mult: 7.0,
+    min_agree: 2,
+  },
+  squeeze: {
+    use: true,
+    bb_period: 20,
+    bb_mult: 2.0,
+    kc_period: 20,
+    kc_mult: 1.5,
+    mom_period: 20,
+    min_duration: 0,
+    duration_norm: 30,
+    max_weight: 1.0,
+  },
+  entry: {
+    rsi_period: 14,
+    rsi_long_max: 40,
+    rsi_short_min: 60,
+    use_volume: true,
+    volume_mult: 1.0,
+  },
+  trend_filter: {
+    ema_period: 200,
+    use_adx: true,
+    adx_period: 14,
+    adx_threshold: 25,
+  },
+  time_filter: {
+    use: false,
+    block_start_utc: 2,
+    block_end_utc: 7,
+  },
+  regime: {
+    use: false,
+    adx_ranging: 20,
+    atr_high_vol_pct: 75,
+    vol_scale: 1.5,
+    skip_ranging: true,
   },
 };
 
@@ -420,6 +538,7 @@ interface ConfigEditorDialogProps {
   open: boolean;
   onClose: () => void;
   strategyId: string;
+  engineType: string;
   defaultConfig: Record<string, unknown>;
   editingConfig: StrategyConfig | null;
   onSaved: () => void;
@@ -429,6 +548,7 @@ function ConfigEditorDialog({
   open,
   onClose,
   strategyId,
+  engineType,
   defaultConfig,
   editingConfig,
   onSaved,
@@ -953,6 +1073,358 @@ function ConfigEditorDialog({
               />
             </div>
           </CollapsibleSection>
+
+          {/* Секции SuperTrend Squeeze / Hybrid */}
+          {(engineType === "supertrend_squeeze" ||
+            engineType === "hybrid_knn_supertrend") && (
+            <>
+              <CollapsibleSection
+                title="SuperTrend"
+                description="Triple SuperTrend параметры"
+                defaultOpen
+              >
+                <div className="grid grid-cols-2 gap-3">
+                  <NumberField
+                    label="ST1 период"
+                    value={config.supertrend.st1_period}
+                    onChange={(v) =>
+                      updateSection("supertrend", { st1_period: v })
+                    }
+                    min={2}
+                  />
+                  <NumberField
+                    label="ST1 множитель"
+                    value={config.supertrend.st1_mult}
+                    onChange={(v) =>
+                      updateSection("supertrend", { st1_mult: v })
+                    }
+                    min={0.1}
+                    step={0.1}
+                  />
+                  <NumberField
+                    label="ST2 период"
+                    value={config.supertrend.st2_period}
+                    onChange={(v) =>
+                      updateSection("supertrend", { st2_period: v })
+                    }
+                    min={2}
+                  />
+                  <NumberField
+                    label="ST2 множитель"
+                    value={config.supertrend.st2_mult}
+                    onChange={(v) =>
+                      updateSection("supertrend", { st2_mult: v })
+                    }
+                    min={0.1}
+                    step={0.25}
+                  />
+                  <NumberField
+                    label="ST3 период"
+                    value={config.supertrend.st3_period}
+                    onChange={(v) =>
+                      updateSection("supertrend", { st3_period: v })
+                    }
+                    min={2}
+                  />
+                  <NumberField
+                    label="ST3 множитель"
+                    value={config.supertrend.st3_mult}
+                    onChange={(v) =>
+                      updateSection("supertrend", { st3_mult: v })
+                    }
+                    min={0.1}
+                    step={0.5}
+                  />
+                  <NumberField
+                    label="Мин. согласие"
+                    value={config.supertrend.min_agree}
+                    onChange={(v) =>
+                      updateSection("supertrend", { min_agree: v })
+                    }
+                    min={1}
+                    max={3}
+                  />
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                title="Squeeze Momentum"
+                description="Bollinger/Keltner squeeze + momentum"
+              >
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-xs text-gray-400">
+                      Включить Squeeze
+                    </span>
+                    <Checkbox
+                      checked={config.squeeze.use}
+                      onChange={(v) => updateSection("squeeze", { use: v })}
+                    />
+                  </div>
+                  <NumberField
+                    label="BB период"
+                    value={config.squeeze.bb_period}
+                    onChange={(v) => updateSection("squeeze", { bb_period: v })}
+                    min={2}
+                  />
+                  <NumberField
+                    label="BB множитель"
+                    value={config.squeeze.bb_mult}
+                    onChange={(v) => updateSection("squeeze", { bb_mult: v })}
+                    min={0.1}
+                    step={0.1}
+                  />
+                  <NumberField
+                    label="KC период"
+                    value={config.squeeze.kc_period}
+                    onChange={(v) => updateSection("squeeze", { kc_period: v })}
+                    min={2}
+                  />
+                  <NumberField
+                    label="KC множитель"
+                    value={config.squeeze.kc_mult}
+                    onChange={(v) => updateSection("squeeze", { kc_mult: v })}
+                    min={0.1}
+                    step={0.1}
+                  />
+                  <NumberField
+                    label="Мин. длительность"
+                    value={config.squeeze.min_duration}
+                    onChange={(v) =>
+                      updateSection("squeeze", { min_duration: v })
+                    }
+                    min={0}
+                  />
+                  <NumberField
+                    label="Макс. вес"
+                    value={config.squeeze.max_weight}
+                    onChange={(v) =>
+                      updateSection("squeeze", { max_weight: v })
+                    }
+                    min={0.1}
+                    step={0.1}
+                  />
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                title="Entry"
+                description="RSI фильтры и объём"
+              >
+                <div className="grid grid-cols-2 gap-3">
+                  <NumberField
+                    label="RSI период"
+                    value={config.entry.rsi_period}
+                    onChange={(v) => updateSection("entry", { rsi_period: v })}
+                    min={2}
+                  />
+                  <NumberField
+                    label="RSI long max"
+                    value={config.entry.rsi_long_max}
+                    onChange={(v) =>
+                      updateSection("entry", { rsi_long_max: v })
+                    }
+                    min={0}
+                    max={100}
+                  />
+                  <NumberField
+                    label="RSI short min"
+                    value={config.entry.rsi_short_min}
+                    onChange={(v) =>
+                      updateSection("entry", { rsi_short_min: v })
+                    }
+                    min={0}
+                    max={100}
+                  />
+                  <NumberField
+                    label="Объём множитель"
+                    value={config.entry.volume_mult}
+                    onChange={(v) => updateSection("entry", { volume_mult: v })}
+                    min={0.1}
+                    step={0.1}
+                  />
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                title="Trend Filter"
+                description="EMA + ADX тренд-фильтр"
+              >
+                <div className="grid grid-cols-2 gap-3">
+                  <NumberField
+                    label="EMA период"
+                    value={config.trend_filter.ema_period}
+                    onChange={(v) =>
+                      updateSection("trend_filter", { ema_period: v })
+                    }
+                    min={2}
+                  />
+                  <NumberField
+                    label="ADX период"
+                    value={config.trend_filter.adx_period}
+                    onChange={(v) =>
+                      updateSection("trend_filter", { adx_period: v })
+                    }
+                    min={2}
+                  />
+                  <NumberField
+                    label="ADX порог"
+                    value={config.trend_filter.adx_threshold}
+                    onChange={(v) =>
+                      updateSection("trend_filter", { adx_threshold: v })
+                    }
+                    min={0}
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">
+                      Использовать ADX
+                    </span>
+                    <Checkbox
+                      checked={config.trend_filter.use_adx}
+                      onChange={(v) =>
+                        updateSection("trend_filter", { use_adx: v })
+                      }
+                    />
+                  </div>
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                title="Режим волатильности"
+                description="Адаптация к рыночным условиям"
+              >
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Включить</span>
+                    <Checkbox
+                      checked={config.regime.use}
+                      onChange={(v) => updateSection("regime", { use: v })}
+                    />
+                  </div>
+                  <NumberField
+                    label="ADX ranging"
+                    value={config.regime.adx_ranging}
+                    onChange={(v) =>
+                      updateSection("regime", { adx_ranging: v })
+                    }
+                    min={0}
+                  />
+                  <NumberField
+                    label="ATR high vol %"
+                    value={config.regime.atr_high_vol_pct}
+                    onChange={(v) =>
+                      updateSection("regime", { atr_high_vol_pct: v })
+                    }
+                    min={0}
+                    max={100}
+                  />
+                  <NumberField
+                    label="Vol scale"
+                    value={config.regime.vol_scale}
+                    onChange={(v) => updateSection("regime", { vol_scale: v })}
+                    min={1}
+                    step={0.1}
+                  />
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                title="Time Filter"
+                description="Блокировка входов в шумные часы UTC"
+              >
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2 flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Включить</span>
+                    <Checkbox
+                      checked={config.time_filter.use}
+                      onChange={(v) => updateSection("time_filter", { use: v })}
+                    />
+                  </div>
+                  <NumberField
+                    label="Блок с (UTC)"
+                    value={config.time_filter.block_start_utc}
+                    onChange={(v) =>
+                      updateSection("time_filter", { block_start_utc: v })
+                    }
+                    min={0}
+                    max={23}
+                  />
+                  <NumberField
+                    label="Блок до (UTC)"
+                    value={config.time_filter.block_end_utc}
+                    onChange={(v) =>
+                      updateSection("time_filter", { block_end_utc: v })
+                    }
+                    min={0}
+                    max={23}
+                  />
+                </div>
+              </CollapsibleSection>
+            </>
+          )}
+
+          {/* Секция Hybrid KNN Filter */}
+          {engineType === "hybrid_knn_supertrend" && (
+            <CollapsibleSection
+              title="Hybrid KNN Filter"
+              description="Фильтрация сигналов через KNN confidence"
+              defaultOpen
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <NumberField
+                  label="Мин. confidence"
+                  value={config.hybrid.knn_min_confidence}
+                  onChange={(v) =>
+                    updateSection("hybrid", { knn_min_confidence: v })
+                  }
+                  min={0}
+                  max={100}
+                  step={5}
+                />
+                <NumberField
+                  label="Мин. score"
+                  value={config.hybrid.knn_min_score}
+                  onChange={(v) =>
+                    updateSection("hybrid", { knn_min_score: v })
+                  }
+                  min={0}
+                  max={1}
+                  step={0.05}
+                />
+                <NumberField
+                  label="Boost порог"
+                  value={config.hybrid.knn_boost_threshold}
+                  onChange={(v) =>
+                    updateSection("hybrid", { knn_boost_threshold: v })
+                  }
+                  min={0}
+                  max={100}
+                  step={5}
+                />
+                <NumberField
+                  label="Boost множитель"
+                  value={config.hybrid.knn_boost_mult}
+                  onChange={(v) =>
+                    updateSection("hybrid", { knn_boost_mult: v })
+                  }
+                  min={1}
+                  max={3}
+                  step={0.1}
+                />
+                <div className="col-span-2 flex items-center justify-between">
+                  <span className="text-xs text-gray-400">
+                    Проверять направление KNN
+                  </span>
+                  <Checkbox
+                    checked={config.hybrid.use_knn_direction}
+                    onChange={(v) =>
+                      updateSection("hybrid", { use_knn_direction: v })
+                    }
+                  />
+                </div>
+              </div>
+            </CollapsibleSection>
+          )}
 
           {/* Секция 10: Общие параметры торговли */}
           <CollapsibleSection
@@ -1832,6 +2304,7 @@ export function StrategyDetail() {
         open={editorOpen}
         onClose={() => setEditorOpen(false)}
         strategyId={strategy.id}
+        engineType={strategy.engine_type}
         defaultConfig={strategy.default_config}
         editingConfig={editingConfig}
         onSaved={fetchConfigs}
