@@ -38,7 +38,7 @@ async def create_backtest_run(
 async def list_backtest_runs(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(200, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ) -> list[BacktestRunResponse]:
     """Список моих запусков бэктеста."""
