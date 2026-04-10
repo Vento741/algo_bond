@@ -23,6 +23,15 @@ import { CookieBanner } from '@/components/CookieBanner';
 import { AnalyticsProvider } from '@/components/AnalyticsProvider';
 import { ToastProvider } from '@/components/ui/toast';
 
+// Telegram Mini App
+import TelegramLayout from '@/layouts/TelegramLayout';
+import TgDashboard from '@/pages/tg/TgDashboard';
+import TgBots from '@/pages/tg/TgBots';
+import TgBotDetail from '@/pages/tg/TgBotDetail';
+import TgChart from '@/pages/tg/TgChart';
+import TgBacktest from '@/pages/tg/TgBacktest';
+import TgSettings from '@/pages/tg/TgSettings';
+
 // Admin pages
 import { AdminDashboard } from '@/pages/admin/AdminDashboard';
 import { AdminUsers } from '@/pages/admin/AdminUsers';
@@ -86,6 +95,16 @@ function App() {
               <Route path="/admin/billing" element={<AdminBilling />} />
               <Route path="/admin/logs" element={<AdminLogs />} />
               <Route path="/admin/system" element={<AdminSystem />} />
+            </Route>
+
+            {/* Telegram Mini App routes */}
+            <Route element={<TelegramLayout />}>
+              <Route path="/tg" element={<TgDashboard />} />
+              <Route path="/tg/bots" element={<TgBots />} />
+              <Route path="/tg/bots/:id" element={<TgBotDetail />} />
+              <Route path="/tg/chart" element={<TgChart />} />
+              <Route path="/tg/backtest" element={<TgBacktest />} />
+              <Route path="/tg/settings" element={<TgSettings />} />
             </Route>
 
             {/* Fallback - 404 */}
