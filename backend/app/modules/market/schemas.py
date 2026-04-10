@@ -14,6 +14,13 @@ class CandleResponse(BaseModel):
     volume: float
 
 
+class CandlesPageResponse(BaseModel):
+    """Страница свечей с пагинацией."""
+    candles: list[CandleResponse]
+    has_more: bool
+    backfill_status: str
+
+
 class TickerResponse(BaseModel):
     """Ответ — текущий тикер."""
     symbol: str

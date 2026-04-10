@@ -30,6 +30,10 @@ celery.conf.beat_schedule = {
         "task": "market.sync_trading_pairs",
         "schedule": 21600.0,  # every 6 hours
     },
+    "sync-latest-candles": {
+        "task": "market.sync_latest_candles",
+        "schedule": 60.0,  # каждую минуту
+    },
 }
 
 celery.autodiscover_tasks([

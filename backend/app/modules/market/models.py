@@ -31,6 +31,32 @@ class OHLCVCandle(Base):
     )
 
 
+class CandleSyncState(Base):
+    """Состояние backfill исторических свечей для пары/таймфрейма."""
+
+    __tablename__ = "candle_sync_state"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(30))
+    timeframe: Mapped[str] = mapped_column(String(10))
+    oldest_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    newest_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    backfill_status: Mapped[str] = mapped_column(String(20), default="pending")
+    backfill_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    backfill_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    __table_args__ = (
+        Index("ix_sync_symbol_tf", "symbol", "timeframe", unique=True),
+    )
+
+
 class TradingPair(Base):
     """Торговая пара Bybit Linear USDT-M."""
 

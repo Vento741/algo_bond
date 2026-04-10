@@ -12,9 +12,10 @@ from app.database import get_db
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import ExchangeAccount, User
 from app.modules.market.bybit_client import BybitClient
+from app.modules.market.candle_service import CandleService
 from app.modules.market.schemas import (
-    CandleResponse, SymbolInfoResponse, TickerResponse, TradingPairResponse,
-    WalletBalanceResponse,
+    CandleResponse, CandlesPageResponse, SymbolInfoResponse, TickerResponse,
+    TradingPairResponse, WalletBalanceResponse,
 )
 from app.modules.market.service import MarketService
 
@@ -56,6 +57,31 @@ async def get_klines(
     else:
         candles = await service.get_klines(symbol, interval, limit)
     return [CandleResponse(**c) for c in candles]
+
+
+@router.get("/candles/{symbol}", response_model=CandlesPageResponse)
+async def get_candles_page(
+    symbol: str,
+    interval: str = Query("15"),
+    limit: int = Query(500, ge=1, le=1000),
+    before: int | None = Query(None, description="Unix seconds cursor для пагинации назад"),
+    db: AsyncSession = Depends(get_db),
+) -> CandlesPageResponse:
+    """Получить свечи из PostgreSQL с курсорной пагинацией.
+
+    Без before: последние свечи (Redis cached).
+    С before: следующая страница старых свечей.
+    При backfill_status=pending запускает фоновую загрузку истории.
+    """
+    service = CandleService(db)
+    result = await service.get_candles(symbol, interval, limit, before)
+
+    # Запустить backfill если ещё не запущен
+    if result.backfill_status == "pending":
+        from app.modules.market.celery_tasks import backfill_candles_task
+        backfill_candles_task.delay(symbol, interval)
+
+    return result
 
 
 @router.get("/ticker/{symbol}", response_model=TickerResponse)
