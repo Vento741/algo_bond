@@ -55,5 +55,8 @@ class Settings(BaseSettings):
     telegram_admin_chat_id: int = 0
     telegram_webapp_url: str = ""
 
+    # Sentinel agent
+    agent_secret: str = ""
+
 
 settings = Settings()
