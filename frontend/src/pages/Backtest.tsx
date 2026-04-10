@@ -30,6 +30,7 @@ import {
   Snowflake,
   Timer,
   RefreshCw,
+  EyeOff,
 } from 'lucide-react';
 import {
   createChart,
@@ -1560,6 +1561,7 @@ function BacktestHistory({
   onRefresh: () => void;
 }) {
   const [hiddenIds, setHiddenIds] = useState<string[]>(getHiddenIds);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const visibleRuns = runs
     .filter((r) => !hiddenIds.includes(r.id))
@@ -1568,6 +1570,34 @@ function BacktestHistory({
   const handleHide = (id: string) => {
     hideRun(id);
     setHiddenIds((prev) => [...prev, id]);
+    setSelected((prev) => { const n = new Set(prev); n.delete(id); return n; });
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
+
+  const selectAll = () => {
+    setSelected(selected.size === visibleRuns.length ? new Set() : new Set(visibleRuns.map((r) => r.id)));
+  };
+
+  const hideSelected = () => {
+    for (const id of selected) hideRun(id);
+    setHiddenIds((prev) => [...prev, ...selected]);
+    setSelected(new Set());
+  };
+
+  const deleteAllHidden = async () => {
+    for (const id of hiddenIds) {
+      try { await api.delete(`/backtest/runs/${id}`); } catch { /* ignore */ }
+    }
+    localStorage.removeItem(LS_HIDDEN_KEY);
+    setHiddenIds([]);
+    onRefresh();
   };
 
   if (loading) {
@@ -1616,46 +1646,64 @@ function BacktestHistory({
     );
   }
 
+  const allSelected = selected.size === visibleRuns.length && visibleRuns.length > 0;
+  const someSelected = selected.size > 0;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-500 font-medium">
-          {visibleRuns.length} {visibleRuns.length === 1 ? 'запуск' : visibleRuns.length < 5 ? 'запуска' : 'запусков'}
-        </p>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={selectAll} className="flex items-center gap-1.5 px-2 py-1 rounded text-xs text-gray-500 hover:text-white transition-colors">
+            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${
+              allSelected ? 'border-brand-premium bg-brand-premium' : someSelected ? 'border-brand-premium bg-brand-premium/30' : 'border-gray-600'
+            }`}>
+              {allSelected && <span className="text-[8px] text-black font-bold">&#10003;</span>}
+              {someSelected && !allSelected && <span className="text-[8px] text-black font-bold">-</span>}
+            </div>
+            {someSelected ? `${selected.size} выбрано` : 'Выбрать все'}
+          </button>
+          {someSelected && (
+            <Button variant="ghost" size="sm" className="text-xs text-brand-loss h-7 hover:bg-brand-loss/10" onClick={hideSelected}>
+              <EyeOff className="h-3 w-3 mr-1" />
+              Скрыть ({selected.size})
+            </Button>
+          )}
+          <span className="text-xs text-gray-600 font-mono">{visibleRuns.length} запусков</span>
+        </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs text-gray-500 h-7 hover:text-white"
-            onClick={onRefresh}
-          >
+          <Button variant="ghost" size="sm" className="text-xs text-gray-500 h-7 hover:text-white" onClick={onRefresh}>
             <RefreshCw className="h-3 w-3 mr-1.5" />
             Обновить
           </Button>
           {hiddenIds.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs text-gray-500 h-7 hover:text-white"
-              onClick={() => {
-                localStorage.removeItem(LS_HIDDEN_KEY);
-                setHiddenIds([]);
-                onRefresh();
-              }}
-            >
-              <CircleDot className="h-3 w-3 mr-1.5" />
-              Показать скрытые ({hiddenIds.length})
-            </Button>
+            <>
+              <Button variant="ghost" size="sm" className="text-xs text-gray-500 h-7 hover:text-white" onClick={() => { localStorage.removeItem(LS_HIDDEN_KEY); setHiddenIds([]); onRefresh(); }}>
+                <CircleDot className="h-3 w-3 mr-1.5" />
+                Показать скрытые ({hiddenIds.length})
+              </Button>
+              <Button variant="ghost" size="sm" className="text-xs text-brand-loss h-7 hover:bg-brand-loss/10" onClick={deleteAllHidden}>
+                <Trash2 className="h-3 w-3 mr-1" />
+                Удалить скрытые
+              </Button>
+            </>
           )}
         </div>
       </div>
+      {/* List with checkboxes */}
       {visibleRuns.map((run) => (
-        <HistoryRunCard
-          key={run.id}
-          run={run}
-          onLoad={onLoadResult}
-          onHide={handleHide}
-        />
+        <div key={run.id} className="flex items-start gap-2">
+          <button type="button" onClick={() => toggleSelect(run.id)} className="mt-4 flex-shrink-0">
+            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+              selected.has(run.id) ? 'border-brand-premium bg-brand-premium' : 'border-gray-600 hover:border-gray-400'
+            }`}>
+              {selected.has(run.id) && <span className="text-[9px] text-black font-bold">&#10003;</span>}
+            </div>
+          </button>
+          <div className="flex-1 min-w-0">
+            <HistoryRunCard run={run} onLoad={onLoadResult} onHide={handleHide} />
+          </div>
+        </div>
       ))}
     </div>
   );
