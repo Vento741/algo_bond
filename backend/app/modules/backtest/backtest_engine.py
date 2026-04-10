@@ -20,6 +20,8 @@ class Trade:
     pnl: float
     pnl_pct: float
     exit_reason: str  # "signal", "stop_loss", "take_profit", "take_profit_1", "take_profit_2", "trailing_stop", "breakeven", "end_of_data"
+    entry_time: int = 0  # Unix timestamp (ms)
+    exit_time: int = 0  # Unix timestamp (ms)
 
 
 @dataclass
@@ -109,12 +111,17 @@ def run_backtest(
         pnl = pnl_raw - entry_commission - exit_commission
         pnl_pct = pnl / equity * 100 if equity > 0 else 0
 
+        # Timestamps из OHLCV (если доступны)
+        entry_ts = int(ohlcv.timestamps[position_entry_bar]) if ohlcv.timestamps is not None and position_entry_bar < len(ohlcv.timestamps) else 0
+        exit_ts = int(ohlcv.timestamps[exit_bar]) if ohlcv.timestamps is not None and exit_bar < len(ohlcv.timestamps) else 0
+
         trades.append(Trade(
             entry_bar=position_entry_bar, exit_bar=exit_bar,
             direction=position_direction,
             entry_price=position_entry_price, exit_price=exit_price,
             quantity=qty, pnl=pnl, pnl_pct=pnl_pct,
             exit_reason=exit_reason,
+            entry_time=entry_ts, exit_time=exit_ts,
         ))
 
         equity += pnl
@@ -348,6 +355,8 @@ def run_backtest(
             "pnl": round(t.pnl, 4),
             "pnl_pct": round(t.pnl_pct, 2),
             "exit_reason": t.exit_reason,
+            "entry_time": t.entry_time,
+            "exit_time": t.exit_time,
         }
         for t in trades
     ]

@@ -157,6 +157,8 @@ export interface BacktestResultTradeEntry {
   pnl: number;
   pnl_pct: number;
   exit_reason: string;
+  entry_time?: number;
+  exit_time?: number;
 }
 
 export interface BacktestResultResponse {
