@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
+import { useAuthStore } from '@/stores/auth';
 import api from '@/lib/api';
 import type {
   StrategyDetail as StrategyDetailType,
@@ -1149,11 +1150,33 @@ function ConfigCard({
 export function StrategyDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { toast } = useToast();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
 
   const [strategy, setStrategy] = useState<StrategyDetailType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Редактирование версии (admin)
+  const [editingVersion, setEditingVersion] = useState(false);
+  const [versionDraft, setVersionDraft] = useState('');
+  const [savingVersion, setSavingVersion] = useState(false);
+
+  const saveVersion = useCallback(async () => {
+    if (!strategy || !versionDraft.trim()) return;
+    setSavingVersion(true);
+    try {
+      const { data } = await api.patch(`/strategies/${strategy.id}`, { version: versionDraft.trim() });
+      setStrategy(data);
+      setEditingVersion(false);
+      toast('Версия обновлена', 'success');
+    } catch {
+      toast('Ошибка обновления версии', 'error');
+    } finally {
+      setSavingVersion(false);
+    }
+  }, [strategy, versionDraft, toast]);
 
   // Конфиги пользователя
   const [configs, setConfigs] = useState<StrategyConfig[]>([]);
@@ -1376,6 +1399,15 @@ export function StrategyDetail() {
             <span className="text-gray-400 text-xs font-mono">
               v{strategy.version}
             </span>
+            {isAdmin && (
+              <button
+                onClick={() => { setVersionDraft(strategy.version); setEditingVersion(true); }}
+                className="p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors"
+                title="Изменить версию"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+            )}
             {strategy.is_public && (
               <span className="px-2 py-0.5 rounded-md bg-brand-profit/10 text-brand-profit text-xs font-medium">
                 Public
@@ -1524,11 +1556,37 @@ export function StrategyDetail() {
                 <span className="text-gray-400">Движок</span>
                 <span className="text-gray-300">{strategy.engine_type}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-400">Версия</span>
-                <span className="text-gray-300 font-mono">
-                  {strategy.version}
-                </span>
+                {editingVersion ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      className="w-20 bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs font-mono text-white focus:outline-none focus:border-brand-premium"
+                      value={versionDraft}
+                      onChange={(e) => setVersionDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') saveVersion(); if (e.key === 'Escape') setEditingVersion(false); }}
+                      autoFocus
+                    />
+                    <button onClick={saveVersion} disabled={savingVersion} className="p-0.5 rounded hover:bg-white/10 text-brand-profit transition-colors">
+                      <Save className="h-3 w-3" />
+                    </button>
+                    <button onClick={() => setEditingVersion(false)} className="p-0.5 rounded hover:bg-white/10 text-gray-400 transition-colors">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-gray-300 font-mono">{strategy.version}</span>
+                    {isAdmin && (
+                      <button
+                        onClick={() => { setVersionDraft(strategy.version); setEditingVersion(true); }}
+                        className="p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Создана</span>

@@ -1,14 +1,19 @@
+import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { useTradingStream } from '@/hooks/useTradingStream';
 import { useNotificationStream } from '@/hooks/useNotificationStream';
+import { useAppStore } from '@/stores/app';
 
 export function DashboardLayout() {
   // Подключаемся к приватному WebSocket потоку торговли
   // isConnected обновляет store - Topbar отображает статус
   useTradingStream();
   useNotificationStream();
+
+  const fetchVersion = useAppStore((s) => s.fetchVersion);
+  useEffect(() => { fetchVersion(); }, [fetchVersion]);
 
   return (
     <div className="min-h-screen bg-brand-bg">

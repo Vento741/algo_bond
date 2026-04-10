@@ -16,6 +16,7 @@ from app.modules.strategy.schemas import (
     StrategyCreate,
     StrategyListResponse,
     StrategyResponse,
+    StrategyUpdate,
 )
 from app.modules.strategy.service import StrategyService
 
@@ -43,6 +44,18 @@ async def get_strategy(
     """Получить стратегию по slug с default_config."""
     service = StrategyService(db)
     return await service.get_strategy_by_slug(slug)
+
+
+@router.patch("/{strategy_id}", response_model=StrategyResponse)
+async def update_strategy(
+    strategy_id: uuid.UUID,
+    data: StrategyUpdate,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> StrategyResponse:
+    """Обновить стратегию (только admin)."""
+    service = StrategyService(db)
+    return await service.update_strategy(strategy_id, data)
 
 
 @router.post("", response_model=StrategyResponse, status_code=201)

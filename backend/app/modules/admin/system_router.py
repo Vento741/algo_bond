@@ -16,6 +16,8 @@ from app.modules.admin.system_schemas import (
     ServerMetrics,
     SystemConfig,
     SystemHealthResponse,
+    VersionResponse,
+    VersionUpdate,
 )
 from app.modules.admin.system_service import SystemService
 from app.modules.auth.dependencies import get_admin_user
@@ -97,6 +99,17 @@ async def error_logs(
 ) -> ErrorLogResponse:
     """Логи ошибок с фильтрацией (только admin)."""
     return await service.get_errors(module=module, limit=limit, offset=offset)
+
+
+@router.put("/version", response_model=VersionResponse)
+async def update_app_version(
+    data: VersionUpdate,
+    admin: User = Depends(get_admin_user),
+    service: SystemService = Depends(_get_service),
+) -> VersionResponse:
+    """Обновить версию приложения (только admin)."""
+    version = await service.update_app_version(data.version)
+    return VersionResponse(version=version)
 
 
 @router.get("/config", response_model=SystemConfig)

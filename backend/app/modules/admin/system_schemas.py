@@ -4,7 +4,20 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+# === Version Update ===
+
+
+class VersionUpdate(BaseModel):
+    """Обновление версии."""
+    version: str = Field(min_length=1, max_length=20, pattern=r"^\d+\.\d+\.\d+.*$")
+
+
+class VersionResponse(BaseModel):
+    """Ответ обновления версии."""
+    version: str
 
 
 # === Health Check ===

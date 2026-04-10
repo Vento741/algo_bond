@@ -35,6 +35,13 @@ class StrategyResponse(BaseModel):
     created_at: datetime
 
 
+class StrategyUpdate(BaseModel):
+    """Обновление стратегии (admin)."""
+    version: str | None = Field(None, min_length=1, max_length=20)
+    description: str | None = None
+    is_public: bool | None = None
+
+
 class StrategyListResponse(BaseModel):
     """Ответ — краткая информация о стратегии (без default_config)."""
     model_config = ConfigDict(from_attributes=True)

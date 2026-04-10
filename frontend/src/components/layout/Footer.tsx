@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Send } from 'lucide-react';
+import { useAppStore } from '@/stores/app';
 
 const LEGAL_LINKS = [
   { label: 'Условия использования', href: '/terms' },
@@ -9,6 +11,10 @@ const LEGAL_LINKS = [
 ];
 
 export function Footer() {
+  const appVersion = useAppStore((s) => s.appVersion);
+  const fetchVersion = useAppStore((s) => s.fetchVersion);
+  useEffect(() => { if (!appVersion) fetchVersion(); }, [appVersion, fetchVersion]);
+
   return (
     <footer className="relative z-10 border-t border-white/[0.04] px-5 lg:px-10 pt-20 pb-10">
       <div className="max-w-[1200px] mx-auto">
@@ -75,7 +81,7 @@ export function Footer() {
           <p className="text-xs text-gray-700">
             &copy; 2026 AlgoBond. Все права защищены.
             &nbsp;&nbsp;
-            <span className="font-data text-gray-700">v0.9.0</span>
+            <span className="font-data text-gray-700">{appVersion ? `v${appVersion}` : ''}</span>
           </p>
           <p className="text-[11px] text-gray-700 leading-[1.7] max-w-[640px] mx-auto mt-4">
             Торговля криптовалютными фьючерсами сопряжена с высоким риском

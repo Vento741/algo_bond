@@ -601,11 +601,16 @@ class SystemService:
 
         return SystemConfig(
             env_vars=env_vars,
-            app_version="0.9.0",
+            app_version=settings.app_version,
             python_version=platform.python_version(),
             git_commit=git_commit,
             docker_containers=containers,
         )
+
+    async def update_app_version(self, version: str) -> str:
+        """Обновить версию приложения в runtime."""
+        settings.app_version = version
+        return version
 
     # === Platform P&L ===
 

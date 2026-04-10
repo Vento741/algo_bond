@@ -57,6 +57,17 @@ async def get_backtest_run(
     return await service.get_run(run_id, user.id)
 
 
+@router.delete("/runs/{run_id}", status_code=204)
+async def delete_backtest_run(
+    run_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Удалить запуск бэктеста и его результаты."""
+    service = BacktestService(db)
+    await service.delete_run(run_id, user.id)
+
+
 @router.get("/runs/{run_id}/result", response_model=BacktestResultResponse)
 async def get_backtest_result(
     run_id: uuid.UUID,

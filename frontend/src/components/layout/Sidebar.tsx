@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
+import { useAppStore } from '@/stores/app';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -92,6 +93,7 @@ export function Sidebar() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useAuthStore();
+  const appVersion = useAppStore((s) => s.appVersion);
 
   const isAdmin = user?.role === 'admin';
 
@@ -158,7 +160,7 @@ export function Sidebar() {
         <div className="h-px mb-3 bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
         <div className="flex items-center gap-2">
           <Circle className="h-1.5 w-1.5 fill-brand-profit text-brand-profit" />
-          <span className="font-mono text-[10px] text-gray-500 tracking-wide">v0.9.0</span>
+          <span className="font-mono text-[10px] text-gray-500 tracking-wide">{appVersion ? `v${appVersion}` : ''}</span>
         </div>
       </div>
     </>

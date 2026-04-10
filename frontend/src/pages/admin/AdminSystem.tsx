@@ -28,8 +28,12 @@ import {
   DollarSign,
   ToggleLeft,
   ToggleRight,
+  Pencil,
+  Save,
+  X as XIcon,
 } from 'lucide-react';
 import api from '@/lib/api';
+import { useAppStore } from '@/stores/app';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -297,6 +301,25 @@ export function AdminSystem() {
   const [flushing, setFlushing] = useState(false);
   const [reconciling, setReconciling] = useState(false);
   const [reconcileResult, setReconcileResult] = useState<string | null>(null);
+  const [editingVersion, setEditingVersion] = useState(false);
+  const [versionDraft, setVersionDraft] = useState('');
+  const [savingVersion, setSavingVersion] = useState(false);
+  const fetchAppVersion = useAppStore((s) => s.fetchVersion);
+
+  const saveVersion = useCallback(async () => {
+    if (!versionDraft.trim()) return;
+    setSavingVersion(true);
+    try {
+      await api.put('/admin/system/version', { version: versionDraft.trim() });
+      if (config) setConfig({ ...config, app_version: versionDraft.trim() });
+      await fetchAppVersion();
+      setEditingVersion(false);
+    } catch {
+      // silent
+    } finally {
+      setSavingVersion(false);
+    }
+  }, [versionDraft, config, fetchAppVersion]);
 
   // Fetch functions
   const fetchHealth = useCallback(async () => {
@@ -1078,12 +1101,51 @@ export function AdminSystem() {
               <div className="space-y-3">
                 {config ? (
                   <>
-                    <MetricCard
-                      title="Версия приложения"
-                      value={config.app_version}
-                      icon={Settings}
-                      iconColor="#FFD700"
-                    />
+                    <div className="rounded-xl border border-white/5 bg-[#1a1a2e] p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-gray-400">Версия приложения</p>
+                          {editingVersion ? (
+                            <div className="flex items-center gap-2 mt-1">
+                              <input
+                                className="w-24 bg-white/5 border border-white/10 rounded px-2 py-1 text-sm font-data text-white focus:outline-none focus:border-brand-premium"
+                                value={versionDraft}
+                                onChange={(e) => setVersionDraft(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') saveVersion(); if (e.key === 'Escape') setEditingVersion(false); }}
+                                autoFocus
+                                placeholder="0.0.0"
+                              />
+                              <button
+                                onClick={saveVersion}
+                                disabled={savingVersion}
+                                className="p-1 rounded hover:bg-white/10 text-brand-profit transition-colors"
+                              >
+                                <Save className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setEditingVersion(false)}
+                                className="p-1 rounded hover:bg-white/10 text-gray-400 transition-colors"
+                              >
+                                <XIcon className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-lg font-bold font-data text-white">{config.app_version}</p>
+                              <button
+                                onClick={() => { setVersionDraft(config.app_version); setEditingVersion(true); }}
+                                className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg" style={{ backgroundColor: '#FFD70015' }}>
+                          <Settings className="h-4 w-4" style={{ color: '#FFD700' }} />
+                        </div>
+                      </div>
+                    </div>
                     <MetricCard
                       title="Python"
                       value={config.python_version}

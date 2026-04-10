@@ -23,6 +23,7 @@ from app.modules.strategy.schemas import (
     StrategyConfigCreate,
     StrategyConfigUpdate,
     StrategyCreate,
+    StrategyUpdate,
 )
 from app.redis import pool as redis_pool
 
@@ -80,6 +81,17 @@ class StrategyService:
 
         strategy = Strategy(**data.model_dump(), author_id=author_id)
         self.db.add(strategy)
+        await self.db.flush()
+        await self.db.commit()
+        return strategy
+
+    async def update_strategy(
+        self, strategy_id: uuid.UUID, data: StrategyUpdate
+    ) -> Strategy:
+        """Обновить стратегию (версия, описание, видимость)."""
+        strategy = await self.get_strategy(strategy_id)
+        for field, value in data.model_dump(exclude_unset=True).items():
+            setattr(strategy, field, value)
         await self.db.flush()
         await self.db.commit()
         return strategy

@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="Платформа алгоритмической торговли криптовалютными фьючерсами",
-    version="0.9.0",
+    version=settings.app_version,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     lifespan=lifespan,
@@ -97,5 +97,5 @@ async def health_check():
     return {
         "status": "ok",
         "app": settings.app_name,
-        "version": "0.9.0",
+        "version": settings.app_version,
     }
