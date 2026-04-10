@@ -1,9 +1,31 @@
 """Тестовые фикстуры для pytest."""
 
+# --- Патч кодировки .env для Windows (cp1251) ---
+# Загружаем .env явно в UTF-8 перед любыми импортами, чтобы избежать
+# UnicodeDecodeError при автоматическом чтении .env в slowapi/starlette.
+# Затем переименовываем .env, чтобы slowapi не пытался читать его сам.
+import os
+from pathlib import Path
+
+env_file = Path(__file__).parent.parent / ".env"
+env_backup = None
+if env_file.exists():
+    # Читаем .env с явной кодировкой UTF-8
+    with open(env_file, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                if key not in os.environ:
+                    os.environ[key] = value
+
+    # Переименовываем .env, чтобы стarlette/slowapi не читали его с cp1251
+    env_backup = env_file.with_suffix(".env.bak")
+    env_file.rename(env_backup)
+
 # --- Monkey-patch: passlib + bcrypt 4.x/5.x совместимость ---
 # passlib не обновляется и ломается с bcrypt>=4.1 (нет __about__.__version__).
 # Патчим ДО любого импорта passlib.
-import os
 import types
 
 import bcrypt as _bcrypt_module
@@ -172,3 +194,12 @@ def admin_headers(admin_user: User) -> dict[str, str]:
     """Заголовки авторизации для администратора."""
     token = create_access_token({"sub": str(admin_user.id)})
     return {"Authorization": f"Bearer {token}"}
+
+
+# --- Восстановление .env после тестов ---
+def pytest_sessionfinish(session, exitstatus):
+    """Восстанавливаем .env после завершения тестов."""
+    global env_backup
+    if env_backup and env_backup.exists():
+        env_file = env_backup.with_suffix("")
+        env_backup.rename(env_file)
