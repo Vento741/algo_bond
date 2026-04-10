@@ -35,6 +35,8 @@ interface TradingChartProps {
   onChartReady?: (chart: IChartApi | null) => void;
   /** Callback при создании/удалении candle series (для маркеров сигналов) */
   onCandleSeriesReady?: (series: ISeriesApi<'Candlestick'> | null) => void;
+  /** Callback при создании/удалении volume series (для lazy-load) */
+  onVolumeSeriesReady?: (series: ISeriesApi<'Histogram'> | null) => void;
 }
 
 /** Конвертация Unix-секунд в формат lightweight-charts */
@@ -70,6 +72,7 @@ export function TradingChart({
   onCrosshairMove,
   onChartReady,
   onCandleSeriesReady,
+  onVolumeSeriesReady,
 }: TradingChartProps) {
   const timezone = useChartStore((s) => s.timezone);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -83,6 +86,8 @@ export function TradingChart({
   onChartReadyRef.current = onChartReady;
   const onCandleSeriesReadyRef = useRef(onCandleSeriesReady);
   onCandleSeriesReadyRef.current = onCandleSeriesReady;
+  const onVolumeSeriesReadyRef = useRef(onVolumeSeriesReady);
+  onVolumeSeriesReadyRef.current = onVolumeSeriesReady;
 
   // Создание графика (один раз)
   useEffect(() => {
@@ -141,6 +146,7 @@ export function TradingChart({
       scaleMargins: { top: 0.8, bottom: 0 },
     });
     volumeSeriesRef.current = volumeSeries;
+    onVolumeSeriesReadyRef.current?.(volumeSeries);
 
     function handleCrosshair(param: MouseEventParams<Time>) {
       const cb = onCrosshairMoveRef.current;
@@ -183,6 +189,7 @@ export function TradingChart({
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
+      onVolumeSeriesReadyRef.current?.(null);
       volumeSeriesRef.current = null;
       onChartReadyRef.current?.(null);
       onCandleSeriesReadyRef.current?.(null);
