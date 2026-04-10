@@ -1,0 +1,5 @@
+# /opt/algobond/.env
+# Скопировать как /opt/algobond/.env и заполнить реальными значениями
+TG_BOT_TOKEN=<from-telegram-botfather>
+TG_ADMIN_CHAT_ID=<your-chat-id>
+AGENT_SECRET=<random-64-hex: openssl rand -hex 32>

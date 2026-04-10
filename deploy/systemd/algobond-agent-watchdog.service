@@ -1,0 +1,10 @@
+[Unit]
+Description=AlgoBond Sentinel Watchdog
+After=network.target redis.service docker.service
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=/opt/algobond/.env
+ExecStart=/opt/algobond/agent-watchdog.sh
+TimeoutStartSec=120
