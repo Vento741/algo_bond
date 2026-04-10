@@ -19,7 +19,7 @@ export function NotificationDropdown() {
   const navigate = useNavigate();
 
   return (
-    <div className="w-[90vw] max-w-[400px] max-h-[60vh] sm:max-h-[520px] flex flex-col">
+    <div className="w-[92vw] max-w-[440px] max-h-[60vh] sm:max-h-[520px] flex flex-col">
       {/* Header */}
       <div className="relative px-4 pt-4 pb-3">
         <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-brand-accent/0 via-brand-accent/60 to-brand-accent/0 rounded-t" />
@@ -33,16 +33,16 @@ export function NotificationDropdown() {
         </div>
       </div>
 
-      {/* Filter pills - scrollable */}
-      <div className="flex gap-1.5 px-4 pb-3 overflow-x-auto scrollbar-none touch-pan-x">
+      {/* Filter pills */}
+      <div className="flex flex-wrap gap-1.5 px-4 pb-3">
         {FILTER_OPTIONS.map((opt) => (
           <button
             key={opt.value}
             onClick={() => setFilter(opt.value)}
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all duration-200 ${
+            className={`px-2.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-all duration-200 ${
               filter === opt.value
-                ? 'bg-brand-accent text-white shadow-[0_0_8px_rgba(68,136,255,0.3)]'
-                : 'bg-white/[0.06] text-gray-400 hover:bg-white/10 hover:text-gray-300 border border-white/[0.06]'
+                ? 'bg-brand-accent text-white'
+                : 'bg-white/[0.05] text-gray-400 hover:bg-white/10 hover:text-gray-300'
             }`}
           >
             {opt.label}
