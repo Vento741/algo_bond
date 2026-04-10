@@ -109,14 +109,14 @@ function drawTradeMarkers(
         position: isLong ? 'belowBar' : 'aboveBar',
         color: isLong ? CHART_COLORS.up : CHART_COLORS.down,
         shape: isLong ? 'arrowUp' : 'arrowDown',
-        text: `${isLong ? 'LONG' : 'SHORT'} $${trade.entry_price.toFixed(4)}`,
+        text: `${isLong ? 'LONG' : 'SHORT'} $${Number(trade.entry_price).toFixed(4)}`,
         size: 1,
       });
     }
 
     if (exitCandle && trade.exit_bar !== trade.entry_bar) {
       const reasonLabel = REASON_LABELS[trade.exit_reason?.toLowerCase()] || trade.exit_reason?.toUpperCase() || 'EXIT';
-      const pnlStr = `${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}`;
+      const pnlStr = `${Number(trade.pnl) >= 0 ? '+' : ''}$${Number(trade.pnl).toFixed(2)}`;
       markers.push({
         time: exitCandle.time as Time,
         position: isLong ? 'aboveBar' : 'belowBar',

@@ -113,20 +113,21 @@ export function Chart() {
         signal: controller.signal,
       })
       .then(({ data }) => {
-        const mapped: KlineData[] = (
-          (data as { candles: Record<string, unknown>[] }).candles
-        ).map((d: Record<string, unknown>) => {
-          const rawTs = Number(d.timestamp ?? d.time);
-          const timeSec = rawTs > 1e12 ? Math.floor(rawTs / 1000) : rawTs;
-          return {
-            time: timeSec,
-            open: Number(d.open),
-            high: Number(d.high),
-            low: Number(d.low),
-            close: Number(d.close),
-            volume: Number(d.volume ?? 0),
-          };
-        });
+        const raw = (data as { candles?: Record<string, unknown>[] }).candles ?? (data as Record<string, unknown>[]);
+        const mapped: KlineData[] = (Array.isArray(raw) ? raw : []).map(
+          (d: Record<string, unknown>) => {
+            const rawTs = Number(d.timestamp ?? d.time ?? d.open_time ?? d.t);
+            const timeSec = rawTs > 1e12 ? Math.floor(rawTs / 1000) : rawTs;
+            return {
+              time: timeSec,
+              open: Number(d.open ?? d.o ?? 0),
+              high: Number(d.high ?? d.h ?? 0),
+              low: Number(d.low ?? d.l ?? 0),
+              close: Number(d.close ?? d.c ?? 0),
+              volume: Number(d.volume ?? d.v ?? 0),
+            };
+          },
+        );
         setKlines(mapped);
       })
       .catch(() => {
@@ -324,31 +325,31 @@ export function Chart() {
                       <span className="text-gray-500 flex items-center gap-1">
                         <Target className="h-3 w-3" /> Вход
                       </span>
-                      <span className="text-white text-right">{latestSignal.entryPrice.toFixed(4)}</span>
+                      <span className="text-white text-right">{Number(latestSignal.entryPrice).toFixed(4)}</span>
                       {latestSignal.stopLoss !== null && (
                         <>
                           <span className="text-gray-500 flex items-center gap-1">
                             <ShieldAlert className="h-3 w-3" /> SL
                           </span>
-                          <span className="text-brand-loss text-right">{latestSignal.stopLoss.toFixed(4)}</span>
+                          <span className="text-brand-loss text-right">{Number(latestSignal.stopLoss).toFixed(4)}</span>
                         </>
                       )}
                       {latestSignal.tp1Price !== null && (
                         <>
                           <span className="text-gray-500">TP1</span>
-                          <span className="text-brand-profit text-right">{latestSignal.tp1Price.toFixed(4)}</span>
+                          <span className="text-brand-profit text-right">{Number(latestSignal.tp1Price).toFixed(4)}</span>
                         </>
                       )}
                       {latestSignal.tp2Price !== null && (
                         <>
                           <span className="text-gray-500">TP2</span>
-                          <span className="text-brand-profit text-right">{latestSignal.tp2Price.toFixed(4)}</span>
+                          <span className="text-brand-profit text-right">{Number(latestSignal.tp2Price).toFixed(4)}</span>
                         </>
                       )}
                       {latestSignal.takeProfit !== null && latestSignal.tp1Price === null && (
                         <>
                           <span className="text-gray-500">TP</span>
-                          <span className="text-brand-profit text-right">{latestSignal.takeProfit.toFixed(4)}</span>
+                          <span className="text-brand-profit text-right">{Number(latestSignal.takeProfit).toFixed(4)}</span>
                         </>
                       )}
                     </div>
@@ -397,7 +398,7 @@ export function Chart() {
                     <Activity className="h-4 w-4 text-brand-accent" />
                     <span className="font-mono text-lg text-white">{latestSignal.knnClass}</span>
                     <span className="font-mono text-xs text-gray-400">
-                      {latestSignal.knnConfidence.toFixed(1)}%
+                      {Number(latestSignal.knnConfidence).toFixed(1)}%
                     </span>
                   </div>
                 ) : (
