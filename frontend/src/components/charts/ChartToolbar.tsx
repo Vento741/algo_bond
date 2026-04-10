@@ -1,4 +1,4 @@
-import { Maximize2, Minimize2, Wifi, WifiOff } from 'lucide-react';
+import { Maximize2, Minimize2, Wifi, WifiOff, Play, Square, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SymbolSearch } from '@/components/ui/symbol-search';
 import { IndicatorSelector } from './IndicatorSelector';
@@ -18,6 +18,12 @@ interface ChartToolbarProps {
   onConfigSelect?: (config: StrategyConfig) => void;
   onConfigUnlink?: () => void;
   linkedConfigId?: string | null;
+  backtestActive?: boolean;
+  backtestLoading?: boolean;
+  backtestProgress?: number;
+  backtestHasCache?: boolean;
+  onToggleBacktest?: () => void;
+  onRefreshBacktest?: () => void;
 }
 
 /** Тулбар графика: символ, таймфрейм, индикаторы, статус, fullscreen */
@@ -32,6 +38,12 @@ export function ChartToolbar({
   onConfigSelect,
   onConfigUnlink,
   linkedConfigId,
+  backtestActive,
+  backtestLoading,
+  backtestProgress,
+  backtestHasCache,
+  onToggleBacktest,
+  onRefreshBacktest,
 }: ChartToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-3 px-1">
@@ -70,6 +82,48 @@ export function ChartToolbar({
 
       {/* Индикаторы */}
       <IndicatorSelector />
+
+      {/* Бэктест */}
+      {onToggleBacktest && linkedConfigId && (
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onToggleBacktest}
+            disabled={backtestLoading}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer border ${
+              backtestActive
+                ? 'border-brand-profit/30 bg-brand-profit/10 text-brand-profit'
+                : 'border-white/10 bg-white/5 text-gray-400 hover:text-white hover:border-white/20'
+            }`}
+          >
+            {backtestLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : backtestActive ? (
+              <Square className="h-3.5 w-3.5" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+            <span>
+              {backtestLoading
+                ? `${backtestProgress ?? 0}%`
+                : backtestActive
+                  ? 'Backtest'
+                  : 'Backtest'}
+            </span>
+          </button>
+          {backtestActive && backtestHasCache && onRefreshBacktest && (
+            <button
+              type="button"
+              onClick={onRefreshBacktest}
+              disabled={backtestLoading}
+              title="Перезапустить бэктест"
+              className="p-1 text-gray-500 hover:text-white transition-colors rounded"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${backtestLoading ? 'animate-spin' : ''}`} />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Часовой пояс */}
       <TimezoneSelector />

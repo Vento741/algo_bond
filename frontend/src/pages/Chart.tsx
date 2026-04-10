@@ -16,6 +16,8 @@ import { ChartToolbar } from '@/components/charts/ChartToolbar';
 import { useMarketStream } from '@/hooks/useMarketStream';
 import { useIndicators } from '@/hooks/useIndicators';
 import { useChartSignals } from '@/hooks/useChartSignals';
+import { useChartBacktest } from '@/hooks/useChartBacktest';
+import type { BacktestMetrics } from '@/hooks/useChartBacktest';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import api from '@/lib/api';
@@ -62,10 +64,30 @@ export function Chart() {
   // Индикаторы
   useIndicators({ chart: chartApi, klines });
 
-  // Сигналы на графике
+  // Бэктест
+  const [backtestActive, setBacktestActive] = useState(false);
+
+  // Сигналы на графике (скрыты когда бэктест активен)
   const { latestSignal, signalsCount } = useChartSignals({
-    configId: linkedConfigId,
+    configId: backtestActive ? null : linkedConfigId,
     candleSeries,
+  });
+
+  // Inline бэктест
+  const {
+    metrics: btMetrics,
+    loading: btLoading,
+    progress: btProgress,
+    error: btError,
+    runBacktest,
+    hasCache: btHasCache,
+  } = useChartBacktest({
+    configId: linkedConfigId,
+    symbol,
+    interval,
+    candleSeries,
+    klines,
+    enabled: backtestActive,
   });
 
   // Загрузка исторических данных с отменой предыдущего запроса
@@ -147,6 +169,21 @@ export function Chart() {
 
   const toggleFullscreen = useCallback(() => setIsFullscreen((v) => !v), []);
 
+  const handleToggleBacktest = useCallback(() => {
+    setBacktestActive((prev) => {
+      const next = !prev;
+      if (next && !btMetrics && !btLoading) {
+        // Автозапуск при включении (если нет кеша)
+        setTimeout(() => runBacktest(), 0);
+      }
+      return next;
+    });
+  }, [btMetrics, btLoading, runBacktest]);
+
+  const handleRefreshBacktest = useCallback(() => {
+    runBacktest();
+  }, [runBacktest]);
+
   return (
     <div className={isFullscreen ? 'fixed inset-0 z-50 bg-brand-bg p-2' : 'space-y-4'}>
       {/* Toolbar */}
@@ -161,6 +198,12 @@ export function Chart() {
         onConfigSelect={handleConfigSelect}
         onConfigUnlink={handleConfigUnlink}
         linkedConfigId={linkedConfigId}
+        backtestActive={backtestActive}
+        backtestLoading={btLoading}
+        backtestProgress={btProgress}
+        backtestHasCache={btHasCache}
+        onToggleBacktest={handleToggleBacktest}
+        onRefreshBacktest={handleRefreshBacktest}
       />
 
       {/* Price display */}
@@ -182,8 +225,27 @@ export function Chart() {
         )}
       </div>
 
+      {/* Backtest stats bar */}
+      {backtestActive && btMetrics && (
+        <BacktestStatsBar metrics={btMetrics} error={btError} />
+      )}
+      {backtestActive && btLoading && (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/5 border border-white/5 text-xs text-gray-400 font-mono">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          <span>Бэктест: {btProgress}%</span>
+          <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+            <div className="h-full bg-brand-premium rounded-full transition-all" style={{ width: `${btProgress}%` }} />
+          </div>
+        </div>
+      )}
+      {backtestActive && btError && !btMetrics && (
+        <div className="px-3 py-1.5 rounded-md bg-brand-loss/10 border border-brand-loss/20 text-xs text-brand-loss font-mono">
+          {btError}
+        </div>
+      )}
+
       {/* Chart + Side panel */}
-      <div className="flex gap-4 flex-1" style={{ height: isFullscreen ? 'calc(100vh - 130px)' : 'calc(100vh - 260px)', minHeight: '400px' }}>
+      <div className="flex gap-4 flex-1" style={{ height: isFullscreen ? 'calc(100vh - 130px)' : backtestActive && btMetrics ? 'calc(100vh - 300px)' : 'calc(100vh - 260px)', minHeight: '400px' }}>
         {/* Chart */}
         <div className="relative flex-1 rounded-lg border border-white/5 overflow-hidden bg-brand-bg">
           {/* Demo data warning */}
@@ -380,6 +442,33 @@ export function Chart() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Компактная stats-полоска бэктеста */
+function BacktestStatsBar({ metrics, error }: { metrics: BacktestMetrics; error: string | null }) {
+  const stats = [
+    { label: 'TRADES', value: metrics.totalTrades.toString() },
+    { label: 'WR', value: `${metrics.winRate.toFixed(1)}%`, color: metrics.winRate >= 50 ? 'text-brand-profit' : 'text-brand-loss' },
+    { label: 'PnL', value: `${metrics.totalPnl >= 0 ? '+' : ''}${metrics.totalPnl.toFixed(2)}%`, color: metrics.totalPnl >= 0 ? 'text-brand-profit' : 'text-brand-loss' },
+    { label: 'DD', value: `${metrics.maxDrawdown.toFixed(1)}%`, color: 'text-brand-loss' },
+    { label: 'SHARPE', value: metrics.sharpeRatio.toFixed(2), color: metrics.sharpeRatio >= 1 ? 'text-brand-profit' : 'text-gray-300' },
+    { label: 'PF', value: metrics.profitFactor.toFixed(2), color: metrics.profitFactor >= 1.5 ? 'text-brand-profit' : 'text-gray-300' },
+  ];
+
+  return (
+    <div className="flex items-center gap-4 px-3 py-2 rounded-md bg-white/[0.03] border border-white/5">
+      <span className="text-[10px] uppercase tracking-wider text-brand-premium font-medium">Backtest</span>
+      <div className="flex items-center gap-4 flex-1">
+        {stats.map((s) => (
+          <div key={s.label} className="flex items-center gap-1.5">
+            <span className="text-[10px] text-gray-500 uppercase">{s.label}</span>
+            <span className={`text-xs font-mono font-medium ${s.color ?? 'text-white'}`}>{s.value}</span>
+          </div>
+        ))}
+      </div>
+      {error && <span className="text-[10px] text-brand-loss">{error}</span>}
     </div>
   );
 }
