@@ -112,6 +112,7 @@ export function Register() {
                     <Input
                       id="email"
                       type="email"
+                      autoComplete="email"
                       placeholder="your@email.com"
                       value={email}
                       onChange={(e) => {
@@ -130,6 +131,7 @@ export function Register() {
                     <Input
                       id="username"
                       type="text"
+                      autoComplete="username"
                       placeholder="trader_name"
                       value={username}
                       onChange={(e) => {
@@ -149,6 +151,7 @@ export function Register() {
                     <Input
                       id="password"
                       type="password"
+                      autoComplete="new-password"
                       placeholder="Минимум 8 символов"
                       value={password}
                       onChange={(e) => {

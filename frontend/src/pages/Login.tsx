@@ -71,6 +71,7 @@ export function Login() {
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="your@email.com"
                   value={email}
                   onChange={(e) => {
@@ -89,6 +90,7 @@ export function Login() {
                 <Input
                   id="password"
                   type="password"
+                  autoComplete="current-password"
                   placeholder="Минимум 8 символов"
                   value={password}
                   onChange={(e) => {
