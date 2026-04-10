@@ -70,6 +70,18 @@ class NotificationPreference(Base):
     backtest_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     system_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     billing_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Telegram канал
+    telegram_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    positions_telegram: Mapped[bool] = mapped_column(Boolean, default=True)
+    bots_telegram: Mapped[bool] = mapped_column(Boolean, default=True)
+    orders_telegram: Mapped[bool] = mapped_column(Boolean, default=False)
+    backtest_telegram: Mapped[bool] = mapped_column(Boolean, default=True)
+    system_telegram: Mapped[bool] = mapped_column(Boolean, default=True)
+    finance_telegram: Mapped[bool] = mapped_column(Boolean, default=True)
+    security_telegram: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Новые web-канал категории
+    finance_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    security_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

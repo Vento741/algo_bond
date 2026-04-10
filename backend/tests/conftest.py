@@ -42,6 +42,8 @@ import app.modules.strategy.models  # noqa: F401
 import app.modules.backtest.models  # noqa: F401
 import app.modules.trading.models  # noqa: F401
 import app.modules.analytics.models  # noqa: F401
+import app.modules.notifications.models  # noqa: F401
+import app.modules.telegram.models  # noqa: F401
 
 from app.core.security import create_access_token, hash_password
 from app.database import Base, get_db
