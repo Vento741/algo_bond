@@ -33,10 +33,8 @@ cd "$PROJECT_DIR"
 tmux new-session -d -s "$SESSION_NAME" -x 200 -y 50
 sleep 1
 
-PROMPT_CONTENT=$(cat "$INIT_PROMPT")
-tmux send-keys -t "$SESSION_NAME" "cd $PROJECT_DIR && claude --resume 'AlgoBond Sentinel' <<'SENTINEL_INIT'
-$PROMPT_CONTENT
-SENTINEL_INIT" Enter
+# Передаем init prompt через pipe (без heredoc - избегаем проблем с кавычками в tmux)
+tmux send-keys -t "$SESSION_NAME" "cd $PROJECT_DIR && cat .claude/scripts/sentinel-init-prompt.md | claude -p --allowedTools 'Bash(*)' 'Read(*)' 'Write(*)' 'Edit(*)' 'Glob(*)' 'Grep(*)'" Enter
 
 echo "[init] Sentinel started in tmux session '$SESSION_NAME'"
 
