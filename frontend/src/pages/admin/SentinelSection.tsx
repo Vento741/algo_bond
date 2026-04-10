@@ -136,9 +136,9 @@ export default function SentinelSection() {
   const fetchData = useCallback(async () => {
     try {
       const [statusRes, incidentsRes] = await Promise.all([
-        api.get<SentinelStatus>("/api/admin/agent/status"),
+        api.get<SentinelStatus>("/admin/agent/status"),
         api.get<{ items: SentinelIncident[]; total: number }>(
-          "/api/admin/agent/incidents?limit=10",
+          "/admin/agent/incidents?limit=10",
         ),
       ]);
       setStatus(statusRes.data);
@@ -168,7 +168,7 @@ export default function SentinelSection() {
   const handleToggle = async (action: "start" | "stop") => {
     setToggling(true);
     try {
-      await api.post(`/api/admin/agent/toggle?action=${action}`);
+      await api.post(`/admin/agent/toggle?action=${action}`);
       setTimeout(fetchData, 2000);
     } finally {
       setToggling(false);
