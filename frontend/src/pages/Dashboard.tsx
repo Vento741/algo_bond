@@ -256,7 +256,7 @@ export function Dashboard() {
                     return (
                       <Link
                         key={bot.id}
-                        to="/bots"
+                        to={`/bots/${bot.id}`}
                         className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-white/[0.1] transition-all duration-200 group cursor-pointer"
                       >
                         <div className="flex items-center gap-3">
