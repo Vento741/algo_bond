@@ -1,5 +1,6 @@
 """API-эндпоинты управления AlgoBond Sentinel."""
 
+import hmac
 import logging
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
@@ -30,7 +31,7 @@ def _verify_agent_token(x_agent_token: str = Header(...)) -> str:
     """Dependency: проверить X-Agent-Token для internal API."""
     if not settings.agent_secret:
         raise HTTPException(status_code=503, detail="Agent secret not configured")
-    if x_agent_token != settings.agent_secret:
+    if not hmac.compare_digest(x_agent_token, settings.agent_secret):
         raise HTTPException(status_code=403, detail="Invalid agent token")
     return x_agent_token
 
@@ -59,7 +60,7 @@ async def toggle_agent(
     action: str = Query(..., pattern="^(start|stop)$"),
     admin: User = Depends(get_admin_user),
     service: SentinelService = Depends(_get_service),
-) -> dict:
+) -> dict[str, str]:
     """Отправить команду start/stop Sentinel (только admin)."""
     return await service.toggle(action)
 
