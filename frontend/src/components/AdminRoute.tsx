@@ -8,7 +8,7 @@ interface AdminRouteProps {
 }
 
 export function AdminRoute({ children }: AdminRouteProps) {
-  const { isAuthenticated, isLoading, user, fetchUser } = useAuthStore();
+  const { isAuthenticated, user, fetchUser } = useAuthStore();
   const location = useLocation();
 
   useEffect(() => {
