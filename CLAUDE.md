@@ -1,5 +1,13 @@
 # AlgoBond — Платформа алгоритмической торговли
 
+## Рабочий процесс
+
+- Разработка ведётся ЛОКАЛЬНО (Windows), деплой на VPS (Linux Docker)
+- После каждого рабочего этапа: `git commit` + `git push` + деплой на VPS
+- Все проверки и тестирование - на VPS (Docker окружение)
+- Деплой: `ssh jeremy-vps "cd /var/www/dev_james_usr/data/www/dev-james.bond/algo_trade && git pull && docker compose up -d --build api"`
+- Health check после деплоя: `ssh jeremy-vps "curl -sf http://localhost:8100/health"`
+
 Веб-платформа алготрейдинга криптофьючерсами на Bybit. Стратегия: Lorentzian KNN (+710% RIVERUSDT).
 Модульный монолит: FastAPI + Celery + React SPA + PostgreSQL + Redis + Docker.
 
