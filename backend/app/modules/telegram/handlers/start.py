@@ -43,11 +43,21 @@ async def start_deep_link(
 
 
 @router.message(CommandStart())
-async def start_welcome(message: Message) -> None:
-    """Приветственное сообщение для новых пользователей."""
-    await message.answer(
-        "<b>AlgoBond</b> - платформа алгоритмической торговли\n\n"
-        "Привяжите аккаунт в ЛК для получения уведомлений "
-        "и доступа к платформе через Telegram.",
-        reply_markup=webapp_button(),
-    )
+async def start_welcome(message: Message, session: AsyncSession) -> None:
+    """Приветственное сообщение. Если аккаунт привязан - показать платформу."""
+    service = TelegramService(session)
+    link = await service.get_link_by_telegram_id(message.from_user.id)
+
+    if link:
+        await message.answer(
+            "<b>AlgoBond</b> - добро пожаловать!\n\n"
+            "Ваш аккаунт привязан. Откройте платформу:",
+            reply_markup=webapp_button(),
+        )
+    else:
+        await message.answer(
+            "<b>AlgoBond</b> - платформа алгоритмической торговли\n\n"
+            "Привяжите аккаунт в ЛК для получения уведомлений "
+            "и доступа к платформе через Telegram.",
+            reply_markup=webapp_button(),
+        )
