@@ -1167,8 +1167,9 @@ function TradesChart({
 
       // Resize observer
       const ro = new ResizeObserver((entries) => {
+        if (!chartRef.current) return;
         for (const entry of entries) {
-          chart.applyOptions({ width: entry.contentRect.width });
+          try { chartRef.current.applyOptions({ width: entry.contentRect.width }); } catch {}
         }
       });
       ro.observe(containerRef.current);
@@ -1176,6 +1177,7 @@ function TradesChart({
       setLoading(false);
       return () => {
         ro.disconnect();
+        chartRef.current = null;
         chart.remove();
       };
     } catch (err) {
