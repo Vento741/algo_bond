@@ -105,26 +105,26 @@ export function NotificationItem({ notification }: Props) {
     <div
       onClick={handleClick}
       className={cn(
-        'flex gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 group animate-notif-fade-in',
+        'flex gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 group animate-notif-fade-in',
         notification.is_read
-          ? 'opacity-50 hover:opacity-70 border-l-[3px] border-transparent'
-          : 'bg-brand-accent/[0.04] border-l-[3px] border-brand-accent hover:bg-brand-accent/[0.08]',
+          ? 'opacity-45 hover:opacity-65 hover:bg-white/[0.02]'
+          : 'bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] hover:border-white/[0.1]',
       )}
     >
       <div className={cn(
-        'w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0',
+        'w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0',
         PRIORITY_BG[notification.priority] || 'bg-white/5',
       )}>
         {icon}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-medium text-white truncate">{notification.title}</p>
-        <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{highlightPnl(notification.message)}</p>
-        <p className="text-[11px] text-gray-600 mt-1">{timeAgo(notification.created_at)}</p>
+        <p className="text-[13px] font-medium text-white leading-tight">{notification.title}</p>
+        <p className="text-xs text-gray-400 mt-1 line-clamp-2 leading-relaxed">{highlightPnl(notification.message)}</p>
+        <p className="text-[11px] text-gray-500 mt-1.5">{timeAgo(notification.created_at)}</p>
       </div>
       <button
         onClick={handleDelete}
-        className="text-gray-600 hover:text-gray-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity self-start mt-0.5 p-1 -m-1 min-w-[28px] min-h-[28px] flex items-center justify-center"
+        className="text-gray-600 hover:text-gray-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity self-start p-1 -m-1 min-w-[28px] min-h-[28px] flex items-center justify-center rounded-md hover:bg-white/[0.06]"
         aria-label="Удалить уведомление"
       >
         <X className="h-3.5 w-3.5" />
