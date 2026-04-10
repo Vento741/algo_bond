@@ -8,7 +8,6 @@ import {
   TrendingDown,
   BarChart3,
   Target,
-  Shield,
   Percent,
   AlertCircle,
   Settings2,
@@ -20,6 +19,17 @@ import {
   CheckCircle2,
   XCircle,
   CircleDot,
+  CalendarRange,
+  DollarSign,
+  CandlestickChart,
+  Layers,
+  Crosshair,
+  Activity,
+  ArrowDownRight,
+  Flame,
+  Snowflake,
+  Timer,
+  RefreshCw,
 } from 'lucide-react';
 import {
   createChart,
@@ -355,337 +365,501 @@ export function Backtest() {
   const hasNoConfigs = !configsLoading && configs.length === 0;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Бэктестинг</h1>
-        <p className="text-gray-400 text-sm mt-1">
-          Проверьте стратегию на исторических данных
-        </p>
+    <div className="space-y-8">
+      {/* ---- Page Header ---- */}
+      <div className="relative">
+        <div className="absolute -inset-x-4 -top-4 h-32 bg-gradient-to-b from-brand-accent/[0.03] to-transparent rounded-2xl pointer-events-none" />
+        <div className="relative">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-brand-accent/20 to-brand-premium/10 border border-brand-accent/20 shadow-lg shadow-brand-accent/5">
+                <FlaskConical className="h-6 w-6 text-brand-accent" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white tracking-tight font-[Tektur]">
+                  Бэктест
+                </h1>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Проверьте стратегию на исторических данных
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-5 h-px bg-gradient-to-r from-brand-accent/30 via-brand-premium/10 to-transparent" />
+        </div>
       </div>
 
-      {/* Top-level tabs: Новый бэктест / История */}
+      {/* ---- Top-level tabs: Новый бэктест / История ---- */}
       <Tabs defaultValue="new" value={topTab} onValueChange={setTopTab}>
-        <TabsList>
-          <TabsTrigger value="new">
-            <FlaskConical className="h-3.5 w-3.5 mr-1.5" />
+        <TabsList className="bg-white/[0.04] border border-white/[0.06] p-1 rounded-xl">
+          <TabsTrigger value="new" className="rounded-lg px-4 py-2 text-xs gap-1.5">
+            <FlaskConical className="h-3.5 w-3.5" />
             Новый бэктест
           </TabsTrigger>
-          <TabsTrigger value="history">
-            <History className="h-3.5 w-3.5 mr-1.5" />
+          <TabsTrigger value="history" className="rounded-lg px-4 py-2 text-xs gap-1.5">
+            <History className="h-3.5 w-3.5" />
             История
             {historyRuns.length > 0 && (
-              <span className="ml-1.5 text-[10px] bg-white/10 px-1.5 py-0.5 rounded-full font-mono">
+              <span className="ml-1 text-[10px] bg-brand-accent/15 text-brand-accent px-1.5 py-0.5 rounded-full font-mono leading-none">
                 {historyRuns.length}
               </span>
             )}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="new">
+        <TabsContent value="new" className="mt-6">
 
-      {/* No configs warning */}
-      {hasNoConfigs && (
-        <Card className="border-brand-premium/20 bg-brand-premium/5">
-          <CardContent className="p-5 flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-brand-premium shrink-0 mt-0.5" />
-            <div>
-              <p className="text-white font-medium">
-                Нет конфигураций стратегий
-              </p>
-              <p className="text-gray-400 text-sm mt-1">
-                Для запуска бэктеста нужна конфигурация стратегии. Создайте её
-                на странице{' '}
-                <a
-                  href="/strategies"
-                  className="text-brand-premium hover:underline"
+          {/* No configs warning */}
+          {hasNoConfigs && (
+            <Card className="border-brand-premium/20 bg-brand-premium/[0.04] mb-6">
+              <CardContent className="p-5 flex items-start gap-3">
+                <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-brand-premium/10 border border-brand-premium/20 shrink-0">
+                  <AlertCircle className="h-4.5 w-4.5 text-brand-premium" />
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-sm">
+                    Нет конфигураций стратегий
+                  </p>
+                  <p className="text-gray-400 text-sm mt-1 leading-relaxed">
+                    Для запуска бэктеста нужна конфигурация стратегии. Создайте её
+                    на странице{' '}
+                    <a
+                      href="/strategies"
+                      className="text-brand-premium hover:underline font-medium"
+                    >
+                      Стратегии
+                    </a>
+                    .
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ---- Config Form ---- */}
+          <Card className="border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
+            <CardContent className="p-6">
+              {/* Section: Strategy Configuration */}
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Settings2 className="h-4 w-4 text-brand-accent" />
+                  <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                    Конфигурация стратегии
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2 lg:col-span-1">
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center gap-1.5">
+                      <Layers className="h-3 w-3" />
+                      Стратегия
+                    </label>
+                    {configsLoading ? (
+                      <div className="flex h-9 items-center rounded-lg border border-white/[0.06] bg-white/[0.03] px-3">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-500" />
+                        <span className="ml-2 text-sm text-gray-500">Загрузка...</span>
+                      </div>
+                    ) : configs.length > 0 ? (
+                      <Select
+                        value={selectedConfigId}
+                        onChange={setSelectedConfigId}
+                        options={configOptions}
+                        className="w-full"
+                      />
+                    ) : (
+                      <div className="flex h-9 items-center rounded-lg border border-white/[0.06] bg-white/[0.03] px-3">
+                        <span className="text-sm text-gray-500">Нет конфигураций</span>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center gap-1.5">
+                      <CandlestickChart className="h-3 w-3" />
+                      Символ
+                    </label>
+                    <SymbolSearch
+                      value={symbol}
+                      onChange={setSymbol}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center gap-1.5">
+                      <Timer className="h-3 w-3" />
+                      Таймфрейм
+                    </label>
+                    <Select
+                      value={timeframe}
+                      onChange={setTimeframe}
+                      options={[...TIMEFRAME_OPTIONS]}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="h-px bg-white/[0.04] mb-6" />
+
+              {/* Section: Market Parameters */}
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <CalendarRange className="h-4 w-4 text-brand-premium" />
+                  <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                    Параметры теста
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center gap-1.5">
+                      <CalendarRange className="h-3 w-3" />
+                      Начало
+                    </label>
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="bg-white/[0.03] border-white/[0.06] text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center gap-1.5">
+                      <CalendarRange className="h-3 w-3" />
+                      Конец
+                    </label>
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="bg-white/[0.03] border-white/[0.06] text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1.5 flex items-center gap-1.5">
+                      <DollarSign className="h-3 w-3" />
+                      Начальный капитал
+                    </label>
+                    <Input
+                      type="number"
+                      value={initialCapital}
+                      onChange={(e) => setInitialCapital(e.target.value)}
+                      className="bg-white/[0.03] border-white/[0.06] text-white font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="h-px bg-white/[0.04] mb-6" />
+
+              {/* Run button + progress */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <Button
+                  onClick={runBacktest}
+                  disabled={loading || !selectedConfigId}
+                  className="bg-gradient-to-r from-brand-premium to-amber-500 text-brand-bg hover:opacity-90 font-semibold shadow-lg shadow-brand-premium/20 min-w-[160px] h-10 text-sm transition-opacity"
                 >
-                  Стратегии
-                </a>
-                .
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-4 w-4" />
+                      Запустить тест
+                    </>
+                  )}
+                </Button>
 
-      {/* Config form */}
-      <Card className="border-white/5 bg-white/[0.02]">
-        <CardContent className="p-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4 items-end">
-            <div className="lg:col-span-2">
-              <label className="text-xs text-gray-400 block mb-1.5 flex items-center gap-1">
-                <Settings2 className="h-3 w-3" />
-                Конфигурация стратегии
-              </label>
-              {configsLoading ? (
-                <div className="flex h-9 items-center rounded-md border border-white/10 bg-white/5 px-3">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />
-                  <span className="ml-2 text-sm text-gray-400">Загрузка...</span>
-                </div>
-              ) : configs.length > 0 ? (
-                <Select
-                  value={selectedConfigId}
-                  onChange={setSelectedConfigId}
-                  options={configOptions}
-                  className="w-full"
-                />
-              ) : (
-                <div className="flex h-9 items-center rounded-md border border-white/10 bg-white/5 px-3">
-                  <span className="text-sm text-gray-400">Нет конфигураций</span>
+                {/* Progress indicator */}
+                {loading && runStatus && (
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="h-4 w-4 animate-spin text-brand-premium" />
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-gray-400">
+                        {runStatus === 'pending' && 'Запуск бэктеста...'}
+                        {runStatus === 'running' &&
+                          `Вычисление... ${runProgress}%`}
+                        {runStatus === 'completed' && 'Загрузка результатов...'}
+                      </span>
+                      {runStatus === 'running' && (
+                        <div className="w-40 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-brand-premium to-amber-500 rounded-full transition-all duration-300"
+                            style={{ width: `${runProgress}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Error message */}
+              {errorMessage && (
+                <div className="mt-4 flex items-center gap-2.5 text-sm text-brand-loss bg-brand-loss/[0.06] border border-brand-loss/10 rounded-lg px-4 py-2.5">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{errorMessage} (показаны демо-данные)</span>
                 </div>
               )}
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 block mb-1.5">Символ</label>
-              <SymbolSearch
-                value={symbol}
-                onChange={setSymbol}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 block mb-1.5">Таймфрейм</label>
-              <Select
-                value={timeframe}
-                onChange={setTimeframe}
-                options={[...TIMEFRAME_OPTIONS]}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 block mb-1.5">Начало</label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-white/5 border-white/10 text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 block mb-1.5">Конец</label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-white/5 border-white/10 text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 block mb-1.5">Капитал ($)</label>
-              <Input
-                type="number"
-                value={initialCapital}
-                onChange={(e) => setInitialCapital(e.target.value)}
-                className="bg-white/5 border-white/10 text-white font-mono"
-              />
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          {/* Run button — full width row below on small screens, inline on large */}
-          <div className="mt-4 flex items-center gap-4">
-            <Button
-              onClick={runBacktest}
-              disabled={loading || !selectedConfigId}
-              className="bg-brand-premium text-brand-bg hover:bg-brand-premium/90 min-w-[140px]"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Play className="mr-2 h-4 w-4" />
-                  Запуск
-                </>
-              )}
-            </Button>
+          {/* ---- Results ---- */}
+          {result && (
+            <div className="space-y-6 mt-6">
+              {/* Metrics summary bar */}
+              <Card className="border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01] overflow-hidden">
+                <CardContent className="p-0">
+                  {/* Metrics header */}
+                  <div className="px-5 py-3 border-b border-white/[0.04] flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-brand-accent" />
+                    <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                      Результаты
+                    </span>
+                    <span className="text-xs text-gray-600 font-mono ml-auto">
+                      {result.metrics.total_trades} сделок
+                    </span>
+                  </div>
+                  {/* Metrics grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 divide-x divide-white/[0.04]">
+                    <MetricCell
+                      label="Сделок"
+                      value={String(result.metrics.total_trades)}
+                      icon={BarChart3}
+                      color="text-brand-accent"
+                    />
+                    <MetricCell
+                      label="Win Rate"
+                      value={`${result.metrics.win_rate.toFixed(1)}%`}
+                      icon={Target}
+                      color={result.metrics.win_rate >= 50 ? 'text-brand-profit' : 'text-brand-loss'}
+                    />
+                    <MetricCell
+                      label="Profit Factor"
+                      value={result.metrics.profit_factor >= 999 ? 'Inf' : result.metrics.profit_factor.toFixed(2)}
+                      icon={TrendingUp}
+                      color={result.metrics.profit_factor >= 1 ? 'text-brand-profit' : 'text-brand-loss'}
+                    />
+                    <MetricCell
+                      label="Итого P&L"
+                      value={`$${result.metrics.total_pnl.toFixed(0)}`}
+                      icon={result.metrics.total_pnl >= 0 ? TrendingUp : TrendingDown}
+                      color={result.metrics.total_pnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'}
+                      highlight
+                    />
+                    <MetricCell
+                      label="Max DD"
+                      value={`${result.metrics.max_drawdown.toFixed(1)}%`}
+                      icon={ArrowDownRight}
+                      color="text-brand-loss"
+                    />
+                    <MetricCell
+                      label="Sharpe"
+                      value={result.metrics.sharpe_ratio.toFixed(2)}
+                      icon={Percent}
+                      color={result.metrics.sharpe_ratio >= 1 ? 'text-brand-premium' : 'text-gray-400'}
+                    />
+                    <MetricCell
+                      label="Avg Trade"
+                      value={`$${result.metrics.avg_trade_pnl.toFixed(2)}`}
+                      icon={Crosshair}
+                      color={result.metrics.avg_trade_pnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'}
+                    />
+                    <MetricCell
+                      label="Best"
+                      value={`$${result.metrics.best_trade.toFixed(2)}`}
+                      icon={Flame}
+                      color="text-brand-profit"
+                    />
+                    <MetricCell
+                      label="Worst"
+                      value={`$${result.metrics.worst_trade.toFixed(2)}`}
+                      icon={Snowflake}
+                      color="text-brand-loss"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
-            {/* Progress indicator */}
-            {loading && runStatus && (
-              <div className="flex items-center gap-2 text-sm">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-brand-premium" />
-                <span className="text-gray-400">
-                  {runStatus === 'pending' && 'Запуск бэктеста...'}
-                  {runStatus === 'running' &&
-                    `Вычисление... ${runProgress}%`}
-                  {runStatus === 'completed' && 'Загрузка результатов...'}
-                </span>
+              {/* Charts & Trades tabs */}
+              <Tabs defaultValue="chart">
+                <TabsList className="bg-white/[0.04] border border-white/[0.06] p-1 rounded-xl">
+                  <TabsTrigger value="chart" className="rounded-lg px-4 py-2 text-xs gap-1.5">
+                    <CandlestickChart className="h-3.5 w-3.5" />
+                    График сделок
+                  </TabsTrigger>
+                  <TabsTrigger value="equity" className="rounded-lg px-4 py-2 text-xs gap-1.5">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    Equity Curve
+                  </TabsTrigger>
+                  <TabsTrigger value="trades" className="rounded-lg px-4 py-2 text-xs gap-1.5">
+                    <BarChart3 className="h-3.5 w-3.5" />
+                    Сделки
+                    <span className="ml-1 text-[10px] bg-brand-accent/15 text-brand-accent px-1.5 py-0.5 rounded-full font-mono leading-none">
+                      {result.trades.length}
+                    </span>
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="chart" className="mt-4">
+                  <Card className="border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01] overflow-hidden">
+                    <CardContent className="p-0">
+                      <TradesChart
+                        symbol={symbol}
+                        timeframe={TIMEFRAME_TO_BACKEND[timeframe] ?? timeframe}
+                        startDate={startDate}
+                        endDate={endDate}
+                        trades={result.trades}
+                      />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="equity" className="mt-4">
+                  <Card className="border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01] overflow-hidden">
+                    <CardContent className="p-0">
+                      <div className="px-5 py-3 border-b border-white/[0.04] flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4 text-brand-premium" />
+                        <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                          Equity Curve
+                        </span>
+                        <span className="text-xs text-gray-600 font-mono ml-auto">
+                          ${result.equity_curve.length > 0 ? result.equity_curve[result.equity_curve.length - 1].equity.toFixed(0) : '0'}
+                        </span>
+                      </div>
+                      <EquityChart data={result.equity_curve} />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="trades" className="mt-4">
+                  <Card className="border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01] overflow-hidden">
+                    <CardContent className="p-0">
+                      <div className="px-5 py-3 border-b border-white/[0.04] flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4 text-brand-accent" />
+                        <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                          Журнал сделок
+                        </span>
+                        <span className="text-xs text-gray-600 font-mono ml-auto">
+                          {result.trades.length} записей
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="border-white/[0.04] hover:bg-transparent">
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">#</TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">Сторона</TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">Вход</TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">Выход</TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">Цена входа</TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">Цена выхода</TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold text-right">P&L</TableHead>
+                              <TableHead className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold text-right">P&L %</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {result.trades.map((trade, idx) => (
+                              <TableRow
+                                key={trade.id}
+                                className={`border-white/[0.03] transition-colors hover:bg-white/[0.02] ${
+                                  idx % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.01]'
+                                }`}
+                              >
+                                <TableCell className="font-mono text-xs text-gray-500">
+                                  {trade.id}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={trade.side === 'long' ? 'profit' : 'loss'}>
+                                    {trade.side.toUpperCase()}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs font-mono text-gray-400">
+                                  {trade.entry_time}
+                                </TableCell>
+                                <TableCell className="text-xs font-mono text-gray-400">
+                                  {trade.exit_time}
+                                </TableCell>
+                                <TableCell className="font-mono text-xs text-gray-300">
+                                  ${trade.entry_price.toFixed(2)}
+                                </TableCell>
+                                <TableCell className="font-mono text-xs text-gray-300">
+                                  ${trade.exit_price.toFixed(2)}
+                                </TableCell>
+                                <TableCell
+                                  className={`text-right font-mono text-xs font-bold ${
+                                    trade.pnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'
+                                  }`}
+                                >
+                                  {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
+                                </TableCell>
+                                <TableCell
+                                  className={`text-right font-mono text-xs ${
+                                    trade.pnl_pct >= 0 ? 'text-brand-profit' : 'text-brand-loss'
+                                  }`}
+                                >
+                                  {trade.pnl_pct >= 0 ? '+' : ''}{trade.pnl_pct.toFixed(2)}%
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!result && !loading && (
+            <Card className="border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01] mt-6">
+              <CardContent className="flex flex-col items-center justify-center py-24">
+                <div className="flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-accent/10 to-brand-premium/5 border border-brand-accent/10 mb-6">
+                  <FlaskConical className="h-9 w-9 text-gray-600" />
+                </div>
+                <p className="text-gray-300 text-lg font-semibold font-[Tektur] tracking-tight">
+                  Запустите бэктест
+                </p>
+                <p className="text-gray-500 text-sm mt-2 max-w-xs text-center leading-relaxed">
+                  Выберите конфигурацию стратегии, настройте параметры и нажмите
+                  "Запустить тест"
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Loading state */}
+          {loading && !result && (
+            <Card className="border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01] mt-6">
+              <CardContent className="flex flex-col items-center justify-center py-24">
+                <div className="relative">
+                  <div className="flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-premium/10 to-brand-accent/5 border border-brand-premium/10">
+                    <Loader2 className="h-8 w-8 animate-spin text-brand-premium" />
+                  </div>
+                </div>
+                <p className="text-gray-300 text-lg font-semibold font-[Tektur] tracking-tight mt-6">
+                  Выполняется бэктест
+                </p>
+                <p className="text-gray-500 text-sm mt-2">
+                  {runStatus === 'pending' && 'Инициализация...'}
+                  {runStatus === 'running' && `Обработка данных... ${runProgress}%`}
+                  {runStatus === 'completed' && 'Подготовка результатов...'}
+                  {!runStatus && 'Запуск...'}
+                </p>
                 {runStatus === 'running' && (
-                  <div className="w-32 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div className="w-48 h-1.5 bg-white/[0.06] rounded-full overflow-hidden mt-4">
                     <div
-                      className="h-full bg-brand-premium rounded-full transition-all duration-300"
+                      className="h-full bg-gradient-to-r from-brand-premium to-amber-500 rounded-full transition-all duration-500 ease-out"
                       style={{ width: `${runProgress}%` }}
                     />
                   </div>
                 )}
-              </div>
-            )}
-          </div>
-
-          {/* Error message */}
-          {errorMessage && (
-            <div className="mt-3 flex items-center gap-2 text-sm text-brand-loss">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              <span>{errorMessage} (показаны демо-данные)</span>
-            </div>
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Results */}
-      {result && (
-        <>
-          {/* Metrics cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <MetricCard
-              label="Сделок"
-              value={String(result.metrics.total_trades)}
-              icon={BarChart3}
-              color="text-brand-accent"
-            />
-            <MetricCard
-              label="Win Rate"
-              value={`${result.metrics.win_rate.toFixed(1)}%`}
-              icon={Target}
-              color={result.metrics.win_rate >= 50 ? 'text-brand-profit' : 'text-brand-loss'}
-            />
-            <MetricCard
-              label="Profit Factor"
-              value={result.metrics.profit_factor >= 999 ? '∞' : result.metrics.profit_factor.toFixed(2)}
-              icon={TrendingUp}
-              color={result.metrics.profit_factor >= 1 ? 'text-brand-profit' : 'text-brand-loss'}
-            />
-            <MetricCard
-              label="Итого P&L"
-              value={`$${result.metrics.total_pnl.toFixed(0)}`}
-              icon={result.metrics.total_pnl >= 0 ? TrendingUp : TrendingDown}
-              color={result.metrics.total_pnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'}
-            />
-            <MetricCard
-              label="Max Drawdown"
-              value={`${result.metrics.max_drawdown.toFixed(1)}%`}
-              icon={Shield}
-              color="text-brand-loss"
-            />
-            <MetricCard
-              label="Sharpe"
-              value={result.metrics.sharpe_ratio.toFixed(2)}
-              icon={Percent}
-              color={result.metrics.sharpe_ratio >= 1 ? 'text-brand-premium' : 'text-gray-400'}
-            />
-          </div>
-
-          {/* Equity curve + Chart + Trades */}
-          <Tabs defaultValue="chart">
-            <TabsList>
-              <TabsTrigger value="chart">График сделок</TabsTrigger>
-              <TabsTrigger value="equity">Equity Curve</TabsTrigger>
-              <TabsTrigger value="trades">Сделки ({result.trades.length})</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="chart">
-              <Card className="border-white/5 bg-white/[0.02]">
-                <CardContent className="p-0">
-                  <TradesChart
-                    symbol={symbol}
-                    timeframe={TIMEFRAME_TO_BACKEND[timeframe] ?? timeframe}
-                    startDate={startDate}
-                    endDate={endDate}
-                    trades={result.trades}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="equity">
-              <Card className="border-white/5 bg-white/[0.02]">
-                <CardContent className="p-0">
-                  <EquityChart data={result.equity_curve} />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="trades">
-              <Card className="border-white/5 bg-white/[0.02]">
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>#</TableHead>
-                        <TableHead>Сторона</TableHead>
-                        <TableHead>Вход</TableHead>
-                        <TableHead>Выход</TableHead>
-                        <TableHead>Цена входа</TableHead>
-                        <TableHead>Цена выхода</TableHead>
-                        <TableHead className="text-right">P&L</TableHead>
-                        <TableHead className="text-right">P&L %</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {result.trades.map((trade) => (
-                        <TableRow key={trade.id}>
-                          <TableCell className="font-mono text-xs text-gray-400">
-                            {trade.id}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={trade.side === 'long' ? 'profit' : 'loss'}>
-                              {trade.side.toUpperCase()}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-xs font-mono">
-                            {trade.entry_time}
-                          </TableCell>
-                          <TableCell className="text-xs font-mono">
-                            {trade.exit_time}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            ${trade.entry_price.toFixed(2)}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            ${trade.exit_price.toFixed(2)}
-                          </TableCell>
-                          <TableCell
-                            className={`text-right font-mono text-xs font-bold ${
-                              trade.pnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'
-                            }`}
-                          >
-                            {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
-                          </TableCell>
-                          <TableCell
-                            className={`text-right font-mono text-xs ${
-                              trade.pnl_pct >= 0 ? 'text-brand-profit' : 'text-brand-loss'
-                            }`}
-                          >
-                            {trade.pnl_pct >= 0 ? '+' : ''}{trade.pnl_pct.toFixed(2)}%
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </>
-      )}
-
-      {/* Empty state */}
-      {!result && !loading && (
-        <Card className="border-white/5 bg-white/[0.02]">
-          <CardContent className="flex flex-col items-center justify-center py-20">
-            <FlaskConical className="h-12 w-12 text-gray-600 mb-4" />
-            <p className="text-gray-400 text-lg font-medium">
-              Запустите бэктест
-            </p>
-            <p className="text-gray-400 text-sm mt-1">
-              Выберите конфигурацию стратегии, настройте параметры и нажмите
-              "Запуск"
-            </p>
-          </CardContent>
-        </Card>
-      )}
         </TabsContent>
 
-        <TabsContent value="history">
+        <TabsContent value="history" className="mt-6">
           <BacktestHistory
             runs={historyRuns}
             loading={historyLoading}
@@ -698,29 +872,29 @@ export function Backtest() {
   );
 }
 
-/* ---- Metric Card ---- */
+/* ---- Metric Cell (for results bar) ---- */
 
-function MetricCard({
+function MetricCell({
   label,
   value,
   icon: Icon,
   color,
+  highlight,
 }: {
   label: string;
   value: string;
   icon: React.ElementType;
   color: string;
+  highlight?: boolean;
 }) {
   return (
-    <Card className="border-white/5 bg-white/[0.02]">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">{label}</p>
-          <Icon className={`h-3.5 w-3.5 ${color}`} />
-        </div>
-        <p className={`text-xl font-bold font-mono ${color}`}>{value}</p>
-      </CardContent>
-    </Card>
+    <div className={`px-4 py-4 ${highlight ? 'bg-white/[0.02]' : ''}`}>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Icon className={`h-3 w-3 ${color} opacity-60`} />
+        <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider leading-none">{label}</p>
+      </div>
+      <p className={`text-lg font-bold font-mono ${color} leading-none`}>{value}</p>
+    </div>
   );
 }
 
@@ -830,7 +1004,6 @@ function TradesChart({
 
     try {
       // Fetch candle data for the chart
-      // Загружаем свечи за ВЕСЬ период бэктеста (с пагинацией на сервере)
       const startMs = new Date(_startDate).getTime();
       const endMs = new Date(_endDate).getTime();
       const { data: klines } = await api.get(`/market/klines/${symbol}`, {
@@ -904,7 +1077,7 @@ function TradesChart({
         })),
       );
 
-      // Trade markers — привязка по bar_index (точное время)
+      // Trade markers
       type MarkerItem = {
         time: Time;
         position: 'belowBar' | 'aboveBar';
@@ -914,7 +1087,6 @@ function TradesChart({
       };
       const markers: MarkerItem[] = [];
 
-      // Маппинг exit_reason
       const reasonLabels: Record<string, string> = {
         stop_loss: 'SL',
         take_profit: 'TP',
@@ -927,7 +1099,6 @@ function TradesChart({
       };
 
       for (const trade of trades) {
-        // Привязка по bar_index - точное соответствие бэктесту
         const entryCandle = candles[trade.entry_bar];
         const exitCandle = candles[trade.exit_bar];
 
@@ -954,9 +1125,6 @@ function TradesChart({
           });
         }
       }
-
-      // Сортировка по времени (lightweight-charts требует)
-      // Не дедуплицируем - несколько маркеров на одной свече допустимы
 
       markers.sort((a, b) => (a.time as number) - (b.time as number));
       if (markers.length > 0) {
@@ -992,7 +1160,6 @@ function TradesChart({
     });
     return () => {
       cancelled = true;
-      // Cleanup chart directly via ref
       if (chartRef.current) {
         chartRef.current.remove();
         chartRef.current = null;
@@ -1008,18 +1175,18 @@ function TradesChart({
         </div>
       )}
       {/* Timeframe selector */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">Таймфрейм:</span>
-          <div className="flex items-center rounded-lg bg-white/5 p-0.5">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04]">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500 font-medium">Таймфрейм:</span>
+          <div className="flex items-center rounded-lg bg-white/[0.04] border border-white/[0.06] p-0.5">
             {CHART_TIMEFRAME_OPTIONS.map((tf) => (
               <button
                 key={tf.value}
                 onClick={() => setActiveTimeframe(tf.value)}
                 className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
                   activeTimeframe === tf.value
-                    ? 'bg-brand-premium/10 text-brand-premium'
-                    : 'text-gray-400 hover:text-white'
+                    ? 'bg-brand-premium/10 text-brand-premium shadow-sm'
+                    : 'text-gray-500 hover:text-white'
                 }`}
               >
                 {tf.label}
@@ -1027,7 +1194,7 @@ function TradesChart({
             ))}
           </div>
           {activeTimeframe !== defaultTimeframe && (
-            <span className="text-[10px] text-gray-600">
+            <span className="text-[10px] text-gray-600 font-mono">
               (бэктест: {BACKEND_TO_LABEL[defaultTimeframe] ?? defaultTimeframe})
             </span>
           )}
@@ -1041,14 +1208,14 @@ function TradesChart({
       )}
       <div ref={containerRef} className="w-full" style={{ minHeight: 450 }} />
       {!loading && trades.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-t border-white/5 text-xs text-gray-400">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5 border-t border-white/[0.04] text-xs text-gray-500">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-b-[6px] border-transparent border-b-brand-profit" /> LONG
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-0 h-0 border-l-[4px] border-r-[4px] border-t-[6px] border-transparent border-t-brand-loss" /> SHORT
           </span>
-          <span className="text-gray-600">|</span>
+          <span className="text-gray-700">|</span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-2 h-2 bg-brand-premium rounded-full" /> SL - стоп-лосс
           </span>
@@ -1106,14 +1273,14 @@ function statusBadge(status: BacktestStatus, errorMsg: string | null) {
   switch (status) {
     case 'completed':
       return (
-        <span className="inline-flex items-center gap-1 text-xs text-brand-profit bg-brand-profit/10 px-2 py-0.5 rounded-full">
+        <span className="inline-flex items-center gap-1.5 text-xs text-brand-profit bg-brand-profit/10 border border-brand-profit/15 px-2.5 py-1 rounded-lg font-medium">
           <CheckCircle2 className="h-3 w-3" /> Завершён
         </span>
       );
     case 'failed':
       return (
         <span
-          className="inline-flex items-center gap-1 text-xs text-brand-loss bg-brand-loss/10 px-2 py-0.5 rounded-full"
+          className="inline-flex items-center gap-1.5 text-xs text-brand-loss bg-brand-loss/10 border border-brand-loss/15 px-2.5 py-1 rounded-lg font-medium"
           title={errorMsg ?? undefined}
         >
           <XCircle className="h-3 w-3" /> Ошибка
@@ -1121,13 +1288,13 @@ function statusBadge(status: BacktestStatus, errorMsg: string | null) {
       );
     case 'running':
       return (
-        <span className="inline-flex items-center gap-1 text-xs text-brand-accent bg-brand-accent/10 px-2 py-0.5 rounded-full">
+        <span className="inline-flex items-center gap-1.5 text-xs text-brand-accent bg-brand-accent/10 border border-brand-accent/15 px-2.5 py-1 rounded-lg font-medium">
           <Loader2 className="h-3 w-3 animate-spin" /> Выполняется
         </span>
       );
     case 'pending':
       return (
-        <span className="inline-flex items-center gap-1 text-xs text-brand-premium bg-brand-premium/10 px-2 py-0.5 rounded-full">
+        <span className="inline-flex items-center gap-1.5 text-xs text-brand-premium bg-brand-premium/10 border border-brand-premium/15 px-2.5 py-1 rounded-lg font-medium">
           <Clock className="h-3 w-3" /> В очереди
         </span>
       );
@@ -1191,19 +1358,24 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
   const tfLabel = BACKEND_TO_LABEL[run.timeframe] ?? run.timeframe;
 
   return (
-    <Card className="border-white/5 bg-white/[0.02] overflow-hidden">
+    <Card className="border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01] overflow-hidden hover:border-white/[0.1] transition-colors">
       <CardContent className="p-0">
         {/* Header row */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.04]">
           <div className="flex items-center gap-3">
-            <span className="text-white font-medium text-sm">
-              {run.symbol}
-            </span>
-            <span className="text-xs text-gray-400">/</span>
-            <span className="text-xs text-gray-400 font-mono">{tfLabel}</span>
-            <span className="text-xs text-gray-600 font-mono">
-              {run.start_date.slice(0, 10)} → {run.end_date.slice(0, 10)}
-            </span>
+            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+              <CandlestickChart className="h-4 w-4 text-brand-accent" />
+            </div>
+            <div className="flex items-center gap-2.5">
+              <span className="text-white font-semibold text-sm">
+                {run.symbol}
+              </span>
+              <span className="text-xs text-gray-600">/</span>
+              <span className="text-xs text-gray-400 font-mono">{tfLabel}</span>
+              <span className="hidden sm:inline text-xs text-gray-600 font-mono">
+                {run.start_date.slice(0, 10)} - {run.end_date.slice(0, 10)}
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {statusBadge(run.status, run.error_message)}
@@ -1211,25 +1383,27 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
         </div>
 
         {/* Info row */}
-        <div className="flex items-center gap-6 px-4 py-2.5 border-b border-white/5 text-xs text-gray-400">
-          <span>
-            Капитал: <span className="font-mono text-white">${run.initial_capital}</span>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-2.5 border-b border-white/[0.04] text-xs text-gray-500">
+          <span className="flex items-center gap-1.5">
+            <DollarSign className="h-3 w-3" />
+            Капитал: <span className="font-mono text-white ml-0.5">${run.initial_capital}</span>
           </span>
-          <span>
-            Создан: <span className="font-mono text-gray-300">{formatDate(run.created_at)}</span>
+          <span className="flex items-center gap-1.5">
+            <Clock className="h-3 w-3" />
+            Создан: <span className="font-mono text-gray-300 ml-0.5">{formatDate(run.created_at)}</span>
           </span>
         </div>
 
         {/* Metrics row (if result loaded) */}
         {resultData && (
-          <div className="flex items-center gap-6 px-4 py-2.5 border-b border-white/5 text-xs">
-            <span className="text-gray-400">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 px-5 py-2.5 border-b border-white/[0.04] text-xs">
+            <span className="text-gray-500">
               Сделок: <span className="font-mono text-white">{resultData.total_trades}</span>
             </span>
-            <span className="text-gray-400">
+            <span className="text-gray-500">
               Win:{' '}
               <span
-                className={`font-mono ${
+                className={`font-mono font-medium ${
                   Number(resultData.win_rate) * 100 >= 50
                     ? 'text-brand-profit'
                     : 'text-brand-loss'
@@ -1238,7 +1412,7 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
                 {(Number(resultData.win_rate) * 100).toFixed(1)}%
               </span>
             </span>
-            <span className="text-gray-400">
+            <span className="text-gray-500">
               PnL:{' '}
               <span
                 className={`font-mono font-bold ${
@@ -1250,41 +1424,65 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
                 {Number(resultData.total_pnl) >= 0 ? '+' : ''}${Number(resultData.total_pnl).toFixed(2)}
               </span>
             </span>
-            <span className="text-gray-400">
+            <span className="text-gray-500">
               DD:{' '}
-              <span className="font-mono text-brand-loss">
+              <span className="font-mono text-brand-loss font-medium">
                 {Number(resultData.max_drawdown).toFixed(1)}%
+              </span>
+            </span>
+            <span className="text-gray-500">
+              Sharpe:{' '}
+              <span className={`font-mono font-medium ${
+                Number(resultData.sharpe_ratio) >= 1 ? 'text-brand-premium' : 'text-gray-400'
+              }`}>
+                {Number(resultData.sharpe_ratio).toFixed(2)}
               </span>
             </span>
           </div>
         )}
 
         {resultLoading && (
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5 text-xs text-gray-400">
+          <div className="flex items-center gap-2 px-5 py-2.5 border-b border-white/[0.04] text-xs text-gray-500">
             <Loader2 className="h-3 w-3 animate-spin" /> Загрузка результатов...
           </div>
         )}
 
         {/* Error message */}
         {run.status === 'failed' && run.error_message && (
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5 text-xs text-brand-loss">
+          <div className="flex items-center gap-2 px-5 py-2.5 border-b border-white/[0.04] text-xs text-brand-loss">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{run.error_message}</span>
           </div>
         )}
 
+        {/* Running progress */}
+        {run.status === 'running' && (
+          <div className="px-5 py-2.5 border-b border-white/[0.04]">
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+              <span>Выполняется...</span>
+              <span className="font-mono">{run.progress}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-brand-accent to-blue-400 rounded-full transition-all duration-500"
+                style={{ width: `${run.progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Notes + Actions */}
-        <div className="px-4 py-3 flex items-start gap-3">
+        <div className="px-5 py-3.5 flex items-start gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-1.5 mb-1.5">
-              <StickyNote className="h-3 w-3 text-gray-400" />
-              <span className="text-[10px] text-gray-400 uppercase tracking-wider">Заметка</span>
+              <StickyNote className="h-3 w-3 text-gray-600" />
+              <span className="text-[10px] text-gray-600 uppercase tracking-wider font-semibold">Заметка</span>
             </div>
             <Input
               value={note}
               onChange={(e) => handleNoteChange(e.target.value)}
               placeholder="Добавьте заметку к этому запуску..."
-              className="bg-white/5 border-white/5 text-white text-xs h-8 placeholder:text-gray-600"
+              className="bg-white/[0.03] border-white/[0.04] text-white text-xs h-8 placeholder:text-gray-600"
             />
           </div>
           <div className="flex items-center gap-2 pt-5">
@@ -1292,9 +1490,9 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
               <Button
                 size="sm"
                 onClick={handleLoadResult}
-                className="bg-brand-accent/10 text-brand-accent hover:bg-brand-accent/20 text-xs h-8"
+                className="bg-brand-accent/10 text-brand-accent hover:bg-brand-accent/20 text-xs h-8 border border-brand-accent/15"
               >
-                <Download className="h-3 w-3 mr-1" />
+                <Download className="h-3 w-3 mr-1.5" />
                 Загрузить
               </Button>
             )}
@@ -1305,12 +1503,12 @@ function HistoryRunCard({ run, onLoad, onHide }: HistoryRunCardProps) {
               onBlur={() => setConfirmDelete(false)}
               className={`text-xs h-8 ${
                 confirmDelete
-                  ? 'text-brand-loss bg-brand-loss/10 hover:bg-brand-loss/20'
-                  : 'text-gray-400 hover:text-brand-loss hover:bg-brand-loss/10'
+                  ? 'text-brand-loss bg-brand-loss/10 hover:bg-brand-loss/20 border border-brand-loss/15'
+                  : 'text-gray-500 hover:text-brand-loss hover:bg-brand-loss/10'
               }`}
             >
               <Trash2 className="h-3 w-3 mr-1" />
-              {confirmDelete ? 'Точно?' : 'Удалить'}
+              {confirmDelete ? 'Точно?' : 'Скрыть'}
             </Button>
           </div>
         </div>
@@ -1343,34 +1541,42 @@ function BacktestHistory({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-brand-premium" />
-        <span className="ml-3 text-gray-400">Загрузка истории...</span>
-      </div>
+      <Card className="border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
+        <CardContent className="flex flex-col items-center justify-center py-24">
+          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-premium/10 to-brand-accent/5 border border-brand-premium/10 mb-4">
+            <Loader2 className="h-7 w-7 animate-spin text-brand-premium" />
+          </div>
+          <span className="text-gray-400 text-sm mt-2">Загрузка истории...</span>
+        </CardContent>
+      </Card>
     );
   }
 
   if (visibleRuns.length === 0) {
     return (
-      <Card className="border-white/5 bg-white/[0.02]">
-        <CardContent className="flex flex-col items-center justify-center py-20">
-          <History className="h-12 w-12 text-gray-600 mb-4" />
-          <p className="text-gray-400 text-lg font-medium">Нет запусков</p>
-          <p className="text-gray-400 text-sm mt-1">
+      <Card className="border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
+        <CardContent className="flex flex-col items-center justify-center py-24">
+          <div className="flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-accent/10 to-brand-premium/5 border border-brand-accent/10 mb-6">
+            <History className="h-9 w-9 text-gray-600" />
+          </div>
+          <p className="text-gray-300 text-lg font-semibold font-[Tektur] tracking-tight">
+            Нет запусков
+          </p>
+          <p className="text-gray-500 text-sm mt-2 max-w-xs text-center leading-relaxed">
             Запустите бэктест, и он появится здесь
           </p>
           {hiddenIds.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              className="mt-4 text-xs text-gray-400"
+              className="mt-6 text-xs text-gray-500 hover:text-white"
               onClick={() => {
                 localStorage.removeItem(LS_HIDDEN_KEY);
                 setHiddenIds([]);
                 onRefresh();
               }}
             >
-              <CircleDot className="h-3 w-3 mr-1" />
+              <CircleDot className="h-3 w-3 mr-1.5" />
               Показать скрытые ({hiddenIds.length})
             </Button>
           )}
@@ -1380,24 +1586,33 @@ function BacktestHistory({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-500 font-medium">
           {visibleRuns.length} {visibleRuns.length === 1 ? 'запуск' : visibleRuns.length < 5 ? 'запуска' : 'запусков'}
         </p>
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-gray-500 h-7 hover:text-white"
+            onClick={onRefresh}
+          >
+            <RefreshCw className="h-3 w-3 mr-1.5" />
+            Обновить
+          </Button>
           {hiddenIds.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              className="text-xs text-gray-400 h-7"
+              className="text-xs text-gray-500 h-7 hover:text-white"
               onClick={() => {
                 localStorage.removeItem(LS_HIDDEN_KEY);
                 setHiddenIds([]);
                 onRefresh();
               }}
             >
-              <CircleDot className="h-3 w-3 mr-1" />
+              <CircleDot className="h-3 w-3 mr-1.5" />
               Показать скрытые ({hiddenIds.length})
             </Button>
           )}
