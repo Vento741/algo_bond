@@ -28,24 +28,48 @@ export default function TelegramLayout() {
   }
 
   if (!isAuthenticated || error) {
+    const twa = getTelegramWebApp();
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-[#0d0d1a] px-6 text-center">
-        <p className="text-lg font-semibold text-white">
-          Требуется авторизация
-        </p>
-        <p className="text-sm text-gray-400">
-          {error || "Сессия истекла. Закройте и откройте приложение заново."}
-        </p>
-        <button
-          onClick={() => {
-            localStorage.removeItem("access_token");
-            localStorage.removeItem("refresh_token");
-            window.location.reload();
-          }}
-          className="rounded-lg bg-[#FFD700] px-6 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#FFC107]"
-        >
-          Повторить вход
-        </button>
+      <div className="flex h-screen flex-col items-center justify-center gap-6 bg-[#0d0d1a] px-6 text-center">
+        <div className="rounded-2xl bg-[#1a1a2e] p-8">
+          <p className="text-lg font-semibold text-white">
+            Аккаунт не привязан
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-gray-400">
+            Чтобы использовать Mini App, привяжите Telegram в личном кабинете:
+          </p>
+          <p className="mt-2 text-sm text-[#FFD700]">
+            Настройки → Telegram → Привязать
+          </p>
+          <div className="mt-6 flex flex-col gap-3">
+            <button
+              onClick={() => {
+                if (twa) {
+                  twa.openLink("https://algo.dev-james.bond/settings");
+                } else {
+                  window.open("https://algo.dev-james.bond/settings", "_blank");
+                }
+              }}
+              className="rounded-lg bg-[#FFD700] px-6 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-[#FFC107]"
+            >
+              Открыть настройки
+            </button>
+            <button
+              onClick={() => {
+                localStorage.removeItem("access_token");
+                localStorage.removeItem("refresh_token");
+                if (twa) {
+                  twa.close();
+                } else {
+                  window.location.href = "/tg";
+                }
+              }}
+              className="rounded-lg border border-gray-600 px-6 py-2.5 text-sm text-gray-300 transition-colors hover:border-gray-400"
+            >
+              Закрыть
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
