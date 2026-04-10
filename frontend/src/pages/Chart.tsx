@@ -16,6 +16,7 @@ import { ChartToolbar } from '@/components/charts/ChartToolbar';
 import { useMarketStream } from '@/hooks/useMarketStream';
 import { useIndicators } from '@/hooks/useIndicators';
 import { useChartSignals } from '@/hooks/useChartSignals';
+import { useChartLazyLoad } from '@/hooks/useChartLazyLoad';
 import { useChartBacktest } from '@/hooks/useChartBacktest';
 import type { BacktestMetrics } from '@/hooks/useChartBacktest';
 import { Badge } from '@/components/ui/badge';
@@ -61,8 +62,19 @@ export function Chart() {
     setCandleSeries(series);
   }, []);
 
+  // Volume series для lazy-load
+  const [volumeSeries, setVolumeSeries] = useState<ISeriesApi<'Histogram'> | null>(null);
+  const handleVolumeSeriesReady = useCallback((series: ISeriesApi<'Histogram'> | null) => {
+    setVolumeSeries(series);
+  }, []);
+
   // Индикаторы
   useIndicators({ chart: chartApi, klines });
+
+  // Ленивая подгрузка истории при скролле влево
+  const { isLoadingOlder } = useChartLazyLoad({
+    chartApi, candleSeries, volumeSeries, klines, setKlines, symbol, interval,
+  });
 
   // Бэктест
   const [backtestActive, setBacktestActive] = useState(false);
@@ -96,25 +108,25 @@ export function Chart() {
     setLoading(true);
     setIsDemo(false);
     api
-      .get(`/market/klines/${symbol}`, {
+      .get(`/market/candles/${symbol}`, {
         params: { interval, limit: 500 },
         signal: controller.signal,
       })
       .then(({ data }) => {
-        const mapped: KlineData[] = (data as Record<string, unknown>[]).map(
-          (d: Record<string, unknown>) => {
-            const rawTs = Number(d.timestamp ?? d.time ?? d.open_time ?? d.t);
-            const timeSec = rawTs > 1e12 ? Math.floor(rawTs / 1000) : rawTs;
-            return {
-              time: timeSec,
-              open: Number(d.open ?? d.o),
-              high: Number(d.high ?? d.h),
-              low: Number(d.low ?? d.l),
-              close: Number(d.close ?? d.c),
-              volume: Number(d.volume ?? d.v ?? 0),
-            };
-          },
-        );
+        const mapped: KlineData[] = (
+          (data as { candles: Record<string, unknown>[] }).candles
+        ).map((d: Record<string, unknown>) => {
+          const rawTs = Number(d.timestamp ?? d.time);
+          const timeSec = rawTs > 1e12 ? Math.floor(rawTs / 1000) : rawTs;
+          return {
+            time: timeSec,
+            open: Number(d.open),
+            high: Number(d.high),
+            low: Number(d.low),
+            close: Number(d.close),
+            volume: Number(d.volume ?? 0),
+          };
+        });
         setKlines(mapped);
       })
       .catch(() => {
@@ -248,6 +260,14 @@ export function Chart() {
             </div>
           )}
 
+          {/* Индикатор загрузки истории */}
+          {isLoadingOlder && (
+            <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-black/60 px-2 py-1 rounded text-xs text-gray-300 font-mono">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Загрузка истории...
+            </div>
+          )}
+
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-brand-premium" />
@@ -265,6 +285,7 @@ export function Chart() {
               onCrosshairMove={setCrosshair}
               onChartReady={handleChartReady}
               onCandleSeriesReady={handleCandleSeriesReady}
+              onVolumeSeriesReady={handleVolumeSeriesReady}
             />
           )}
         </div>
