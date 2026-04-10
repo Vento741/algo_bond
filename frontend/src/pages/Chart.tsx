@@ -40,7 +40,12 @@ export function Chart() {
         const sym = data.default_symbol || 'BTCUSDT';
         setSymbol(sym);
         navigate(`/chart/${sym}`, { replace: true });
-        if (data.default_timeframe) setInterval(data.default_timeframe);
+        if (data.default_timeframe) {
+          // Settings может хранить "15m", "1h" - нормализуем в "15", "60"
+          const tf = data.default_timeframe.replace(/m$/i, '');
+          const TF_MAP: Record<string, string> = { '1h': '60', '4h': '240', '1d': 'D', '1D': 'D' };
+          setInterval(TF_MAP[data.default_timeframe] ?? tf);
+        }
       })
       .catch(() => {
         setSymbol('BTCUSDT');
