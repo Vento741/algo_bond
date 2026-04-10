@@ -24,15 +24,30 @@ export function useTelegramAuth(): UseTelegramAuthResult {
 
   useEffect(() => {
     const init = async () => {
-      if (!isTelegramWebApp()) {
+      const inTelegram = !!window.Telegram?.WebApp;
+      const hasInitData = isTelegramWebApp();
+
+      if (!inTelegram) {
+        // Не в Telegram - проверяем JWT напрямую (может быть открыт через браузер)
+        const token = localStorage.getItem("access_token");
+        if (token) {
+          try {
+            const { default: api } = await import("@/lib/api");
+            await api.get("/auth/me");
+            useTelegramStore.setState({ isAuthenticated: true });
+          } catch {
+            // noop
+          }
+        }
         setIsLoading(false);
         return;
       }
 
+      // В Telegram
       setIsTelegram(true);
       applyTelegramTheme();
 
-      // Если JWT уже есть - проверяем валидность простым API вызовом
+      // Приоритет 1: существующий JWT
       const existingToken = localStorage.getItem("access_token");
       if (existingToken) {
         try {
@@ -42,29 +57,28 @@ export function useTelegramAuth(): UseTelegramAuthResult {
           setIsLoading(false);
           return;
         } catch {
-          // JWT expired и refresh не помог - очищаем и пробуем initData
           localStorage.removeItem("access_token");
           localStorage.removeItem("refresh_token");
         }
       }
 
-      // Аутентифицируемся через initData
-      const initData = getTelegramInitData();
-      if (!initData) {
-        setError("Сессия истекла. Закройте и откройте приложение заново.");
-        setIsLoading(false);
-        return;
+      // Приоритет 2: initData аутентификация
+      if (hasInitData) {
+        const initData = getTelegramInitData();
+        if (initData) {
+          setInitData(initData);
+          try {
+            await authenticate();
+            setIsLoading(false);
+            return;
+          } catch {
+            // fall through to error
+          }
+        }
       }
 
-      setInitData(initData);
-
-      try {
-        await authenticate();
-      } catch {
-        setError("Ошибка аутентификации Telegram");
-      } finally {
-        setIsLoading(false);
-      }
+      setError("Привяжите аккаунт в ЛК: Настройки → Telegram");
+      setIsLoading(false);
     };
 
     init();
