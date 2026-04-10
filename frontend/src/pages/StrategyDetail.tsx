@@ -108,6 +108,8 @@ interface FiltersConfig {
 interface BacktestConfig {
   order_size: number;
   commission: number;
+  slippage: number;
+  use_supertrend_exit: boolean;
 }
 
 interface LiveConfig {
@@ -189,6 +191,8 @@ const DEFAULT_CONFIG: FullStrategyConfig = {
   backtest: {
     order_size: 75,
     commission: 0.05,
+    slippage: 0,
+    use_supertrend_exit: false,
   },
   live: {
     order_size: 30,
@@ -1001,6 +1005,26 @@ function ConfigEditorDialog({
                   step={0.01}
                   suffix="%"
                 />
+                <NumberField
+                  label="Slippage"
+                  value={config.backtest.slippage}
+                  onChange={(v) => updateSection("backtest", { slippage: v })}
+                  min={0}
+                  step={0.01}
+                  suffix="%"
+                />
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-xs text-gray-400">ST Flip Exit</span>
+                  <Checkbox
+                    checked={config.backtest.use_supertrend_exit}
+                    onChange={(checked: boolean) =>
+                      updateSection("backtest", {
+                        use_supertrend_exit: checked,
+                      })
+                    }
+                    className="h-4 w-4"
+                  />
+                </div>
               </div>
               <div className="space-y-2.5">
                 <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
