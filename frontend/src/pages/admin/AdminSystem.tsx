@@ -883,7 +883,7 @@ export function AdminSystem() {
                   />
                   <MetricCard
                     title="Load Average"
-                    value={metrics.load_average.map((v) => v.toFixed(2)).join(' / ')}
+                    value={(metrics.load_average || []).map((v) => v.toFixed(2)).join(' / ') || 'N/A'}
                     sub="1m / 5m / 15m"
                     icon={Activity}
                     iconColor="#4488ff"
@@ -1109,7 +1109,7 @@ export function AdminSystem() {
             </div>
 
             {/* Docker containers */}
-            {config && config.docker_containers.length > 0 && (
+            {config && config.docker_containers && config.docker_containers.length > 0 && (
               <div className="rounded-xl border border-white/5 bg-[#1a1a2e] overflow-hidden">
                 <div className="px-4 py-3 border-b border-white/5">
                   <h3 className="text-sm font-medium text-white">Docker контейнеры</h3>
