@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User as UserIcon, Bell, Wifi, WifiOff, Wallet } from 'lucide-react';
+import { LogOut, User as UserIcon, Wifi, WifiOff, Wallet } from 'lucide-react';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { useAuthStore } from '@/stores/auth';
 import { useTradingStore } from '@/stores/trading';
 import { useBalance } from '@/hooks/useBalance';
@@ -97,13 +98,7 @@ export function Topbar() {
           </div>
 
           {/* Notification bell */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative text-gray-400 hover:text-white h-8 w-8"
-          >
-            <Bell className="h-4 w-4" />
-          </Button>
+          <NotificationBell />
 
           {/* User */}
           <div className="flex items-center gap-2 text-sm">

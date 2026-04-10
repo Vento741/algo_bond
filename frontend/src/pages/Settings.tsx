@@ -13,6 +13,7 @@ import {
   Save,
   Calendar,
   Monitor,
+  Bell as BellIcon,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -93,6 +94,19 @@ export function Settings() {
   const [defaultTimeframe, setDefaultTimeframe] = useState('5m');
   const [theme, setTheme] = useState('dark');
 
+  /* Настройки уведомлений */
+  const [notifPrefs, setNotifPrefs] = useState({
+    positions_enabled: true,
+    bots_enabled: true,
+    orders_enabled: true,
+    backtest_enabled: true,
+    system_enabled: true,
+    billing_enabled: true,
+  });
+  const [loadingNotifPrefs, setLoadingNotifPrefs] = useState(true);
+  const [savingNotifPrefs, setSavingNotifPrefs] = useState(false);
+  const [notifPrefsOriginal, setNotifPrefsOriginal] = useState(notifPrefs);
+
   /* Синхронизация имени пользователя из стора */
   useEffect(() => {
     if (user?.username) setUsername(user.username);
@@ -127,10 +141,23 @@ export function Settings() {
       .finally(() => setLoadingSettings(false));
   }, []);
 
+  const loadNotifPrefs = useCallback(() => {
+    setLoadingNotifPrefs(true);
+    api
+      .get('/notifications/preferences')
+      .then(({ data }) => {
+        setNotifPrefs(data);
+        setNotifPrefsOriginal(data);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingNotifPrefs(false));
+  }, []);
+
   useEffect(() => {
     loadAccounts();
     loadSettings();
-  }, [loadAccounts, loadSettings]);
+    loadNotifPrefs();
+  }, [loadAccounts, loadSettings, loadNotifPrefs]);
 
   /* Сохранение профиля */
   function handleSaveProfile() {
@@ -184,6 +211,22 @@ export function Settings() {
       })
       .finally(() => setSavingSettings(false));
   }
+
+  /* Сохранение настроек уведомлений */
+  function handleSaveNotifPrefs() {
+    setSavingNotifPrefs(true);
+    api
+      .put('/notifications/preferences', notifPrefs)
+      .then(({ data }) => {
+        setNotifPrefs(data);
+        setNotifPrefsOriginal(data);
+        toast('Настройки уведомлений сохранены', 'success');
+      })
+      .catch(() => toast('Ошибка сохранения настроек', 'error'))
+      .finally(() => setSavingNotifPrefs(false));
+  }
+
+  const notifPrefsChanged = JSON.stringify(notifPrefs) !== JSON.stringify(notifPrefsOriginal);
 
   /* Проверка, изменились ли настройки */
   const settingsChanged =
@@ -343,6 +386,81 @@ export function Settings() {
                     className="w-full bg-brand-premium text-brand-bg hover:bg-brand-premium/90 disabled:opacity-40"
                   >
                     {savingSettings ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Сохранить настройки
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+          {/* ---- Уведомления ---- */}
+          <Card className="border-white/5 bg-white/[0.02]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-white flex items-center gap-2">
+                <BellIcon className="h-4 w-4 text-brand-accent" />
+                Уведомления
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {loadingNotifPrefs ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                </div>
+              ) : (
+                <>
+                  {([
+                    { key: 'positions_enabled', label: '📈 Позиции', desc: 'Открытие, закрытие, TP/SL' },
+                    { key: 'bots_enabled', label: '🤖 Боты', desc: 'Старт, стоп, ошибки' },
+                    { key: 'orders_enabled', label: '📋 Ордера', desc: 'Исполнение, отмена, ошибки' },
+                    { key: 'backtest_enabled', label: '📊 Бэктесты', desc: 'Завершение, ошибки' },
+                    { key: 'system_enabled', label: '⚙️ Системные', desc: 'Соединение, ошибки сервисов' },
+                    { key: 'billing_enabled', label: '💳 Биллинг', desc: 'Подписки, платежи' },
+                  ] as const).map((cat) => (
+                    <div key={cat.key} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                      <div>
+                        <p className="text-sm text-white">{cat.label}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{cat.desc}</p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={notifPrefs[cat.key]}
+                        onClick={() => setNotifPrefs((prev) => ({ ...prev, [cat.key]: !prev[cat.key] }))}
+                        className={`
+                          relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                          ${notifPrefs[cat.key] ? 'bg-brand-profit' : 'bg-gray-600'}
+                        `}
+                      >
+                        <span
+                          className={`
+                            inline-block h-4 w-4 rounded-full bg-white transition-transform
+                            ${notifPrefs[cat.key] ? 'translate-x-6' : 'translate-x-1'}
+                          `}
+                        />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Предупреждение */}
+                  <div className="p-3 rounded-lg bg-brand-loss/5 border border-brand-loss/10">
+                    <p className="text-xs text-gray-400">
+                      <span className="text-brand-loss font-medium">Внимание:</span> отключение критических уведомлений (боты, системные) может привести к пропуску важных событий.
+                    </p>
+                  </div>
+
+                  <Separator className="bg-white/5" />
+
+                  <Button
+                    onClick={handleSaveNotifPrefs}
+                    disabled={!notifPrefsChanged || savingNotifPrefs}
+                    className="w-full bg-brand-premium text-brand-bg hover:bg-brand-premium/90 disabled:opacity-40"
+                  >
+                    {savingNotifPrefs ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <>
