@@ -208,7 +208,9 @@ export function useChartBacktest({
     if (cached) {
       setMetrics(cached.metrics);
       setTrades(cached.trades);
-      barTimestampsRef.current = new Map(Object.entries(cached.barTimestamps).map(([k, v]) => [Number(k), v]));
+      barTimestampsRef.current = cached.barTimestamps
+        ? new Map(Object.entries(cached.barTimestamps).map(([k, v]) => [Number(k), v]))
+        : new Map();
       setHasCache(true);
       if (candleSeries) {
         applyMarkers(cached.trades);

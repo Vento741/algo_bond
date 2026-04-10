@@ -114,9 +114,7 @@ export function useChartSignals({
 
         // Создаем или обновляем маркеры
         if (!markersPluginRef.current) {
-          markersPluginRef.current = createSeriesMarkers(series, markers, {
-            zOrder: 'aboveSeries',
-          });
+          markersPluginRef.current = createSeriesMarkers(series, markers);
         } else {
           markersPluginRef.current.setMarkers(markers);
         }

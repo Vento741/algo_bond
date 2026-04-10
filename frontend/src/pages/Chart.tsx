@@ -462,13 +462,18 @@ export function Chart() {
 
 /** Компактная stats-полоска бэктеста */
 function BacktestStatsBar({ metrics, error }: { metrics: BacktestMetrics; error: string | null }) {
+  const wr = Number(metrics.winRate);
+  const pnl = Number(metrics.totalPnl);
+  const dd = Number(metrics.maxDrawdown);
+  const sr = Number(metrics.sharpeRatio);
+  const pf = Number(metrics.profitFactor);
   const stats = [
-    { label: 'TRADES', value: metrics.totalTrades.toString() },
-    { label: 'WR', value: `${metrics.winRate.toFixed(1)}%`, color: metrics.winRate >= 50 ? 'text-brand-profit' : 'text-brand-loss' },
-    { label: 'PnL', value: `${metrics.totalPnl >= 0 ? '+' : ''}${metrics.totalPnl.toFixed(2)}%`, color: metrics.totalPnl >= 0 ? 'text-brand-profit' : 'text-brand-loss' },
-    { label: 'DD', value: `${metrics.maxDrawdown.toFixed(1)}%`, color: 'text-brand-loss' },
-    { label: 'SHARPE', value: metrics.sharpeRatio.toFixed(2), color: metrics.sharpeRatio >= 1 ? 'text-brand-profit' : 'text-gray-300' },
-    { label: 'PF', value: metrics.profitFactor.toFixed(2), color: metrics.profitFactor >= 1.5 ? 'text-brand-profit' : 'text-gray-300' },
+    { label: 'TRADES', value: String(metrics.totalTrades) },
+    { label: 'WR', value: `${wr.toFixed(1)}%`, color: wr >= 50 ? 'text-brand-profit' : 'text-brand-loss' },
+    { label: 'PnL', value: `${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}%`, color: pnl >= 0 ? 'text-brand-profit' : 'text-brand-loss' },
+    { label: 'DD', value: `${dd.toFixed(1)}%`, color: 'text-brand-loss' },
+    { label: 'SHARPE', value: sr.toFixed(2), color: sr >= 1 ? 'text-brand-profit' : 'text-gray-300' },
+    { label: 'PF', value: pf.toFixed(2), color: pf >= 1.5 ? 'text-brand-profit' : 'text-gray-300' },
   ];
 
   return (
