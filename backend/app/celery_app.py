@@ -1,6 +1,7 @@
 """Конфигурация Celery для фоновых задач."""
 
 from celery import Celery
+from celery.schedules import crontab
 
 from app.config import settings
 
@@ -42,6 +43,14 @@ celery.conf.beat_schedule = {
         "task": "notifications.cleanup_old",
         "schedule": 86400.0,  # каждые 24 часа
     },
+    "send-daily-pnl-report": {
+        "task": "telegram.send_daily_pnl_report",
+        "schedule": crontab(hour=23, minute=55),
+    },
+    "check-margin-warnings": {
+        "task": "telegram.check_margin_warnings",
+        "schedule": 300.0,  # каждые 5 минут
+    },
 }
 
 celery.autodiscover_tasks([
@@ -49,6 +58,7 @@ celery.autodiscover_tasks([
     "app.modules.backtest",
     "app.modules.market",
     "app.modules.notifications",
+    "app.modules.telegram",
 ], related_name="celery_tasks")
 
 
