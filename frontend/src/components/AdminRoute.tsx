@@ -21,7 +21,7 @@ export function AdminRoute({ children }: AdminRouteProps) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (isLoading) {
+  if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-brand-bg">
         <Loader2 className="h-8 w-8 animate-spin text-brand-premium" />
@@ -29,7 +29,7 @@ export function AdminRoute({ children }: AdminRouteProps) {
     );
   }
 
-  if (user?.role !== 'admin') {
+  if (user.role !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
 

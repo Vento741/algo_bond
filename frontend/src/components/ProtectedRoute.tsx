@@ -21,10 +21,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Показываем loader только при первой загрузке (user ещё не загружен).
-  // Если children уже отрендерены (user есть), не размонтируем их -
-  // иначе WebSocket соединения разрываются при каждом fetchUser.
-  if (isLoading && !user) {
+  // Показываем loader пока user не загружен (первый визит / refresh).
+  // Не рендерим children до получения user - иначе DashboardLayout
+  // монтируется, создаёт WebSocket соединения, и тут же размонтируется
+  // когда fetchUser ставит isLoading=true, вызывая warning:
+  // "WebSocket is closed before the connection is established"
+  if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-brand-bg">
         <Loader2 className="h-8 w-8 animate-spin text-brand-premium" />
