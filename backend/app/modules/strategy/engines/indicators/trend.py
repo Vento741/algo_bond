@@ -208,6 +208,26 @@ def stdev(src: NDArray, period: int) -> NDArray:
     return out
 
 
+def rolling_max(src: NDArray, period: int) -> NDArray:
+    """Rolling maximum (highest). Pine: ta.highest(src, period)."""
+    out = np.full_like(src, np.nan, dtype=np.float64)
+    if len(src) < period:
+        return out
+    for i in range(period - 1, len(src)):
+        out[i] = np.max(src[i - period + 1:i + 1])
+    return out
+
+
+def rolling_min(src: NDArray, period: int) -> NDArray:
+    """Rolling minimum (lowest). Pine: ta.lowest(src, period)."""
+    out = np.full_like(src, np.nan, dtype=np.float64)
+    if len(src) < period:
+        return out
+    for i in range(period - 1, len(src)):
+        out[i] = np.min(src[i - period + 1:i + 1])
+    return out
+
+
 def percentrank(src: NDArray, period: int) -> NDArray:
     """Percent rank. Pine: ta.percentrank(src, period)."""
     out = np.full_like(src, np.nan, dtype=np.float64)

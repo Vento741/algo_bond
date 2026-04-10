@@ -6,7 +6,7 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from app.modules.strategy.engines.indicators.trend import atr, ema, sma, stdev
+from app.modules.strategy.engines.indicators.trend import atr, ema, rolling_max, rolling_min, sma, stdev
 
 
 def wavetrend(
@@ -63,12 +63,16 @@ def bollinger_bands(
 def keltner_channel(
     high: NDArray, low: NDArray, close: NDArray,
     period: int = 20, multiplier: float = 1.5,
+    use_sma: bool = False,
 ) -> tuple[NDArray, NDArray, NDArray]:
-    """Keltner Channel. Basis = EMA(close), bands = basis +/- mult * ATR.
+    """Keltner Channel. Basis = EMA(close) или SMA(close), bands = basis +/- mult * ATR.
+
+    TTM Squeeze оригинал использует SMA basis (use_sma=True).
+    По умолчанию EMA для обратной совместимости.
 
     Returns (upper, basis, lower).
     """
-    basis = ema(close, period)
+    basis = sma(close, period) if use_sma else ema(close, period)
     atr_vals = atr(high, low, close, period)
     upper = basis + multiplier * atr_vals
     lower = basis - multiplier * atr_vals
@@ -97,8 +101,10 @@ def squeeze_momentum(
     # Bollinger Bands
     bb_upper, bb_basis, bb_lower = bollinger_bands(close, bb_period, bb_mult)
 
-    # Keltner Channel
-    kc_upper, kc_basis, kc_lower = keltner_channel(high, low, close, kc_period, kc_mult)
+    # Keltner Channel (TTM Squeeze использует SMA basis)
+    kc_upper, kc_basis, kc_lower = keltner_channel(
+        high, low, close, kc_period, kc_mult, use_sma=True,
+    )
 
     # Squeeze detection: BB inside KC (vectorized)
     valid = ~np.isnan(bb_lower) & ~np.isnan(kc_lower)
@@ -106,8 +112,12 @@ def squeeze_momentum(
 
     # Momentum: vectorized linear regression of (close - midline)
     # Closed-form linreg via pre-computed coefficients + np.convolve (785x faster)
-    hl2 = (high + low) / 2.0
-    midline = sma(hl2, mom_period)
+    # LazyBear/TTM Squeeze midline: avg(avg(highest(high,N), lowest(low,N)), sma(close,N))
+    # = ((highest_high + lowest_low) / 2 + sma(close, N)) / 2
+    hh = rolling_max(high, kc_period)
+    ll = rolling_min(low, kc_period)
+    sma_close = sma(close, kc_period)
+    midline = (((hh + ll) / 2.0) + sma_close) / 2.0
     delta = close - np.nan_to_num(midline, nan=close)
 
     momentum = np.full(n, np.nan, dtype=np.float64)
