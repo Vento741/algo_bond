@@ -31,6 +31,12 @@ import {
   Timer,
   RefreshCw,
   EyeOff,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Save,
+  Check,
+  ClipboardPaste,
 } from "lucide-react";
 import {
   createChart,
@@ -57,8 +63,26 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import api from "@/lib/api";
+import { useToast } from "@/components/ui/toast";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Select as SelectUI } from "@/components/ui/select";
+import {
+  type FullStrategyConfig,
+  DEFAULT_CONFIG,
+  RIBBON_TYPES,
+  ON_REVERSE_OPTIONS,
+  mergeConfig,
+  detectEngineType,
+  getCleanConfig,
+  NumberField,
+  ToggleField,
+  MasArrayField,
+  CollapsibleSection,
+} from "@/components/strategy-config";
 import type {
   StrategyConfig,
+  StrategyConfigUpdate,
   BacktestRunResponse,
   BacktestResultResponse,
   BacktestResultTradeEntry,
@@ -227,6 +251,27 @@ export function Backtest() {
   const [runProgress, setRunProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Inline config editor
+  const [showConfigEditor, setShowConfigEditor] = useState(false);
+  const [editConfig, setEditConfig] =
+    useState<FullStrategyConfig>(DEFAULT_CONFIG);
+  const [engineType, setEngineType] = useState("supertrend_squeeze");
+  const [configDirty, setConfigDirty] = useState(false);
+  const [configSaving, setConfigSaving] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const { toast } = useToast();
+
+  const updateSection = <K extends keyof FullStrategyConfig>(
+    section: K,
+    patch: Partial<FullStrategyConfig[K]>,
+  ) => {
+    setEditConfig((prev) => ({
+      ...prev,
+      [section]: { ...prev[section], ...patch },
+    }));
+    setConfigDirty(true);
+  };
+
   // Polling ref for cleanup
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -303,7 +348,7 @@ export function Backtest() {
     [],
   );
 
-  // При выборе конфига - подставить символ и ТФ
+  // При выборе конфига - подставить символ, ТФ и загрузить конфиг для инлайн-редактора
   const handleConfigChange = useCallback(
     (configId: string) => {
       setSelectedConfigId(configId);
@@ -320,10 +365,93 @@ export function Backtest() {
           D: "1D",
         };
         setTimeframe(tfMap[cfg.timeframe] || `${cfg.timeframe}m`);
+        // Загрузить конфиг для инлайн-редактора
+        const et = detectEngineType(cfg.config);
+        setEngineType(et);
+        setEditConfig(mergeConfig(DEFAULT_CONFIG, cfg.config));
+        setConfigDirty(false);
       }
     },
     [configs],
   );
+
+  // Инициализация конфига при первой загрузке
+  useEffect(() => {
+    if (configs.length > 0 && selectedConfigId) {
+      const cfg = configs.find((c) => c.id === selectedConfigId);
+      if (cfg) {
+        const et = detectEngineType(cfg.config);
+        setEngineType(et);
+        setEditConfig(mergeConfig(DEFAULT_CONFIG, cfg.config));
+        setConfigDirty(false);
+      }
+    }
+  }, [configs, selectedConfigId]);
+
+  // Сохранить конфиг в БД
+  const handleSaveConfig = async () => {
+    if (!selectedConfigId) return;
+    setConfigSaving(true);
+    try {
+      const cleanConfig = getCleanConfig(editConfig, engineType);
+      const payload: StrategyConfigUpdate = { config: cleanConfig };
+      await api.patch(`/strategies/configs/${selectedConfigId}`, payload);
+      // Обновить конфиг в локальном массиве
+      const idx = configs.findIndex((c) => c.id === selectedConfigId);
+      if (idx >= 0) {
+        const updated = [...configs];
+        updated[idx] = { ...updated[idx], config: cleanConfig };
+        setConfigs(updated);
+      }
+      setConfigDirty(false);
+      toast("Конфигурация сохранена", "success");
+    } catch {
+      toast("Ошибка сохранения", "error");
+    } finally {
+      setConfigSaving(false);
+    }
+  };
+
+  // Копировать конфиг в буфер обмена
+  const handleCopyConfig = async () => {
+    try {
+      const cfg = configs.find((c) => c.id === selectedConfigId);
+      const cleanConfig = getCleanConfig(editConfig, engineType);
+      const obj = {
+        name: cfg?.name ?? "",
+        symbol,
+        timeframe: TIMEFRAME_TO_BACKEND[timeframe] ?? timeframe,
+        config: cleanConfig,
+      };
+      await navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch {
+      toast("Не удалось скопировать", "error");
+    }
+  };
+
+  // Вставить конфиг из буфера
+  const handlePasteConfig = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const parsed: unknown = JSON.parse(text);
+      if (typeof parsed !== "object" || parsed === null) {
+        toast("Невалидный JSON", "error");
+        return;
+      }
+      const obj = parsed as Record<string, unknown>;
+      const configData =
+        "config" in obj && typeof obj.config === "object" && obj.config !== null
+          ? (obj.config as Record<string, unknown>)
+          : obj;
+      setEditConfig(mergeConfig(DEFAULT_CONFIG, configData));
+      setConfigDirty(true);
+      toast("JSON вставлен", "success");
+    } catch {
+      toast("Не удалось прочитать JSON", "error");
+    }
+  };
 
   const runBacktest = async () => {
     if (!selectedConfigId) return;
@@ -623,6 +751,993 @@ export function Backtest() {
                   </div>
                 </div>
               </div>
+
+              {/* Divider */}
+              <div className="h-px bg-white/[0.04] mb-6" />
+
+              {/* Section: Config Editor (collapsible) */}
+              {selectedConfigId && (
+                <div className="mb-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfigEditor((v) => !v)}
+                    className="flex items-center gap-2 mb-4 group w-full"
+                  >
+                    <Settings2 className="h-4 w-4 text-brand-accent" />
+                    <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                      Параметры конфига
+                    </span>
+                    {configDirty && (
+                      <span className="text-[10px] bg-brand-premium/20 text-brand-premium px-1.5 py-0.5 rounded-full font-mono">
+                        изменено
+                      </span>
+                    )}
+                    <span className="ml-auto">
+                      {showConfigEditor ? (
+                        <ChevronUp className="h-4 w-4 text-gray-500" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-gray-500" />
+                      )}
+                    </span>
+                  </button>
+
+                  {showConfigEditor && (
+                    <div className="space-y-3">
+                      {/* KNN секция (для lorentzian_knn и hybrid) */}
+                      {(engineType === "lorentzian_knn" ||
+                        engineType === "hybrid_knn_supertrend") && (
+                        <CollapsibleSection
+                          title="KNN"
+                          description="Параметры Lorentzian KNN классификатора"
+                        >
+                          <div className="grid grid-cols-2 gap-3">
+                            <NumberField
+                              label="Соседи"
+                              value={editConfig.knn.neighbors}
+                              onChange={(v) =>
+                                updateSection("knn", { neighbors: v })
+                              }
+                              min={1}
+                              max={50}
+                            />
+                            <NumberField
+                              label="Глубина"
+                              value={editConfig.knn.lookback}
+                              onChange={(v) =>
+                                updateSection("knn", { lookback: v })
+                              }
+                              min={10}
+                              max={200}
+                            />
+                            <NumberField
+                              label="Вес"
+                              value={editConfig.knn.weight}
+                              onChange={(v) =>
+                                updateSection("knn", { weight: v })
+                              }
+                              min={0}
+                              max={1}
+                              step={0.1}
+                            />
+                            <NumberField
+                              label="RSI период"
+                              value={editConfig.knn.rsi_period}
+                              onChange={(v) =>
+                                updateSection("knn", { rsi_period: v })
+                              }
+                              min={1}
+                            />
+                            <NumberField
+                              label="WT Channel"
+                              value={editConfig.knn.wt_ch_len}
+                              onChange={(v) =>
+                                updateSection("knn", { wt_ch_len: v })
+                              }
+                              min={1}
+                            />
+                            <NumberField
+                              label="WT Average"
+                              value={editConfig.knn.wt_avg_len}
+                              onChange={(v) =>
+                                updateSection("knn", { wt_avg_len: v })
+                              }
+                              min={1}
+                            />
+                            <NumberField
+                              label="CCI период"
+                              value={editConfig.knn.cci_period}
+                              onChange={(v) =>
+                                updateSection("knn", { cci_period: v })
+                              }
+                              min={1}
+                            />
+                            <NumberField
+                              label="ADX период"
+                              value={editConfig.knn.adx_period}
+                              onChange={(v) =>
+                                updateSection("knn", { adx_period: v })
+                              }
+                              min={1}
+                            />
+                          </div>
+                        </CollapsibleSection>
+                      )}
+
+                      {/* Trend (lorentzian_knn) */}
+                      {engineType === "lorentzian_knn" && (
+                        <>
+                          <CollapsibleSection
+                            title="Trend"
+                            description="EMA фильтры тренда"
+                          >
+                            <div className="grid grid-cols-3 gap-3">
+                              <NumberField
+                                label="EMA Fast"
+                                value={editConfig.trend.ema_fast}
+                                onChange={(v) =>
+                                  updateSection("trend", { ema_fast: v })
+                                }
+                                min={1}
+                              />
+                              <NumberField
+                                label="EMA Slow"
+                                value={editConfig.trend.ema_slow}
+                                onChange={(v) =>
+                                  updateSection("trend", { ema_slow: v })
+                                }
+                                min={1}
+                              />
+                              <NumberField
+                                label="EMA Filter"
+                                value={editConfig.trend.ema_filter}
+                                onChange={(v) =>
+                                  updateSection("trend", { ema_filter: v })
+                                }
+                                min={1}
+                              />
+                            </div>
+                          </CollapsibleSection>
+                          <CollapsibleSection
+                            title="MA Ribbon"
+                            description="Лента скользящих средних"
+                          >
+                            <ToggleField
+                              label="Использовать"
+                              value={editConfig.ribbon.use}
+                              onChange={(v) =>
+                                updateSection("ribbon", { use: v })
+                              }
+                            />
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-gray-400">
+                                  Тип MA
+                                </Label>
+                                <SelectUI
+                                  options={RIBBON_TYPES}
+                                  value={editConfig.ribbon.type}
+                                  onChange={(v) =>
+                                    updateSection("ribbon", { type: v })
+                                  }
+                                />
+                              </div>
+                              <NumberField
+                                label="Порог"
+                                value={editConfig.ribbon.threshold}
+                                onChange={(v) =>
+                                  updateSection("ribbon", { threshold: v })
+                                }
+                                min={1}
+                              />
+                            </div>
+                            <MasArrayField
+                              value={editConfig.ribbon.mas}
+                              onChange={(v) =>
+                                updateSection("ribbon", { mas: v })
+                              }
+                            />
+                          </CollapsibleSection>
+                          <CollapsibleSection
+                            title="Order Flow"
+                            description="Анализ потока ордеров"
+                          >
+                            <ToggleField
+                              label="Использовать"
+                              value={editConfig.order_flow.use}
+                              onChange={(v) =>
+                                updateSection("order_flow", { use: v })
+                              }
+                            />
+                            <div className="grid grid-cols-2 gap-3">
+                              <NumberField
+                                label="CVD период"
+                                value={editConfig.order_flow.cvd_period}
+                                onChange={(v) =>
+                                  updateSection("order_flow", { cvd_period: v })
+                                }
+                                min={1}
+                              />
+                              <NumberField
+                                label="CVD порог"
+                                value={editConfig.order_flow.cvd_threshold}
+                                onChange={(v) =>
+                                  updateSection("order_flow", {
+                                    cvd_threshold: v,
+                                  })
+                                }
+                                min={0}
+                                max={1}
+                                step={0.1}
+                              />
+                            </div>
+                          </CollapsibleSection>
+                          <CollapsibleSection
+                            title="SMC"
+                            description="Smart Money Concepts"
+                          >
+                            <ToggleField
+                              label="Использовать"
+                              value={editConfig.smc.use}
+                              onChange={(v) => updateSection("smc", { use: v })}
+                            />
+                            <div className="grid grid-cols-3 gap-3">
+                              <NumberField
+                                label="FVG мин. размер"
+                                value={editConfig.smc.fvg_min_size}
+                                onChange={(v) =>
+                                  updateSection("smc", { fvg_min_size: v })
+                                }
+                                min={0}
+                                step={0.1}
+                              />
+                              <NumberField
+                                label="Ликвидность lookback"
+                                value={editConfig.smc.liquidity_lookback}
+                                onChange={(v) =>
+                                  updateSection("smc", {
+                                    liquidity_lookback: v,
+                                  })
+                                }
+                                min={1}
+                              />
+                              <NumberField
+                                label="BOS pivot"
+                                value={editConfig.smc.bos_pivot}
+                                onChange={(v) =>
+                                  updateSection("smc", { bos_pivot: v })
+                                }
+                                min={1}
+                              />
+                            </div>
+                          </CollapsibleSection>
+                          <CollapsibleSection
+                            title="Filters"
+                            description="ADX, объём и confluence фильтры"
+                          >
+                            <div className="grid grid-cols-2 gap-3">
+                              <NumberField
+                                label="ADX период"
+                                value={editConfig.filters.adx_period}
+                                onChange={(v) =>
+                                  updateSection("filters", { adx_period: v })
+                                }
+                                min={1}
+                              />
+                              <NumberField
+                                label="ADX порог"
+                                value={editConfig.filters.adx_threshold}
+                                onChange={(v) =>
+                                  updateSection("filters", { adx_threshold: v })
+                                }
+                                min={0}
+                              />
+                              <NumberField
+                                label="Объём множитель"
+                                value={editConfig.filters.volume_mult}
+                                onChange={(v) =>
+                                  updateSection("filters", { volume_mult: v })
+                                }
+                                min={0}
+                                step={0.1}
+                              />
+                              <NumberField
+                                label="Min confluence"
+                                value={editConfig.filters.min_confluence}
+                                onChange={(v) =>
+                                  updateSection("filters", {
+                                    min_confluence: v,
+                                  })
+                                }
+                                min={0}
+                                max={5.5}
+                                step={0.5}
+                              />
+                            </div>
+                          </CollapsibleSection>
+                        </>
+                      )}
+
+                      {/* SuperTrend (supertrend_squeeze и hybrid) */}
+                      {(engineType === "supertrend_squeeze" ||
+                        engineType === "hybrid_knn_supertrend") && (
+                        <>
+                          <CollapsibleSection
+                            title="SuperTrend"
+                            description="Triple SuperTrend параметры"
+                            defaultOpen
+                          >
+                            <div className="grid grid-cols-2 gap-3">
+                              <NumberField
+                                label="ST1 период"
+                                value={editConfig.supertrend.st1_period}
+                                onChange={(v) =>
+                                  updateSection("supertrend", { st1_period: v })
+                                }
+                                min={2}
+                              />
+                              <NumberField
+                                label="ST1 множитель"
+                                value={editConfig.supertrend.st1_mult}
+                                onChange={(v) =>
+                                  updateSection("supertrend", { st1_mult: v })
+                                }
+                                min={0.1}
+                                step={0.1}
+                              />
+                              <NumberField
+                                label="ST2 период"
+                                value={editConfig.supertrend.st2_period}
+                                onChange={(v) =>
+                                  updateSection("supertrend", { st2_period: v })
+                                }
+                                min={2}
+                              />
+                              <NumberField
+                                label="ST2 множитель"
+                                value={editConfig.supertrend.st2_mult}
+                                onChange={(v) =>
+                                  updateSection("supertrend", { st2_mult: v })
+                                }
+                                min={0.1}
+                                step={0.25}
+                              />
+                              <NumberField
+                                label="ST3 период"
+                                value={editConfig.supertrend.st3_period}
+                                onChange={(v) =>
+                                  updateSection("supertrend", { st3_period: v })
+                                }
+                                min={2}
+                              />
+                              <NumberField
+                                label="ST3 множитель"
+                                value={editConfig.supertrend.st3_mult}
+                                onChange={(v) =>
+                                  updateSection("supertrend", { st3_mult: v })
+                                }
+                                min={0.1}
+                                step={0.5}
+                              />
+                              <NumberField
+                                label="Мин. согласие"
+                                value={editConfig.supertrend.min_agree}
+                                onChange={(v) =>
+                                  updateSection("supertrend", { min_agree: v })
+                                }
+                                min={1}
+                                max={3}
+                              />
+                            </div>
+                          </CollapsibleSection>
+
+                          <CollapsibleSection
+                            title="Squeeze Momentum"
+                            description="Bollinger/Keltner squeeze + momentum"
+                          >
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="col-span-2 flex items-center justify-between">
+                                <span className="text-xs text-gray-400">
+                                  Включить Squeeze
+                                </span>
+                                <Checkbox
+                                  checked={editConfig.squeeze.use}
+                                  onChange={(v) =>
+                                    updateSection("squeeze", { use: v })
+                                  }
+                                />
+                              </div>
+                              <NumberField
+                                label="BB период"
+                                value={editConfig.squeeze.bb_period}
+                                onChange={(v) =>
+                                  updateSection("squeeze", { bb_period: v })
+                                }
+                                min={2}
+                              />
+                              <NumberField
+                                label="BB множитель"
+                                value={editConfig.squeeze.bb_mult}
+                                onChange={(v) =>
+                                  updateSection("squeeze", { bb_mult: v })
+                                }
+                                min={0.1}
+                                step={0.1}
+                              />
+                              <NumberField
+                                label="KC период"
+                                value={editConfig.squeeze.kc_period}
+                                onChange={(v) =>
+                                  updateSection("squeeze", { kc_period: v })
+                                }
+                                min={2}
+                              />
+                              <NumberField
+                                label="KC множитель"
+                                value={editConfig.squeeze.kc_mult}
+                                onChange={(v) =>
+                                  updateSection("squeeze", { kc_mult: v })
+                                }
+                                min={0.1}
+                                step={0.1}
+                              />
+                              <NumberField
+                                label="Мин. длительность"
+                                value={editConfig.squeeze.min_duration}
+                                onChange={(v) =>
+                                  updateSection("squeeze", { min_duration: v })
+                                }
+                                min={0}
+                              />
+                              <NumberField
+                                label="Макс. вес"
+                                value={editConfig.squeeze.max_weight}
+                                onChange={(v) =>
+                                  updateSection("squeeze", { max_weight: v })
+                                }
+                                min={0.1}
+                                step={0.1}
+                              />
+                            </div>
+                          </CollapsibleSection>
+
+                          <CollapsibleSection
+                            title="Entry"
+                            description="RSI фильтры и объём"
+                          >
+                            <div className="grid grid-cols-2 gap-3">
+                              <NumberField
+                                label="RSI период"
+                                value={editConfig.entry.rsi_period}
+                                onChange={(v) =>
+                                  updateSection("entry", { rsi_period: v })
+                                }
+                                min={2}
+                              />
+                              <NumberField
+                                label="RSI long max"
+                                value={editConfig.entry.rsi_long_max}
+                                onChange={(v) =>
+                                  updateSection("entry", { rsi_long_max: v })
+                                }
+                                min={0}
+                                max={100}
+                              />
+                              <NumberField
+                                label="RSI short min"
+                                value={editConfig.entry.rsi_short_min}
+                                onChange={(v) =>
+                                  updateSection("entry", { rsi_short_min: v })
+                                }
+                                min={0}
+                                max={100}
+                              />
+                              <NumberField
+                                label="Объём множитель"
+                                value={editConfig.entry.volume_mult}
+                                onChange={(v) =>
+                                  updateSection("entry", { volume_mult: v })
+                                }
+                                min={0.1}
+                                step={0.1}
+                              />
+                            </div>
+                          </CollapsibleSection>
+
+                          <CollapsibleSection
+                            title="Trend Filter"
+                            description="EMA + ADX тренд-фильтр"
+                          >
+                            <div className="grid grid-cols-2 gap-3">
+                              <NumberField
+                                label="EMA период"
+                                value={editConfig.trend_filter.ema_period}
+                                onChange={(v) =>
+                                  updateSection("trend_filter", {
+                                    ema_period: v,
+                                  })
+                                }
+                                min={2}
+                              />
+                              <NumberField
+                                label="ADX период"
+                                value={editConfig.trend_filter.adx_period}
+                                onChange={(v) =>
+                                  updateSection("trend_filter", {
+                                    adx_period: v,
+                                  })
+                                }
+                                min={2}
+                              />
+                              <NumberField
+                                label="ADX порог"
+                                value={editConfig.trend_filter.adx_threshold}
+                                onChange={(v) =>
+                                  updateSection("trend_filter", {
+                                    adx_threshold: v,
+                                  })
+                                }
+                                min={0}
+                              />
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-400">
+                                  Использовать ADX
+                                </span>
+                                <Checkbox
+                                  checked={editConfig.trend_filter.use_adx}
+                                  onChange={(v) =>
+                                    updateSection("trend_filter", {
+                                      use_adx: v,
+                                    })
+                                  }
+                                />
+                              </div>
+                            </div>
+                          </CollapsibleSection>
+
+                          <CollapsibleSection
+                            title="Режим волатильности"
+                            description="Адаптация к рыночным условиям"
+                          >
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="col-span-2 flex items-center justify-between">
+                                <span className="text-xs text-gray-400">
+                                  Включить
+                                </span>
+                                <Checkbox
+                                  checked={editConfig.regime.use}
+                                  onChange={(v) =>
+                                    updateSection("regime", { use: v })
+                                  }
+                                />
+                              </div>
+                              <NumberField
+                                label="ADX ranging"
+                                value={editConfig.regime.adx_ranging}
+                                onChange={(v) =>
+                                  updateSection("regime", { adx_ranging: v })
+                                }
+                                min={0}
+                              />
+                              <NumberField
+                                label="ATR high vol %"
+                                value={editConfig.regime.atr_high_vol_pct}
+                                onChange={(v) =>
+                                  updateSection("regime", {
+                                    atr_high_vol_pct: v,
+                                  })
+                                }
+                                min={0}
+                                max={100}
+                              />
+                              <NumberField
+                                label="Vol scale"
+                                value={editConfig.regime.vol_scale}
+                                onChange={(v) =>
+                                  updateSection("regime", { vol_scale: v })
+                                }
+                                min={1}
+                                step={0.1}
+                              />
+                            </div>
+                          </CollapsibleSection>
+
+                          <CollapsibleSection
+                            title="Time Filter"
+                            description="Блокировка входов в шумные часы UTC"
+                          >
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="col-span-2 flex items-center justify-between">
+                                <span className="text-xs text-gray-400">
+                                  Включить
+                                </span>
+                                <Checkbox
+                                  checked={editConfig.time_filter.use}
+                                  onChange={(v) =>
+                                    updateSection("time_filter", { use: v })
+                                  }
+                                />
+                              </div>
+                              <NumberField
+                                label="Блок с (UTC)"
+                                value={editConfig.time_filter.block_start_utc}
+                                onChange={(v) =>
+                                  updateSection("time_filter", {
+                                    block_start_utc: v,
+                                  })
+                                }
+                                min={0}
+                                max={23}
+                              />
+                              <NumberField
+                                label="Блок до (UTC)"
+                                value={editConfig.time_filter.block_end_utc}
+                                onChange={(v) =>
+                                  updateSection("time_filter", {
+                                    block_end_utc: v,
+                                  })
+                                }
+                                min={0}
+                                max={23}
+                              />
+                            </div>
+                          </CollapsibleSection>
+                        </>
+                      )}
+
+                      {/* Hybrid KNN Filter */}
+                      {engineType === "hybrid_knn_supertrend" && (
+                        <CollapsibleSection
+                          title="Hybrid KNN Filter"
+                          description="Фильтрация через KNN confidence"
+                          defaultOpen
+                        >
+                          <div className="grid grid-cols-2 gap-3">
+                            <NumberField
+                              label="Мин. confidence"
+                              value={editConfig.hybrid.knn_min_confidence}
+                              onChange={(v) =>
+                                updateSection("hybrid", {
+                                  knn_min_confidence: v,
+                                })
+                              }
+                              min={0}
+                              max={100}
+                              step={5}
+                            />
+                            <NumberField
+                              label="Мин. score"
+                              value={editConfig.hybrid.knn_min_score}
+                              onChange={(v) =>
+                                updateSection("hybrid", { knn_min_score: v })
+                              }
+                              min={0}
+                              max={1}
+                              step={0.05}
+                            />
+                            <NumberField
+                              label="Boost порог"
+                              value={editConfig.hybrid.knn_boost_threshold}
+                              onChange={(v) =>
+                                updateSection("hybrid", {
+                                  knn_boost_threshold: v,
+                                })
+                              }
+                              min={0}
+                              max={100}
+                              step={5}
+                            />
+                            <NumberField
+                              label="Boost множитель"
+                              value={editConfig.hybrid.knn_boost_mult}
+                              onChange={(v) =>
+                                updateSection("hybrid", { knn_boost_mult: v })
+                              }
+                              min={1}
+                              max={3}
+                              step={0.1}
+                            />
+                            <div className="col-span-2 flex items-center justify-between">
+                              <span className="text-xs text-gray-400">
+                                Проверять направление KNN
+                              </span>
+                              <Checkbox
+                                checked={editConfig.hybrid.use_knn_direction}
+                                onChange={(v) =>
+                                  updateSection("hybrid", {
+                                    use_knn_direction: v,
+                                  })
+                                }
+                              />
+                            </div>
+                          </div>
+                        </CollapsibleSection>
+                      )}
+
+                      {/* Risk Management */}
+                      <CollapsibleSection
+                        title="Risk Management"
+                        description="Стоп-лосс, тейк-профит, трейлинг"
+                      >
+                        <div className="grid grid-cols-2 gap-3">
+                          <NumberField
+                            label="ATR период"
+                            value={editConfig.risk.atr_period}
+                            onChange={(v) =>
+                              updateSection("risk", { atr_period: v })
+                            }
+                            min={1}
+                          />
+                          <NumberField
+                            label="Stop (ATR x)"
+                            value={editConfig.risk.stop_atr_mult}
+                            onChange={(v) =>
+                              updateSection("risk", { stop_atr_mult: v })
+                            }
+                            min={0.5}
+                            step={0.5}
+                          />
+                          <NumberField
+                            label="Take Profit (ATR x)"
+                            value={editConfig.risk.tp_atr_mult}
+                            onChange={(v) =>
+                              updateSection("risk", { tp_atr_mult: v })
+                            }
+                            min={1}
+                            step={1}
+                          />
+                          <NumberField
+                            label="Trailing (ATR x)"
+                            value={editConfig.risk.trailing_atr_mult}
+                            onChange={(v) =>
+                              updateSection("risk", { trailing_atr_mult: v })
+                            }
+                            min={1}
+                            step={1}
+                          />
+                        </div>
+                        <ToggleField
+                          label="Трейлинг-стоп"
+                          value={editConfig.risk.use_trailing}
+                          onChange={(v) =>
+                            updateSection("risk", { use_trailing: v })
+                          }
+                        />
+                        <div className="grid grid-cols-2 gap-3 mt-3">
+                          <NumberField
+                            label="Min баров до trailing"
+                            value={editConfig.risk.min_bars_trailing}
+                            onChange={(v) =>
+                              updateSection("risk", { min_bars_trailing: v })
+                            }
+                            min={0}
+                            max={50}
+                          />
+                          <NumberField
+                            label="Cooldown после стопа"
+                            value={editConfig.risk.cooldown_bars}
+                            onChange={(v) =>
+                              updateSection("risk", { cooldown_bars: v })
+                            }
+                            min={0}
+                            max={50}
+                            suffix="баров"
+                          />
+                        </div>
+                      </CollapsibleSection>
+
+                      {/* Multi-TP / Breakeven */}
+                      <CollapsibleSection
+                        title="Multi-TP / Breakeven"
+                        description="Частичное закрытие + безубыток"
+                      >
+                        <ToggleField
+                          label="Multi-level TP"
+                          value={editConfig.risk.use_multi_tp}
+                          onChange={(v) =>
+                            updateSection("risk", { use_multi_tp: v })
+                          }
+                        />
+                        {editConfig.risk.use_multi_tp && (
+                          <div className="space-y-2 mt-3">
+                            {editConfig.risk.tp_levels.map((lvl, idx) => (
+                              <div key={idx} className="grid grid-cols-2 gap-3">
+                                <NumberField
+                                  label={`TP${idx + 1} расстояние`}
+                                  value={lvl.atr_mult}
+                                  onChange={(v) => {
+                                    const levels = [
+                                      ...editConfig.risk.tp_levels,
+                                    ];
+                                    levels[idx] = {
+                                      ...levels[idx],
+                                      atr_mult: v,
+                                    };
+                                    updateSection("risk", {
+                                      tp_levels: levels,
+                                    });
+                                  }}
+                                  min={1}
+                                  suffix="x ATR"
+                                />
+                                <NumberField
+                                  label={`TP${idx + 1} объём`}
+                                  value={lvl.close_pct}
+                                  onChange={(v) => {
+                                    const levels = [
+                                      ...editConfig.risk.tp_levels,
+                                    ];
+                                    levels[idx] = {
+                                      ...levels[idx],
+                                      close_pct: v,
+                                    };
+                                    updateSection("risk", {
+                                      tp_levels: levels,
+                                    });
+                                  }}
+                                  min={1}
+                                  max={100}
+                                  suffix="%"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="mt-3">
+                          <ToggleField
+                            label="Безубыток при TP1"
+                            value={editConfig.risk.use_breakeven}
+                            onChange={(v) =>
+                              updateSection("risk", { use_breakeven: v })
+                            }
+                          />
+                        </div>
+                      </CollapsibleSection>
+
+                      {/* Торговля */}
+                      <CollapsibleSection
+                        title="Торговля"
+                        description="Плечо, размеры ордеров, комиссия"
+                      >
+                        <div className="flex items-end gap-3">
+                          <div className="w-24 shrink-0">
+                            <NumberField
+                              label="Плечо"
+                              value={editConfig.live.leverage}
+                              onChange={(v) =>
+                                updateSection("live", { leverage: v })
+                              }
+                              min={1}
+                              max={100}
+                              suffix="x"
+                            />
+                          </div>
+                          <div className="flex-1 space-y-1.5">
+                            <Label className="text-xs text-gray-400">
+                              При обратном сигнале
+                            </Label>
+                            <SelectUI
+                              options={ON_REVERSE_OPTIONS}
+                              value={editConfig.live.on_reverse}
+                              onChange={(v) =>
+                                updateSection("live", { on_reverse: v })
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 pt-3 mt-3 border-t border-white/5">
+                          <div className="space-y-2.5">
+                            <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                              Бэктест
+                            </span>
+                            <NumberField
+                              label="Ордер"
+                              value={editConfig.backtest.order_size}
+                              onChange={(v) =>
+                                updateSection("backtest", { order_size: v })
+                              }
+                              min={1}
+                              max={100}
+                              suffix="%"
+                            />
+                            <NumberField
+                              label="Комиссия"
+                              value={editConfig.backtest.commission}
+                              onChange={(v) =>
+                                updateSection("backtest", { commission: v })
+                              }
+                              min={0}
+                              step={0.01}
+                              suffix="%"
+                            />
+                            <NumberField
+                              label="Slippage"
+                              value={editConfig.backtest.slippage}
+                              onChange={(v) =>
+                                updateSection("backtest", { slippage: v })
+                              }
+                              min={0}
+                              step={0.01}
+                              suffix="%"
+                            />
+                            <div className="flex items-center justify-between py-1">
+                              <span className="text-xs text-gray-400">
+                                ST Flip Exit
+                              </span>
+                              <Checkbox
+                                checked={
+                                  editConfig.backtest.use_supertrend_exit
+                                }
+                                onChange={(checked: boolean) =>
+                                  updateSection("backtest", {
+                                    use_supertrend_exit: checked,
+                                  })
+                                }
+                                className="h-4 w-4"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2.5">
+                            <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                              Live / Demo
+                            </span>
+                            <NumberField
+                              label="Ордер"
+                              value={editConfig.live.order_size}
+                              onChange={(v) =>
+                                updateSection("live", { order_size: v })
+                              }
+                              min={1}
+                              max={100}
+                              suffix="%"
+                            />
+                          </div>
+                        </div>
+                      </CollapsibleSection>
+
+                      {/* Кнопки: Copy / Paste / Save */}
+                      <div className="flex items-center gap-2 pt-3 border-t border-white/[0.06]">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleCopyConfig}
+                          className="text-gray-400 hover:text-brand-accent"
+                        >
+                          {copySuccess ? (
+                            <Check className="mr-1.5 h-3.5 w-3.5 text-brand-profit" />
+                          ) : (
+                            <Copy className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          {copySuccess ? "Скопировано" : "Копировать JSON"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handlePasteConfig}
+                          className="text-gray-400 hover:text-brand-accent"
+                        >
+                          <ClipboardPaste className="mr-1.5 h-3.5 w-3.5" />
+                          Вставить
+                        </Button>
+                        <div className="ml-auto">
+                          <Button
+                            size="sm"
+                            onClick={handleSaveConfig}
+                            disabled={configSaving || !configDirty}
+                            className="bg-brand-accent/20 text-brand-accent hover:bg-brand-accent/30 border border-brand-accent/20"
+                          >
+                            {configSaving ? (
+                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Save className="mr-1.5 h-3.5 w-3.5" />
+                            )}
+                            Сохранить конфиг
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Divider */}
               <div className="h-px bg-white/[0.04] mb-6" />
