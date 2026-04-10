@@ -33,8 +33,15 @@ cd "$PROJECT_DIR"
 tmux new-session -d -s "$SESSION_NAME" -x 200 -y 50
 sleep 1
 
-# Передаем init prompt через pipe (без heredoc - избегаем проблем с кавычками в tmux)
-tmux send-keys -t "$SESSION_NAME" "cd $PROJECT_DIR && cat .claude/scripts/sentinel-init-prompt.md | claude -p --allowedTools 'Bash(*)' 'Read(*)' 'Write(*)' 'Edit(*)' 'Glob(*)' 'Grep(*)'" Enter
+# Создаем runner-скрипт (tmux send-keys не справляется с длинными командами)
+cat > /tmp/sentinel-run.sh << 'RUNNER'
+#!/bin/bash
+cd /var/www/dev_james_usr/data/www/dev-james.bond/algo_trade
+cat .claude/scripts/sentinel-init-prompt.md | claude -p \
+  --allowedTools 'Bash(*)' 'Read(*)' 'Write(*)' 'Edit(*)' 'Glob(*)' 'Grep(*)'
+RUNNER
+chmod +x /tmp/sentinel-run.sh
+tmux send-keys -t "$SESSION_NAME" "bash /tmp/sentinel-run.sh" Enter
 
 echo "[init] Sentinel started in tmux session '$SESSION_NAME'"
 
