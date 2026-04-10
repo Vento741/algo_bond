@@ -2,9 +2,13 @@
  * Хук для аутентификации в Telegram WebApp
  */
 
-import { useEffect, useState } from 'react';
-import { isTelegramWebApp, getTelegramInitData, applyTelegramTheme } from '@/lib/telegram';
-import { useTelegramStore } from '@/stores/telegram';
+import { useEffect, useState } from "react";
+import {
+  isTelegramWebApp,
+  getTelegramInitData,
+  applyTelegramTheme,
+} from "@/lib/telegram";
+import { useTelegramStore } from "@/stores/telegram";
 
 interface UseTelegramAuthResult {
   isLoading: boolean;
@@ -15,7 +19,8 @@ interface UseTelegramAuthResult {
 export function useTelegramAuth(): UseTelegramAuthResult {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isAuthenticated, setIsTelegram, setInitData, authenticate } = useTelegramStore();
+  const { isAuthenticated, setIsTelegram, setInitData, authenticate } =
+    useTelegramStore();
 
   useEffect(() => {
     const init = async () => {
@@ -24,21 +29,31 @@ export function useTelegramAuth(): UseTelegramAuthResult {
         return;
       }
 
-      const initData = getTelegramInitData();
-      if (!initData) {
-        setError('Не удалось получить данные Telegram');
+      setIsTelegram(true);
+      applyTelegramTheme();
+
+      // Если JWT уже есть в localStorage - считаем авторизованным
+      const existingToken = localStorage.getItem("access_token");
+      if (existingToken) {
+        useTelegramStore.setState({ isAuthenticated: true });
         setIsLoading(false);
         return;
       }
 
-      setIsTelegram(true);
+      // Иначе аутентифицируемся через initData
+      const initData = getTelegramInitData();
+      if (!initData) {
+        setError("Не удалось получить данные Telegram");
+        setIsLoading(false);
+        return;
+      }
+
       setInitData(initData);
-      applyTelegramTheme();
 
       try {
         await authenticate();
       } catch {
-        setError('Ошибка аутентификации Telegram');
+        setError("Ошибка аутентификации Telegram");
       } finally {
         setIsLoading(false);
       }
