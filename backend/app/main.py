@@ -21,6 +21,8 @@ from app.modules.admin.router import router as admin_router
 from app.modules.admin.system_router import router as system_router
 from app.modules.analytics.router import admin_router as analytics_admin_router
 from app.modules.analytics.router import router as analytics_router
+from app.modules.notifications.router import router as notifications_router
+from app.modules.notifications.ws_router import router as notifications_ws_router
 
 
 @asynccontextmanager
@@ -85,6 +87,8 @@ app.include_router(admin_router)
 app.include_router(system_router)
 app.include_router(analytics_router)
 app.include_router(analytics_admin_router)
+app.include_router(notifications_router)
+app.include_router(notifications_ws_router)
 
 
 @app.get("/health")

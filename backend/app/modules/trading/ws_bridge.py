@@ -37,9 +37,9 @@ async def _redis_subscriber() -> None:
             redis = Redis.from_url(settings.redis_url, decode_responses=True)
             pubsub = redis.pubsub()
 
-            # Подписка на паттерн trading:* (все user-каналы)
-            await pubsub.psubscribe("trading:*")
-            logger.info("Redis pub/sub подписка активирована: trading:*")
+            # Подписка на паттерны trading:* и notifications:* (все user-каналы)
+            await pubsub.psubscribe("trading:*", "notifications:*")
+            logger.info("Redis pub/sub подписка активирована: trading:*, notifications:*")
             backoff = 1
 
             async for message in pubsub.listen():

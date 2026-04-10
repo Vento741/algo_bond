@@ -38,6 +38,10 @@ celery.conf.beat_schedule = {
         "task": "system.beat_heartbeat",
         "schedule": 60.0,
     },
+    "cleanup-old-notifications": {
+        "task": "notifications.cleanup_old",
+        "schedule": 86400.0,  # каждые 24 часа
+    },
 }
 
 celery.autodiscover_tasks([
