@@ -29,18 +29,15 @@ def validate_init_data(
             return False
         received_hash = hash_list[0]
 
-        # Проверить auth_date
         auth_date_list = parsed.get("auth_date", ["0"])
         auth_date = int(auth_date_list[0])
         if max_age > 0 and (time.time() - auth_date) > max_age:
             return False
 
-        # Построить data-check-string (отсортированные ключи)
         data_check_string = "\n".join(
             f"{k}={v[0]}" for k, v in sorted(parsed.items())
         )
 
-        # HMAC-SHA256 по официальной схеме Telegram
         secret_key = hmac.new(
             b"WebAppData", bot_token.encode(), hashlib.sha256
         ).digest()

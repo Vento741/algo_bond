@@ -6,8 +6,6 @@ import json
 import time
 from urllib.parse import quote
 
-import pytest
-
 from app.modules.telegram.webapp_auth import validate_init_data, parse_init_data
 
 
