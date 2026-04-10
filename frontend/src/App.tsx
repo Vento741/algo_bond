@@ -98,69 +98,30 @@ function App() {
                 <Route path="/admin/system" element={<AdminSystem />} />
               </Route>
 
-              {/* Telegram Mini App routes */}
+              {/* Telegram Mini App - diagnostic test route */}
               <Route
+                path="/tg"
                 element={
-                  <Suspense
-                    fallback={
-                      <div className="flex h-screen items-center justify-center bg-[#0d0d1a]">
-                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#FFD700] border-t-transparent" />
-                      </div>
-                    }
+                  <div
+                    style={{
+                      background: "#0d0d1a",
+                      color: "white",
+                      minHeight: "100vh",
+                      padding: 20,
+                    }}
                   >
-                    <TelegramLayout />
-                  </Suspense>
+                    <h1>TG Debug</h1>
+                    <p>window.Telegram: {typeof (window as any).Telegram}</p>
+                    <p>WebApp: {String(!!(window as any).Telegram?.WebApp)}</p>
+                    <p>
+                      initData:{" "}
+                      {String(!!(window as any).Telegram?.WebApp?.initData)}
+                    </p>
+                    <p>JWT: {String(!!localStorage.getItem("access_token"))}</p>
+                    <p>URL: {window.location.href}</p>
+                  </div>
                 }
-              >
-                <Route
-                  path="/tg"
-                  element={
-                    <Suspense>
-                      <TgDashboard />
-                    </Suspense>
-                  }
-                />
-                <Route
-                  path="/tg/bots"
-                  element={
-                    <Suspense>
-                      <TgBots />
-                    </Suspense>
-                  }
-                />
-                <Route
-                  path="/tg/bots/:id"
-                  element={
-                    <Suspense>
-                      <TgBotDetail />
-                    </Suspense>
-                  }
-                />
-                <Route
-                  path="/tg/chart"
-                  element={
-                    <Suspense>
-                      <TgChart />
-                    </Suspense>
-                  }
-                />
-                <Route
-                  path="/tg/backtest"
-                  element={
-                    <Suspense>
-                      <TgBacktest />
-                    </Suspense>
-                  }
-                />
-                <Route
-                  path="/tg/settings"
-                  element={
-                    <Suspense>
-                      <TgSettings />
-                    </Suspense>
-                  }
-                />
-              </Route>
+              />
 
               {/* Fallback - 404 */}
               <Route path="*" element={<NotFound />} />
