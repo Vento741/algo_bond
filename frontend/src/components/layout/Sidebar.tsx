@@ -15,6 +15,7 @@ import {
   CreditCard,
   Terminal,
   BarChart3,
+  Monitor,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth';
@@ -36,6 +37,7 @@ const adminNavigation = [
   { name: 'Инвайт-коды', href: '/admin/invites', icon: KeyRound },
   { name: 'Тарифы', href: '/admin/billing', icon: CreditCard },
   { name: 'Логи', href: '/admin/logs', icon: Terminal },
+  { name: 'Система', href: '/admin/system', icon: Monitor },
 ];
 
 function NavItem({

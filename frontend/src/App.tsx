@@ -31,6 +31,7 @@ import { AdminInvites } from '@/pages/admin/AdminInvites';
 import { AdminBilling } from '@/pages/admin/AdminBilling';
 import { AdminLogs } from '@/pages/admin/AdminLogs';
 import { AdminAnalytics } from '@/pages/admin/AdminAnalytics';
+import { AdminSystem } from '@/pages/admin/AdminSystem';
 
 function App() {
   return (
@@ -84,6 +85,7 @@ function App() {
               <Route path="/admin/invites" element={<AdminInvites />} />
               <Route path="/admin/billing" element={<AdminBilling />} />
               <Route path="/admin/logs" element={<AdminLogs />} />
+              <Route path="/admin/system" element={<AdminSystem />} />
             </Route>
 
             {/* Fallback - 404 */}
