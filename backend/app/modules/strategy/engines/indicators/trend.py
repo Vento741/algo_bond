@@ -272,6 +272,44 @@ def ma_ribbon(
     return bullish, bearish
 
 
+def atr_percentile(atr_vals: NDArray, lookback: int = 100) -> NDArray:
+    """Rolling ATR percentile (0-100). Показывает текущую волатильность относительно истории.
+
+    Для каждого бара считает, какой процент значений ATR за последние `lookback` баров
+    меньше текущего значения ATR.
+
+    Returns: массив float64 [0..100], NaN до warmup.
+    """
+    n = len(atr_vals)
+    out = np.full(n, np.nan, dtype=np.float64)
+    if n < lookback:
+        return out
+    for i in range(lookback - 1, n):
+        if np.isnan(atr_vals[i]):
+            continue
+        window = atr_vals[max(0, i - lookback + 1):i + 1]
+        valid = window[~np.isnan(window)]
+        if len(valid) < 2:
+            continue
+        out[i] = np.sum(valid < atr_vals[i]) / len(valid) * 100.0
+    return out
+
+
+def bb_bandwidth(upper: NDArray, lower: NDArray, basis: NDArray) -> NDArray:
+    """Bollinger Bands bandwidth = (upper - lower) / basis * 100.
+
+    Показывает ширину BB в процентах. Используется для определения expanding/contracting.
+    Returns: массив float64, NaN где basis == 0 или NaN.
+    """
+    with np.errstate(divide="ignore", invalid="ignore"):
+        bw = np.where(
+            (~np.isnan(basis)) & (basis != 0),
+            (upper - lower) / basis * 100.0,
+            np.nan,
+        )
+    return bw.astype(np.float64)
+
+
 def supertrend(
     high: NDArray, low: NDArray, close: NDArray,
     period: int = 10, multiplier: float = 3.0,

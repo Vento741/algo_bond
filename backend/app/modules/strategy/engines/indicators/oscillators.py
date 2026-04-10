@@ -9,6 +9,27 @@ from numpy.typing import NDArray
 from app.modules.strategy.engines.indicators.trend import atr, ema, rolling_max, rolling_min, sma, stdev
 
 
+def squeeze_duration(squeeze_on: NDArray) -> NDArray:
+    """Длительность текущего squeeze (consecutive True bars).
+
+    Считает количество подряд идущих True в squeeze_on.
+    На каждом баре значение = сколько баров подряд squeeze был ON (включая текущий).
+    При False сбрасывается в 0.
+
+    Returns: int массив длительности.
+    """
+    n = len(squeeze_on)
+    out = np.zeros(n, dtype=np.int64)
+    count = 0
+    for i in range(n):
+        if squeeze_on[i]:
+            count += 1
+            out[i] = count
+        else:
+            count = 0
+    return out
+
+
 def wavetrend(
     hlc3: NDArray, channel_len: int = 10, avg_len: int = 21
 ) -> NDArray:

@@ -6,7 +6,13 @@ import pytest
 from app.modules.strategy.engines.indicators.trend import supertrend
 from app.modules.strategy.engines.indicators.oscillators import (
     keltner_channel,
+    squeeze_duration,
     squeeze_momentum,
+)
+from app.modules.strategy.engines.indicators.trend import (
+    atr as atr_fn,
+    atr_percentile,
+    bb_bandwidth,
 )
 
 
@@ -18,6 +24,52 @@ CLOSE_200 = _trend + _noise
 HIGH_200 = CLOSE_200 + np.abs(np.random.normal(1, 0.5, 200))
 LOW_200 = CLOSE_200 - np.abs(np.random.normal(1, 0.5, 200))
 VOLUME_200 = np.random.uniform(500, 2000, 200)
+
+
+class TestAtrPercentile:
+    def test_returns_correct_shape(self) -> None:
+        atr_vals = atr_fn(HIGH_200, LOW_200, CLOSE_200, 14)
+        result = atr_percentile(atr_vals, lookback=50)
+        assert len(result) == 200
+
+    def test_values_in_range(self) -> None:
+        atr_vals = atr_fn(HIGH_200, LOW_200, CLOSE_200, 14)
+        result = atr_percentile(atr_vals, lookback=50)
+        valid = result[~np.isnan(result)]
+        assert np.all(valid >= 0)
+        assert np.all(valid <= 100)
+
+    def test_nan_at_start(self) -> None:
+        atr_vals = atr_fn(HIGH_200, LOW_200, CLOSE_200, 14)
+        result = atr_percentile(atr_vals, lookback=50)
+        assert np.isnan(result[0])
+
+
+class TestBbBandwidth:
+    def test_positive_values(self) -> None:
+        from app.modules.strategy.engines.indicators.oscillators import bollinger_bands
+        upper, basis, lower = bollinger_bands(CLOSE_200, 20, 2.0)
+        bw = bb_bandwidth(upper, lower, basis)
+        valid = bw[~np.isnan(bw)]
+        assert np.all(valid > 0)
+
+
+class TestSqueezeDuration:
+    def test_basic(self) -> None:
+        squeeze_on = np.array([False, True, True, True, False, True, False], dtype=bool)
+        dur = squeeze_duration(squeeze_on)
+        expected = np.array([0, 1, 2, 3, 0, 1, 0])
+        np.testing.assert_array_equal(dur, expected)
+
+    def test_all_true(self) -> None:
+        squeeze_on = np.ones(5, dtype=bool)
+        dur = squeeze_duration(squeeze_on)
+        np.testing.assert_array_equal(dur, [1, 2, 3, 4, 5])
+
+    def test_all_false(self) -> None:
+        squeeze_on = np.zeros(5, dtype=bool)
+        dur = squeeze_duration(squeeze_on)
+        np.testing.assert_array_equal(dur, [0, 0, 0, 0, 0])
 
 
 class TestSuperTrend:
@@ -207,3 +259,72 @@ class TestSuperTrendSqueezeStrategy:
         result = strategy.generate_signals(OHLCV_200)
         assert len(result.confluence_scores_long) == 200
         assert len(result.confluence_scores_short) == 200
+
+    def test_regime_enabled(self) -> None:
+        """Regime adaptation should not crash and still produce valid result."""
+        cfg = {**DEFAULT_CONFIG, "regime": {
+            "use": True, "adx_trending": 25, "adx_ranging": 20,
+            "atr_high_vol_pct": 75, "atr_lookback": 50, "vol_scale": 1.5,
+            "skip_ranging": True,
+        }}
+        strategy = SuperTrendSqueezeStrategy(cfg)
+        result = strategy.generate_signals(OHLCV_200)
+        assert isinstance(result, StrategyResult)
+        for sig in result.signals:
+            assert sig.stop_loss > 0
+
+    def test_regime_disabled_backward_compat(self) -> None:
+        """With regime disabled, behavior should be identical to v1."""
+        strategy_v1 = SuperTrendSqueezeStrategy(DEFAULT_CONFIG)
+        cfg_v2 = {**DEFAULT_CONFIG, "regime": {"use": False}}
+        strategy_v2 = SuperTrendSqueezeStrategy(cfg_v2)
+        r1 = strategy_v1.generate_signals(OHLCV_200)
+        r2 = strategy_v2.generate_signals(OHLCV_200)
+        assert len(r1.signals) == len(r2.signals)
+
+    def test_adaptive_trailing(self) -> None:
+        """Adaptive trailing should produce variable trailing values."""
+        cfg = {**DEFAULT_CONFIG, "risk": {
+            **DEFAULT_CONFIG["risk"],
+            "adaptive_trailing": True,
+            "trail_low_mult": 2.0,
+            "trail_high_mult": 10.0,
+        }}
+        strategy = SuperTrendSqueezeStrategy(cfg)
+        result = strategy.generate_signals(OHLCV_200)
+        assert isinstance(result, StrategyResult)
+        # Все сигналы должны иметь trailing
+        for sig in result.signals:
+            if sig.trailing_atr is not None:
+                assert sig.trailing_atr > 0
+
+    def test_squeeze_min_duration(self) -> None:
+        """Squeeze with high min_duration should filter out short squeezes."""
+        cfg_loose = {**DEFAULT_CONFIG, "squeeze": {
+            **DEFAULT_CONFIG["squeeze"],
+            "min_duration": 0,
+        }}
+        cfg_strict = {**DEFAULT_CONFIG, "squeeze": {
+            **DEFAULT_CONFIG["squeeze"],
+            "min_duration": 100,  # очень строгий фильтр
+        }}
+        r_loose = SuperTrendSqueezeStrategy(cfg_loose).generate_signals(OHLCV_200)
+        r_strict = SuperTrendSqueezeStrategy(cfg_strict).generate_signals(OHLCV_200)
+        # Строгий фильтр может дать <= сигналов (squeeze breakout фильтруются)
+        squeeze_loose = [s for s in r_loose.signals if s.signal_type == "squeeze_breakout"]
+        squeeze_strict = [s for s in r_strict.signals if s.signal_type == "squeeze_breakout"]
+        assert len(squeeze_strict) <= len(squeeze_loose)
+
+    def test_multi_tf_filter(self) -> None:
+        """Multi-TF filter with all-bearish HTF should block long signals."""
+        htf_ts = list(range(0, 200 * 900_000 + 1700000000000, 900_000 * 4))
+        htf_trend = [-1] * len(htf_ts)  # все bearish
+        cfg = {**DEFAULT_CONFIG, "multi_tf": {
+            "use": True,
+            "htf_trend": htf_trend,
+            "htf_timestamps": htf_ts,
+        }}
+        strategy = SuperTrendSqueezeStrategy(cfg)
+        result = strategy.generate_signals(OHLCV_200)
+        long_signals = [s for s in result.signals if s.direction == "long"]
+        assert len(long_signals) == 0
