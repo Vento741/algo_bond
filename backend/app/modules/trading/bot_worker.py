@@ -266,6 +266,13 @@ async def run_bot_cycle(
                 await db.commit()
             except Exception:
                 pass
+            # Уведомить пользователя об ошибке бота
+            try:
+                bot_for_notify = await _load_bot(db, bot_id)
+                if bot_for_notify:
+                    await _notify_bot_error(db, bot_for_notify, str(e)[:300])
+            except Exception:
+                logger.debug("Не удалось отправить уведомление об ошибке бота %s", bot_id)
             return {"status": "error", "message": str(e)}
 
 
@@ -370,6 +377,9 @@ async def _sync_positions(
             await _log(db, bot.id, "info", "Позиция закрыта биржей (sync)", {
                 "symbol": symbol, "realized_pnl": str(pos.realized_pnl),
             })
+
+            # Уведомить пользователя о закрытии позиции
+            await _notify_position_closed(db, bot, pos, symbol, "exchange_sync")
 
         elif exchange_size < db_qty * 0.95:
             # Частичное закрытие (TP1 сработал)
@@ -565,6 +575,9 @@ async def _close_position_market(
             "reason": "reverse_signal",
             "realized_pnl": str(position.realized_pnl),
         })
+
+        # Уведомить о закрытии позиции по реверс-сигналу
+        await _notify_position_closed(db, bot, position, symbol, "reverse_signal")
         return True
     except BybitAPIError as e:
         logger.error("Bot %s: reverse close failed: %s", bot.id, e.message)
@@ -846,6 +859,7 @@ async def _place_order(
                     )
                 except BybitAPIError as e2:
                     logger.error("Bot %s: CRITICAL - SL not set, emergency close: %s", bot.id, e2.message)
+                    await _notify_bot_emergency(db, bot, symbol, "SL не установлен после размещения ордера")
                     await _log(db, bot.id, "error", "SL не установлен - аварийное закрытие позиции", {
                         "error": e2.message,
                     })
@@ -870,6 +884,9 @@ async def _place_order(
             "multi_tp": use_multi_tp,
         })
 
+        # Уведомить об открытии позиции
+        await _notify_position_opened(db, bot, symbol, signal.direction, qty, float(ticker.last_price))
+
         return {
             "status": "ok",
             "signal": {"direction": signal.direction, "confluence": signal.confluence_score},
@@ -881,6 +898,101 @@ async def _place_order(
         await _log(db, bot.id, "error", f"Ошибка Bybit: {e.message}")
         await db.commit()
         return {"status": "error", "message": f"Bybit: {e.message}"}
+
+
+# === Notification Helpers ===
+
+
+async def _notify_position_opened(
+    db: AsyncSession, bot: Bot, symbol: str, direction: str, qty: float, price: float,
+) -> None:
+    """Отправить уведомление об открытии позиции."""
+    try:
+        from app.modules.notifications.service import notify
+        from app.modules.notifications.enums import NotificationType, NotificationPriority
+        side_label = "LONG" if direction == "long" else "SHORT"
+        await notify(
+            db, bot.user_id,
+            NotificationType.POSITION_OPENED, NotificationPriority.MEDIUM,
+            title=f"Позиция открыта: {symbol}",
+            message=f"{side_label} {qty:.4f} @ {price:.4f}",
+            data={"bot_id": str(bot.id), "symbol": symbol, "side": direction, "qty": qty, "price": price},
+            link=f"/bots/{bot.id}",
+        )
+    except Exception:
+        logger.debug("Не удалось отправить уведомление POSITION_OPENED бот=%s", bot.id)
+
+
+async def _notify_position_closed(
+    db: AsyncSession, bot: Bot, position: Position, symbol: str, reason: str,
+) -> None:
+    """Отправить уведомление о закрытии позиции (SL/TP/реверс/sync)."""
+    try:
+        from app.modules.notifications.service import notify
+        from app.modules.notifications.enums import NotificationType, NotificationPriority
+        pnl = float(position.realized_pnl or 0)
+        pnl_str = f"+{pnl:.4f}" if pnl >= 0 else f"{pnl:.4f}"
+        side_label = position.side.value.upper() if hasattr(position.side, "value") else str(position.side).upper()
+
+        # Определить тип уведомления по причине закрытия
+        if reason == "sl_hit":
+            ntype = NotificationType.SL_HIT
+            title = f"SL сработал: {symbol}"
+            priority = NotificationPriority.HIGH
+        elif reason in ("tp_hit", "tp1_hit", "tp2_hit"):
+            ntype = NotificationType.TP_HIT
+            title = f"TP сработал: {symbol}"
+            priority = NotificationPriority.MEDIUM
+        else:
+            ntype = NotificationType.POSITION_CLOSED
+            title = f"Позиция закрыта: {symbol}"
+            priority = NotificationPriority.MEDIUM
+
+        await notify(
+            db, bot.user_id,
+            ntype, priority,
+            title=title,
+            message=f"{side_label} PnL: {pnl_str} USDT",
+            data={"bot_id": str(bot.id), "symbol": symbol, "pnl": pnl, "reason": reason},
+            link=f"/bots/{bot.id}",
+        )
+    except Exception:
+        logger.debug("Не удалось отправить уведомление о закрытии позиции бот=%s", bot.id)
+
+
+async def _notify_bot_error(db: AsyncSession, bot: Bot, error_message: str) -> None:
+    """Отправить уведомление об ошибке бота."""
+    try:
+        from app.modules.notifications.service import notify
+        from app.modules.notifications.enums import NotificationType, NotificationPriority
+        symbol = bot.strategy_config.symbol if bot.strategy_config else "N/A"
+        await notify(
+            db, bot.user_id,
+            NotificationType.BOT_ERROR, NotificationPriority.HIGH,
+            title=f"Ошибка бота: {symbol}",
+            message=error_message[:200],
+            data={"bot_id": str(bot.id), "symbol": symbol, "error": error_message[:500]},
+            link=f"/bots/{bot.id}",
+        )
+    except Exception:
+        logger.debug("Не удалось отправить уведомление BOT_ERROR бот=%s", bot.id)
+
+
+async def _notify_bot_emergency(db: AsyncSession, bot: Bot, symbol: str, reason: str) -> None:
+    """Отправить уведомление об аварийной остановке бота."""
+    try:
+        from app.modules.notifications.service import notify
+        from app.modules.notifications.enums import NotificationType, NotificationPriority
+        await notify(
+            db, bot.user_id,
+            NotificationType.BOT_EMERGENCY, NotificationPriority.CRITICAL,
+            title=f"АВАРИЙНАЯ ОСТАНОВКА: {symbol}",
+            message=reason,
+            data={"bot_id": str(bot.id), "symbol": symbol, "reason": reason},
+            link=f"/bots/{bot.id}",
+        )
+    except Exception:
+        logger.debug("Не удалось отправить уведомление BOT_EMERGENCY бот=%s", bot.id)
 
 
 # === Helpers ===
