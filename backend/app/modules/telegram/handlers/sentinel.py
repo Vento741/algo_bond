@@ -126,8 +126,14 @@ async def callback_sentinel_refresh(
 ) -> None:
     """Обновить статус Sentinel (перечитать из Redis)."""
     text = await _get_status_text()
-    await query.answer("Обновлено")
-    await query.message.edit_text(text, reply_markup=_sentinel_keyboard())
+    try:
+        await query.answer("Обновлено")
+    except Exception:
+        pass
+    try:
+        await query.message.edit_text(text, parse_mode="HTML", reply_markup=_sentinel_keyboard())
+    except Exception:
+        await query.message.answer(text, parse_mode="HTML", reply_markup=_sentinel_keyboard())
 
 
 # === Callback: команды start/stop ===
@@ -141,10 +147,14 @@ async def callback_sentinel_start(
     redis = get_redis()
     try:
         await redis.set("algobond:agent:command", "start")
-        await query.answer("Команда start отправлена")
+        try:
+            await query.answer("Команда start отправлена")
+        except Exception:
+            pass
         await query.message.answer(
             "✅ <b>Sentinel: команда start отправлена</b>\n"
-            "Агент запустится в течение 30 секунд (watchdog)."
+            "Агент запустится в течение 30 секунд (watchdog).",
+            parse_mode="HTML",
         )
     finally:
         await redis.aclose()
@@ -158,10 +168,14 @@ async def callback_sentinel_stop(
     redis = get_redis()
     try:
         await redis.set("algobond:agent:command", "stop")
-        await query.answer("Команда stop отправлена")
+        try:
+            await query.answer("Команда stop отправлена")
+        except Exception:
+            pass
         await query.message.answer(
             "⏹ <b>Sentinel: команда stop отправлена</b>\n"
-            "Агент остановится после завершения текущей задачи."
+            "Агент остановится после завершения текущей задачи.",
+            parse_mode="HTML",
         )
     finally:
         await redis.aclose()
@@ -180,20 +194,29 @@ async def callback_sentinel_approve(
     try:
         key = f"{AGENT_PERM_PREFIX}{approval_id}"
         existing = await redis.get(key)
-        if existing is None:
-            await query.answer("Запрос уже истек или не существует", show_alert=True)
-            return
-        if existing != "pending":
-            await query.answer(f"Уже обработано: {existing}", show_alert=True)
+        if existing is not None and existing != "pending":
+            try:
+                await query.answer(f"Уже обработано: {existing}", show_alert=True)
+            except Exception:
+                pass
             return
 
+        # Сначала записать в Redis (критично - hook ждет!)
         await redis.set(key, "approved", ex=300)
-        await query.answer("Одобрено")
-        # Обновить сообщение - убрать кнопки
-        await query.message.edit_text(
-            query.message.text + "\n\n<b>✅ Одобрено</b>",
-            reply_markup=None,
-        )
+
+        # Потом UI обновления (могут упасть - не критично)
+        try:
+            await query.answer("Одобрено")
+        except Exception:
+            pass
+        try:
+            await query.message.edit_text(
+                query.message.text + "\n\n✅ Одобрено",
+                parse_mode="HTML",
+                reply_markup=None,
+            )
+        except Exception:
+            pass
     finally:
         await redis.aclose()
 
@@ -208,19 +231,28 @@ async def callback_sentinel_reject(
     try:
         key = f"{AGENT_PERM_PREFIX}{approval_id}"
         existing = await redis.get(key)
-        if existing is None:
-            await query.answer("Запрос уже истек или не существует", show_alert=True)
-            return
-        if existing != "pending":
-            await query.answer(f"Уже обработано: {existing}", show_alert=True)
+        if existing is not None and existing != "pending":
+            try:
+                await query.answer(f"Уже обработано: {existing}", show_alert=True)
+            except Exception:
+                pass
             return
 
+        # Сначала записать в Redis
         await redis.set(key, "rejected", ex=300)
-        await query.answer("Отклонено")
-        await query.message.edit_text(
-            query.message.text + "\n\n<b>❌ Отклонено</b>",
-            reply_markup=None,
-        )
+
+        try:
+            await query.answer("Отклонено")
+        except Exception:
+            pass
+        try:
+            await query.message.edit_text(
+                query.message.text + "\n\n❌ Отклонено",
+                parse_mode="HTML",
+                reply_markup=None,
+            )
+        except Exception:
+            pass
     finally:
         await redis.aclose()
 
@@ -234,12 +266,16 @@ async def callback_sentinel_chat_start(
 ) -> None:
     """Включить режим чата с Sentinel."""
     await state.set_state(SentinelChatStates.chatting)
-    await query.answer("Чат активирован")
+    try:
+        await query.answer("Чат активирован")
+    except Exception:
+        pass
     await query.message.answer(
         "💬 <b>Чат с Sentinel активирован</b>\n\n"
         "Пишите сообщения - они будут переданы агенту.\n"
         "Ответы появятся здесь автоматически.\n\n"
         "<i>Нажмите «Выйти из чата» для завершения.</i>",
+        parse_mode="HTML",
         reply_markup=_chat_keyboard(),
     )
 
@@ -250,7 +286,10 @@ async def callback_sentinel_chat_exit(
 ) -> None:
     """Выйти из режима чата."""
     await state.clear()
-    await query.answer("Вышли из чата")
+    try:
+        await query.answer("Вышли из чата")
+    except Exception:
+        pass
     await query.message.edit_text(
         "🚪 <b>Чат с Sentinel завершен</b>\n"
         "Используйте /sentinel для возврата в панель управления.",
