@@ -301,7 +301,7 @@ async def callback_sentinel_chat_exit(
 async def handle_sentinel_chat_message(
     message: Message, state: FSMContext, session, user_id: uuid.UUID
 ) -> None:
-    """Отправить сообщение Sentinel и ждать ответа."""
+    """Отправить сообщение Sentinel (async delivery, без ожидания)."""
     content = (message.text or "").strip()
     if not content:
         return
@@ -311,73 +311,19 @@ async def handle_sentinel_chat_message(
 
     redis = get_redis()
     try:
-        # Создать ChatMessage как ожидает sentinel_service
         msg_id = str(uuid.uuid4())
         msg = {
             "id": msg_id,
             "type": "user_message",
             "content": content,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "metadata": {"source": "telegram"},
+            "metadata": {"source": "telegram", "tg_chat_id": message.chat.id},
         }
-        # Кладем в inbox для Sentinel
         await redis.rpush(AGENT_CHAT_INBOX_KEY, json.dumps(msg))
 
-        # Подписаться на ответы и ждать ответ с matching correlation
-        pubsub = redis.pubsub()
-        await pubsub.subscribe(AGENT_CHAT_OUT_KEY)
-
-        typing_msg = await message.answer("⏳ Sentinel обрабатывает запрос...")
-
-        response_text: str | None = None
-        try:
-            async def _wait_response() -> str | None:
-                async for raw in pubsub.listen():
-                    if raw["type"] != "message":
-                        continue
-                    try:
-                        data = json.loads(raw["data"])
-                        # Принимаем любой ответ от агента (тип agent_message или response)
-                        msg_type = data.get("type", "")
-                        if msg_type in ("agent_message", "response", "assistant"):
-                            return data.get("content", str(raw["data"]))
-                    except (json.JSONDecodeError, TypeError):
-                        return str(raw["data"])
-                return None
-
-            response_text = await asyncio.wait_for(
-                _wait_response(), timeout=_CHAT_RESPONSE_TIMEOUT
-            )
-        except asyncio.TimeoutError:
-            response_text = None
-        finally:
-            await pubsub.unsubscribe(AGENT_CHAT_OUT_KEY)
-            await pubsub.close()
-
-        # Удалить "typing" сообщение
-        try:
-            await typing_msg.delete()
-        except Exception:
-            pass
-
-        if response_text:
-            # Разбить длинные ответы (TG лимит 4096 символов)
-            if len(response_text) > 4000:
-                parts = [response_text[i:i+4000] for i in range(0, len(response_text), 4000)]
-                for i, part in enumerate(parts):
-                    prefix = f"<b>Sentinel [{i+1}/{len(parts)}]:</b>\n" if len(parts) > 1 else "<b>Sentinel:</b>\n"
-                    await message.answer(prefix + part, reply_markup=_chat_keyboard())
-            else:
-                await message.answer(
-                    f"<b>Sentinel:</b>\n{response_text}",
-                    reply_markup=_chat_keyboard(),
-                )
-        else:
-            await message.answer(
-                "⏰ Sentinel не ответил за 90 секунд.\n"
-                "Возможно, агент занят или не запущен.\n"
-                "Проверьте статус командой /sentinel",
-                reply_markup=_chat_keyboard(),
-            )
+        await message.answer(
+            "📨 Доставлено. Sentinel ответит когда обработает (inbox poll ~1 мин).",
+            reply_markup=_chat_keyboard(),
+        )
     finally:
         await redis.aclose()
