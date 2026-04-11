@@ -69,6 +69,7 @@ def test_handlers_import() -> None:
     from app.modules.telegram.handlers.status import router as status_router  # noqa: F401
     from app.modules.telegram.handlers.admin import router as admin_router  # noqa: F401
     from app.modules.telegram.handlers.callbacks import router as callbacks_router  # noqa: F401
+    from app.modules.telegram.handlers.sentinel import router as sentinel_router  # noqa: F401
 
 
 def test_router_names() -> None:
@@ -78,12 +79,14 @@ def test_router_names() -> None:
     from app.modules.telegram.handlers.status import router as status_router
     from app.modules.telegram.handlers.admin import router as admin_router
     from app.modules.telegram.handlers.callbacks import router as callbacks_router
+    from app.modules.telegram.handlers.sentinel import router as sentinel_router
 
     assert start_router.name == "start"
     assert help_router.name == "help"
     assert status_router.name == "status"
     assert admin_router.name == "admin"
     assert callbacks_router.name == "callbacks"
+    assert sentinel_router.name == "sentinel"
 
 
 # === Тесты /start ===

@@ -95,6 +95,51 @@ def confirm_close_position(position_id: str) -> InlineKeyboardMarkup:
     )
 
 
+def sentinel_panel() -> InlineKeyboardMarkup:
+    """Кнопки панели Sentinel агента.
+
+    Returns:
+        InlineKeyboardMarkup с кнопками управления и чата.
+    """
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="💬 Чат с Sentinel", callback_data="sentinel_chat_start"),
+                InlineKeyboardButton(text="🔄 Статус", callback_data="sentinel_refresh"),
+            ],
+            [
+                InlineKeyboardButton(text="▶️ Запустить", callback_data="sentinel_cmd_start"),
+                InlineKeyboardButton(text="⏹ Остановить", callback_data="sentinel_cmd_stop"),
+            ],
+        ]
+    )
+
+
+def approval_keyboard(approval_id: str) -> InlineKeyboardMarkup:
+    """Inline клавиатура для запроса одобрения Bash команды.
+
+    Args:
+        approval_id: Уникальный ID запроса разрешения.
+
+    Returns:
+        InlineKeyboardMarkup с кнопками Approve/Reject.
+    """
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Approve",
+                    callback_data=f"sentinel_approve:{approval_id}",
+                ),
+                InlineKeyboardButton(
+                    text="❌ Reject",
+                    callback_data=f"sentinel_reject:{approval_id}",
+                ),
+            ],
+        ]
+    )
+
+
 def admin_panel() -> InlineKeyboardMarkup:
     """Кнопки административной панели.
 

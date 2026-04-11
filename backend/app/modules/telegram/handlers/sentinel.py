@@ -1,0 +1,344 @@
+"""Telegram handlers для AlgoBond Sentinel: статус, чат, approvals."""
+
+import asyncio
+import json
+import logging
+import uuid
+from datetime import datetime, timezone
+
+from aiogram import F, Router
+from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import CallbackQuery, Message
+
+from app.redis import get_redis
+
+logger = logging.getLogger(__name__)
+
+router = Router(name="sentinel")
+
+# Redis ключи (повторяем константы из sentinel_service чтобы не тянуть циклические импорты)
+AGENT_CHAT_INBOX_KEY = "algobond:agent:chat:inbox"
+AGENT_CHAT_OUT_KEY = "algobond:agent:chat:out"
+AGENT_STATUS_KEY = "algobond:agent:status"
+AGENT_PERM_PREFIX = "algobond:agent:perm:"
+TG_CHAT_ACTIVE_PREFIX = "algobond:agent:tg_chat_active:"
+
+_SEPARATOR = "━━━━━━━━━━━━━━━━━"
+
+# Таймаут ожидания ответа Sentinel на сообщение в чате (секунды)
+_CHAT_RESPONSE_TIMEOUT = 30
+
+
+class SentinelChatStates(StatesGroup):
+    """FSM состояния для чата с Sentinel."""
+
+    chatting = State()
+
+
+def _sentinel_keyboard():
+    """Inline клавиатура для /sentinel команды."""
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="💬 Чат с Sentinel", callback_data="sentinel_chat_start"),
+                InlineKeyboardButton(text="🔄 Обновить статус", callback_data="sentinel_refresh"),
+            ],
+            [
+                InlineKeyboardButton(text="▶️ Запустить", callback_data="sentinel_cmd_start"),
+                InlineKeyboardButton(text="⏹ Остановить", callback_data="sentinel_cmd_stop"),
+            ],
+        ]
+    )
+
+
+def _chat_keyboard():
+    """Клавиатура для режима чата."""
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🚪 Выйти из чата", callback_data="sentinel_chat_exit")],
+        ]
+    )
+
+
+async def _get_status_text() -> str:
+    """Получить текст статуса Sentinel из Redis."""
+    redis = get_redis()
+    try:
+        data = await redis.hgetall(AGENT_STATUS_KEY)
+        if not data:
+            return "Статус неизвестен (нет данных в Redis)"
+
+        status = data.get("status", "unknown")
+        started_at = data.get("started_at", "—")
+        incidents_today = data.get("incidents_today", "0")
+        fixes_today = data.get("fixes_today", "0")
+        last_health = data.get("last_health_check", "—")
+        last_result = data.get("last_health_result", "—")
+        monitors = data.get("monitors", "")
+
+        status_emoji = {"running": "🟢", "stopped": "🔴", "error": "🟡"}.get(status, "⚪")
+
+        lines = [
+            f"<b>AlgoBond Sentinel</b>",
+            _SEPARATOR,
+            f"{status_emoji} Статус: <b>{status}</b>",
+        ]
+        if started_at and started_at != "—":
+            lines.append(f"Запущен: {started_at[:19].replace('T', ' ')}")
+        if monitors:
+            lines.append(f"Мониторы: {monitors}")
+        lines += [
+            f"Инциденты сегодня: {incidents_today} (исправлено: {fixes_today})",
+            f"Последний health: {last_result}",
+        ]
+        if last_health and last_health != "—":
+            lines.append(f"Время: {last_health[:19].replace('T', ' ')}")
+
+        return "\n".join(lines)
+    finally:
+        await redis.aclose()
+
+
+# === Команда /sentinel ===
+
+
+@router.message(Command("sentinel"))
+async def sentinel_command(
+    message: Message, session, user_id: uuid.UUID
+) -> None:
+    """Показать статус Sentinel с кнопками управления."""
+    text = await _get_status_text()
+    await message.answer(text, reply_markup=_sentinel_keyboard())
+
+
+# === Callback: обновить статус ===
+
+
+@router.callback_query(F.data == "sentinel_refresh")
+async def callback_sentinel_refresh(
+    query: CallbackQuery, session, user_id: uuid.UUID
+) -> None:
+    """Обновить статус Sentinel (перечитать из Redis)."""
+    text = await _get_status_text()
+    await query.answer("Обновлено")
+    await query.message.edit_text(text, reply_markup=_sentinel_keyboard())
+
+
+# === Callback: команды start/stop ===
+
+
+@router.callback_query(F.data == "sentinel_cmd_start")
+async def callback_sentinel_start(
+    query: CallbackQuery, session, user_id: uuid.UUID
+) -> None:
+    """Отправить команду start Sentinel через Redis."""
+    redis = get_redis()
+    try:
+        await redis.set("algobond:agent:command", "start")
+        await query.answer("Команда start отправлена")
+        await query.message.answer(
+            "✅ <b>Sentinel: команда start отправлена</b>\n"
+            "Агент запустится в течение 30 секунд (watchdog)."
+        )
+    finally:
+        await redis.aclose()
+
+
+@router.callback_query(F.data == "sentinel_cmd_stop")
+async def callback_sentinel_stop(
+    query: CallbackQuery, session, user_id: uuid.UUID
+) -> None:
+    """Отправить команду stop Sentinel через Redis."""
+    redis = get_redis()
+    try:
+        await redis.set("algobond:agent:command", "stop")
+        await query.answer("Команда stop отправлена")
+        await query.message.answer(
+            "⏹ <b>Sentinel: команда stop отправлена</b>\n"
+            "Агент остановится после завершения текущей задачи."
+        )
+    finally:
+        await redis.aclose()
+
+
+# === Approvals: callback от tg-approval.sh hook ===
+
+
+@router.callback_query(F.data.startswith("sentinel_approve:"))
+async def callback_sentinel_approve(
+    query: CallbackQuery, session, user_id: uuid.UUID
+) -> None:
+    """Одобрить pending Bash команду Sentinel."""
+    approval_id = query.data.split(":", 1)[1]
+    redis = get_redis()
+    try:
+        key = f"{AGENT_PERM_PREFIX}{approval_id}"
+        existing = await redis.get(key)
+        if existing is None:
+            await query.answer("Запрос уже истек или не существует", show_alert=True)
+            return
+        if existing != "pending":
+            await query.answer(f"Уже обработано: {existing}", show_alert=True)
+            return
+
+        await redis.set(key, "approved", ex=300)
+        await query.answer("Одобрено")
+        # Обновить сообщение - убрать кнопки
+        await query.message.edit_text(
+            query.message.text + "\n\n<b>✅ Одобрено</b>",
+            reply_markup=None,
+        )
+    finally:
+        await redis.aclose()
+
+
+@router.callback_query(F.data.startswith("sentinel_reject:"))
+async def callback_sentinel_reject(
+    query: CallbackQuery, session, user_id: uuid.UUID
+) -> None:
+    """Отклонить pending Bash команду Sentinel."""
+    approval_id = query.data.split(":", 1)[1]
+    redis = get_redis()
+    try:
+        key = f"{AGENT_PERM_PREFIX}{approval_id}"
+        existing = await redis.get(key)
+        if existing is None:
+            await query.answer("Запрос уже истек или не существует", show_alert=True)
+            return
+        if existing != "pending":
+            await query.answer(f"Уже обработано: {existing}", show_alert=True)
+            return
+
+        await redis.set(key, "rejected", ex=300)
+        await query.answer("Отклонено")
+        await query.message.edit_text(
+            query.message.text + "\n\n<b>❌ Отклонено</b>",
+            reply_markup=None,
+        )
+    finally:
+        await redis.aclose()
+
+
+# === Chat с Sentinel ===
+
+
+@router.callback_query(F.data == "sentinel_chat_start")
+async def callback_sentinel_chat_start(
+    query: CallbackQuery, state: FSMContext, session, user_id: uuid.UUID
+) -> None:
+    """Включить режим чата с Sentinel."""
+    await state.set_state(SentinelChatStates.chatting)
+    await query.answer("Чат активирован")
+    await query.message.answer(
+        "💬 <b>Чат с Sentinel активирован</b>\n\n"
+        "Пишите сообщения - они будут переданы агенту.\n"
+        "Ответы появятся здесь автоматически.\n\n"
+        "<i>Нажмите «Выйти из чата» для завершения.</i>",
+        reply_markup=_chat_keyboard(),
+    )
+
+
+@router.callback_query(F.data == "sentinel_chat_exit")
+async def callback_sentinel_chat_exit(
+    query: CallbackQuery, state: FSMContext, session, user_id: uuid.UUID
+) -> None:
+    """Выйти из режима чата."""
+    await state.clear()
+    await query.answer("Вышли из чата")
+    await query.message.edit_text(
+        "🚪 <b>Чат с Sentinel завершен</b>\n"
+        "Используйте /sentinel для возврата в панель управления.",
+        reply_markup=None,
+    )
+
+
+@router.message(SentinelChatStates.chatting)
+async def handle_sentinel_chat_message(
+    message: Message, state: FSMContext, session, user_id: uuid.UUID
+) -> None:
+    """Отправить сообщение Sentinel и ждать ответа."""
+    content = (message.text or "").strip()
+    if not content:
+        return
+    if len(content) > 4000:
+        await message.answer("Сообщение слишком длинное (максимум 4000 символов)")
+        return
+
+    redis = get_redis()
+    try:
+        # Создать ChatMessage как ожидает sentinel_service
+        msg_id = str(uuid.uuid4())
+        msg = {
+            "id": msg_id,
+            "type": "user_message",
+            "content": content,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "metadata": {"source": "telegram"},
+        }
+        # Кладем в inbox для Sentinel
+        await redis.rpush(AGENT_CHAT_INBOX_KEY, json.dumps(msg))
+
+        # Подписаться на ответы и ждать ответ с matching correlation
+        pubsub = redis.pubsub()
+        await pubsub.subscribe(AGENT_CHAT_OUT_KEY)
+
+        typing_msg = await message.answer("⏳ Sentinel обрабатывает запрос...")
+
+        response_text: str | None = None
+        try:
+            async def _wait_response() -> str | None:
+                async for raw in pubsub.listen():
+                    if raw["type"] != "message":
+                        continue
+                    try:
+                        data = json.loads(raw["data"])
+                        # Принимаем любой ответ от агента (тип agent_message или response)
+                        msg_type = data.get("type", "")
+                        if msg_type in ("agent_message", "response", "assistant"):
+                            return data.get("content", str(raw["data"]))
+                    except (json.JSONDecodeError, TypeError):
+                        return str(raw["data"])
+                return None
+
+            response_text = await asyncio.wait_for(
+                _wait_response(), timeout=_CHAT_RESPONSE_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            response_text = None
+        finally:
+            await pubsub.unsubscribe(AGENT_CHAT_OUT_KEY)
+            await pubsub.close()
+
+        # Удалить "typing" сообщение
+        try:
+            await typing_msg.delete()
+        except Exception:
+            pass
+
+        if response_text:
+            # Разбить длинные ответы на части (TG лимит 4096 символов)
+            if len(response_text) > 4000:
+                parts = [response_text[i:i+4000] for i in range(0, len(response_text), 4000)]
+                for i, part in enumerate(parts):
+                    prefix = f"<b>Sentinel [{i+1}/{len(parts)}]:</b>\n" if len(parts) > 1 else "<b>Sentinel:</b>\n"
+                    await message.answer(prefix + part, reply_markup=_chat_keyboard())
+            else:
+                await message.answer(
+                    f"<b>Sentinel:</b>\n{response_text}",
+                    reply_markup=_chat_keyboard(),
+                )
+        else:
+            await message.answer(
+                "⏰ Sentinel не ответил за 30 секунд.\n"
+                "Возможно, агент занят или не запущен.\n"
+                "Проверьте статус командой /sentinel",
+                reply_markup=_chat_keyboard(),
+            )
+    finally:
+        await redis.aclose()
