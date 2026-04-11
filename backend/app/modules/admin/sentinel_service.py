@@ -35,6 +35,7 @@ AGENT_MODE_KEY = "algobond:agent:mode"
 AGENT_CONFIG_KEY = "algobond:agent:config"
 AGENT_CHAT_KEY = "algobond:agent:chat"
 AGENT_CHAT_IN_KEY = "algobond:agent:chat:in"
+AGENT_CHAT_INBOX_KEY = "algobond:agent:chat:inbox"
 AGENT_CHAT_OUT_KEY = "algobond:agent:chat:out"
 AGENT_APPROVALS_KEY = "algobond:agent:approvals"
 AGENT_HEALTH_HISTORY_KEY = "algobond:agent:health_history"
@@ -196,7 +197,7 @@ class SentinelService:
             metadata={"approval_id": approval_id, "decision": decision},
         )
         await self.save_chat_message(msg)
-        await self.publish_chat_message(AGENT_CHAT_IN_KEY, msg)
+        await self.redis.rpush(AGENT_CHAT_INBOX_KEY, msg.model_dump_json())
         return True
 
     # === Commands ===

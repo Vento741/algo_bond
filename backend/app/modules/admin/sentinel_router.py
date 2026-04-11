@@ -29,7 +29,7 @@ from app.modules.admin.sentinel_schemas import (
     TokenUsageResponse,
 )
 from app.modules.admin.sentinel_service import (
-    AGENT_CHAT_IN_KEY,
+    AGENT_CHAT_INBOX_KEY,
     AGENT_CHAT_OUT_KEY,
     SentinelService,
 )
@@ -185,9 +185,9 @@ async def chat_websocket(
                 metadata=payload.get("metadata") if isinstance(payload, dict) else None,
             )
 
-            # Сохраняем в историю и публикуем в chat:in
+            # Сохраняем в историю и кладем в inbox для Sentinel (polling)
             await service.save_chat_message(msg)
-            await service.publish_chat_message(AGENT_CHAT_IN_KEY, msg)
+            await service.redis.rpush(AGENT_CHAT_INBOX_KEY, msg.model_dump_json())
 
             # Отправляем эхо обратно отправителю для подтверждения
             await websocket.send_text(msg.model_dump_json())

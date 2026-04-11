@@ -19,9 +19,12 @@
    ```bash
    docker exec algobond-redis redis-cli HSET algobond:agent:status status running started_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" monitors "api,listener" cron_jobs "health,reconcile,deps_audit" incidents_today 0 fixes_today 0
    ```
-5. Запустить мониторы (шаг 6-7)
-6. Создать cron-задачи (шаг 8-10)
-7. Подписаться на Redis chat:in (см. "Протокол чата")
+5. Отправить "online" в чат:
+   ```bash
+   docker exec algobond-redis redis-cli PUBLISH algobond:agent:chat:out '{"id":"init","type":"agent_log","content":"Sentinel online. Monitors: API (auto-fix), Listener (alert-only). Mode: Auto.","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
+   ```
+6. Запустить мониторы
+7. Создать cron-задачи (включая inbox polling)
 
 ## Мониторы (persistent)
 
@@ -81,29 +84,29 @@ CronCreate: `0 3 * * 0`
 
 ## Протокол чата (v2)
 
-### Подписка на входящие сообщения
+### Входящие сообщения (polling)
 
-При старте подписаться на Redis канал `algobond:agent:chat:in`:
+CronCreate: `* * * * *` (каждую минуту)
+
+Проверить Redis list `algobond:agent:chat:inbox`:
 ```bash
-docker exec algobond-redis redis-cli SUBSCRIBE algobond:agent:chat:in
+MSG=$(docker exec algobond-redis redis-cli LPOP algobond:agent:chat:inbox)
 ```
 
-### Обработка входящих
-
-Формат сообщения (JSON):
+Если MSG не пусто - обработать JSON:
 ```json
 {"id": "uuid", "type": "user_message|approval_response", "content": "текст", "timestamp": "ISO", "metadata": {}}
 ```
 
-При получении `user_message`:
-1. Прочитать content
-2. Если начинается с `/` - это команда (restart, health_check, reconcile, deploy, reset_circuit)
-3. Иначе - свободный текст, ответить в chat:out
+При `user_message`:
+1. Если начинается с `/` - команда (restart, health_check, reconcile, deploy, reset_circuit)
+2. Иначе - свободный текст, ответить в chat:out
 
-При получении `approval_response`:
+При `approval_response`:
 1. Прочитать `metadata.approval_id` и `metadata.decision`
-2. Если decision = "approve" -> выполнить отложенное действие
-3. Если decision = "reject" -> отменить, логировать
+2. approve -> выполнить, reject -> отменить
+
+Продолжать LPOP пока очередь не пуста (обработать все накопившиеся).
 
 ### Отправка сообщений
 
