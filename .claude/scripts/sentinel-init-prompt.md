@@ -21,6 +21,7 @@
    ```
 5. Запустить мониторы (шаг 6-7)
 6. Создать cron-задачи (шаг 8-10)
+7. Подписаться на Redis chat:in (см. "Протокол чата")
 
 ## Мониторы (persistent)
 
@@ -56,6 +57,11 @@ CronCreate: `*/5 * * * *`
 4. Если Redis/DB down: TG алерт (НЕ рестартить)
 5. Если OK: молчать (экономия токенов)
 6. Обновить Redis: `docker exec algobond-redis redis-cli HSET algobond:agent:status last_health_check "$(date -u +%Y-%m-%dT%H:%M:%SZ)" last_health_result ok`
+7. Записать в health history:
+   ```bash
+   docker exec algobond-redis redis-cli LPUSH algobond:agent:health_history '{"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","status":"ok","response_ms":ВРЕМЯ}'
+   docker exec algobond-redis redis-cli LTRIM algobond:agent:health_history 0 287
+   ```
 
 ### P&L Reconciliation (23:50 UTC)
 
@@ -73,6 +79,92 @@ CronCreate: `0 3 * * 0`
 3. Если critical/high -> TG отчет
 4. Если чисто -> молчать
 
+## Протокол чата (v2)
+
+### Подписка на входящие сообщения
+
+При старте подписаться на Redis канал `algobond:agent:chat:in`:
+```bash
+docker exec algobond-redis redis-cli SUBSCRIBE algobond:agent:chat:in
+```
+
+### Обработка входящих
+
+Формат сообщения (JSON):
+```json
+{"id": "uuid", "type": "user_message|approval_response", "content": "текст", "timestamp": "ISO", "metadata": {}}
+```
+
+При получении `user_message`:
+1. Прочитать content
+2. Если начинается с `/` - это команда (restart, health_check, reconcile, deploy, reset_circuit)
+3. Иначе - свободный текст, ответить в chat:out
+
+При получении `approval_response`:
+1. Прочитать `metadata.approval_id` и `metadata.decision`
+2. Если decision = "approve" -> выполнить отложенное действие
+3. Если decision = "reject" -> отменить, логировать
+
+### Отправка сообщений
+
+Публиковать в `algobond:agent:chat:out`:
+```bash
+docker exec algobond-redis redis-cli PUBLISH algobond:agent:chat:out '{"id":"UUID","type":"agent_message","content":"текст ответа","timestamp":"ISO"}'
+```
+
+Сохранять в историю:
+```bash
+docker exec algobond-redis redis-cli RPUSH algobond:agent:chat '{"id":"UUID","type":"agent_message","content":"текст","timestamp":"ISO"}'
+docker exec algobond-redis redis-cli LTRIM algobond:agent:chat -200 -1
+```
+
+### Логирование действий
+
+При выполнении значимых действий отправлять `agent_log`:
+```bash
+docker exec algobond-redis redis-cli PUBLISH algobond:agent:chat:out '{"id":"UUID","type":"agent_log","content":"Описание действия","timestamp":"ISO"}'
+```
+
+## Протокол режимов (Auto / Supervised)
+
+### Проверка режима
+
+Перед КАЖДЫМ опасным действием проверять:
+```bash
+MODE=$(docker exec algobond-redis redis-cli GET algobond:agent:mode)
+```
+
+### Auto mode (default)
+
+Все действия выполняются немедленно без подтверждения.
+
+### Supervised mode
+
+Следующие действия ТРЕБУЮТ approval:
+- git push
+- docker deploy / restart контейнера
+- Auto-fix (применение патча)
+
+Протокол запроса approval:
+1. Создать approval_id (UUID)
+2. Сохранить в Redis:
+   ```bash
+   docker exec algobond-redis redis-cli HSET algobond:agent:approvals "$APPROVAL_ID" '{"approval_id":"ID","action":"deploy","description":"Описание","created_at":"ISO","timeout_at":"ISO+10min"}'
+   ```
+3. Отправить в chat:out:
+   ```bash
+   docker exec algobond-redis redis-cli PUBLISH algobond:agent:chat:out '{"id":"UUID","type":"approval_request","content":"Описание действия","timestamp":"ISO","metadata":{"approval_id":"ID","action":"deploy"}}'
+   ```
+4. Ждать approval_response на chat:in (timeout 10 мин)
+5. При timeout -> auto-reject, удалить из hash, логировать
+
+### Действия БЕЗ approval (всегда авто)
+
+- P&L reconcile (read + safe write)
+- Health check (read-only)
+- Чтение логов
+- TG уведомления
+
 ## Протокол Auto-fix
 
 1. Прочитать traceback, определить файл и строку
@@ -81,24 +173,41 @@ CronCreate: `0 3 * * 0`
 4. Записать инцидент: `echo '{"ts":"...","hash":"...","status":"fixing","trace":"..."}' >> .claude/state/incident-log.jsonl`
 5. `docker exec algobond-redis redis-cli LPUSH algobond:agent:incidents '{"ts":"...","status":"fixing","trace":"..."}'`
 6. `docker exec algobond-redis redis-cli LTRIM algobond:agent:incidents 0 99`
-7. Сохранить pre-fix SHA: `git rev-parse HEAD > .claude/state/pre-fix.sha`
-8. `git pull origin main` (на случай если human запушил)
-9. Прочитать код, проанализировать, исправить
-10. Тесты: `python -m pytest tests/ -v --timeout=120 --ignore=tests/test_backtest.py --ignore=tests/test_bybit_listener.py`
-11. Если тесты зеленые:
+7. **ПРОВЕРИТЬ РЕЖИМ**: если supervised -> запросить approval перед продолжением
+8. Сохранить pre-fix SHA: `git rev-parse HEAD > .claude/state/pre-fix.sha`
+9. `git pull origin main` (на случай если human запушил)
+10. Прочитать код, проанализировать, исправить
+11. Тесты: `python -m pytest tests/ -v --timeout=120 --ignore=tests/test_backtest.py --ignore=tests/test_bybit_listener.py`
+12. Если тесты зеленые:
     a. `git add <файлы> && git commit -m "fix(sentinel): описание"`
-    b. `git push origin main`
-    c. `.claude/scripts/sentinel-deploy.sh deploy`
-    d. Перезапустить Monitor API (контейнер новый!)
-    e. Сброс circuit breaker: `echo 0 > /tmp/claude-autofix-failures`
-    f. TG уведомление с отчетом
-    g. Обновить Redis: `docker exec algobond-redis redis-cli HINCRBY algobond:agent:status fixes_today 1`
-12. Если тесты красные (3 попытки):
+    b. **ПРОВЕРИТЬ РЕЖИМ**: если supervised -> запросить approval перед push/deploy
+    c. `git push origin main`
+    d. `.claude/scripts/sentinel-deploy.sh deploy`
+    e. Перезапустить Monitor API (контейнер новый!)
+    f. Сброс circuit breaker: `echo 0 > /tmp/claude-autofix-failures`
+    g. TG уведомление с отчетом
+    h. Обновить Redis: `docker exec algobond-redis redis-cli HINCRBY algobond:agent:status fixes_today 1`
+    i. Записать коммит в Redis:
+       ```bash
+       docker exec algobond-redis redis-cli LPUSH algobond:agent:commits '{"sha":"HASH","message":"fix(sentinel): ...","timestamp":"ISO","files_changed":N}'
+       docker exec algobond-redis redis-cli LTRIM algobond:agent:commits 0 49
+       ```
+13. Если тесты красные (3 попытки):
     a. Circuit breaker активируется
     b. TG алерт
     c. НЕ деплоить
-13. Обновить инцидент: status=fixed/failed
-14. LPOP fix_queue. Если в очереди ещё -> взять следующую
+14. Обновить инцидент: status=fixed/failed
+15. LPOP fix_queue. Если в очереди ещё -> взять следующую
+
+## Учет токенов
+
+После каждого значимого действия обновлять счетчик:
+```bash
+docker exec algobond-redis redis-cli INCRBY algobond:agent:tokens_today КОЛИЧЕСТВО
+docker exec algobond-redis redis-cli SET algobond:agent:tokens_today:updated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+```
+
+Сброс в полночь UTC (в рамках health check cron, проверить дату).
 
 ## Reconnection
 
@@ -124,7 +233,8 @@ CronCreate: `0 3 * * 0`
 
 ## Graceful Shutdown
 
-При получении /quit:
+При получении /quit или команды stop:
 1. Завершить текущую операцию (если auto-fix - дождаться)
 2. `docker exec algobond-redis redis-cli HSET algobond:agent:status status stopped`
-3. Выйти
+3. Отправить в chat:out: `{"type":"agent_log","content":"Sentinel stopped"}`
+4. Выйти
