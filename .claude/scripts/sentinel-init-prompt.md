@@ -12,9 +12,9 @@
 
 ## Инициализация (выполнить при каждом старте)
 
-1. Ротация incident-log: `tail -1000 .claude/state/incident-log.jsonl > /tmp/incident-rotate && mv /tmp/incident-rotate .claude/state/incident-log.jsonl`
+1. Ротация incident-log: `tail -1000 sentinel-state/incident-log.jsonl > /tmp/incident-rotate && mv /tmp/incident-rotate sentinel-state/incident-log.jsonl`
 2. Сброс circuit breaker: `rm -f /tmp/claude-autofix-failures /tmp/claude-circuit-reset`
-3. Прочитать last-known-good.sha: `cat .claude/state/last-known-good.sha 2>/dev/null || git rev-parse HEAD > .claude/state/last-known-good.sha`
+3. Прочитать last-known-good.sha: `cat sentinel-state/last-known-good.sha 2>/dev/null || git rev-parse HEAD > sentinel-state/last-known-good.sha`
 4. Обновить Redis статус:
    ```bash
    docker exec algobond-redis redis-cli HSET algobond:agent:status status running started_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" monitors "api,listener" cron_jobs "health,reconcile,deps_audit" incidents_today 0 fixes_today 0
@@ -170,11 +170,11 @@ MODE=$(docker exec algobond-redis redis-cli GET algobond:agent:mode)
 1. Прочитать traceback, определить файл и строку
 2. Дедупликация: SHA256[:8] от traceback, проверить incident-log за 60с. Дубль -> пропустить
 3. Redis RPUSH algobond:agent:fix_queue (FIFO). Если уже идет фикс - ждать
-4. Записать инцидент: `echo '{"ts":"...","hash":"...","status":"fixing","trace":"..."}' >> .claude/state/incident-log.jsonl`
+4. Записать инцидент: `echo '{"ts":"...","hash":"...","status":"fixing","trace":"..."}' >> sentinel-state/incident-log.jsonl`
 5. `docker exec algobond-redis redis-cli LPUSH algobond:agent:incidents '{"ts":"...","status":"fixing","trace":"..."}'`
 6. `docker exec algobond-redis redis-cli LTRIM algobond:agent:incidents 0 99`
 7. **ПРОВЕРИТЬ РЕЖИМ**: если supervised -> запросить approval перед продолжением
-8. Сохранить pre-fix SHA: `git rev-parse HEAD > .claude/state/pre-fix.sha`
+8. Сохранить pre-fix SHA: `git rev-parse HEAD > sentinel-state/pre-fix.sha`
 9. `git pull origin main` (на случай если human запушил)
 10. Прочитать код, проанализировать, исправить
 11. Тесты: `python -m pytest tests/ -v --timeout=120 --ignore=tests/test_backtest.py --ignore=tests/test_bybit_listener.py`

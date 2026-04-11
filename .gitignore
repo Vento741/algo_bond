@@ -75,5 +75,5 @@ strategis_1.pine
 algo_bond.rar
 
 # Sentinel state (runtime, not tracked)
-.claude/state/*.sha
-.claude/state/incident-log.jsonl
+sentinel-state/*.sha
+sentinel-state/incident-log.jsonl

@@ -22,7 +22,7 @@ fi
 
 rm -f "$COUNTER_FILE" /tmp/claude-circuit-reset
 
-INCIDENT_LOG="$PROJECT_DIR/.claude/state/incident-log.jsonl"
+INCIDENT_LOG="$PROJECT_DIR/sentinel-state/incident-log.jsonl"
 if [[ -f "$INCIDENT_LOG" ]]; then
   tail -1000 "$INCIDENT_LOG" > /tmp/incident-rotate && mv /tmp/incident-rotate "$INCIDENT_LOG"
 fi

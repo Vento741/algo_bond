@@ -8,7 +8,7 @@
 set -euo pipefail
 
 PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
-STATE_DIR="$PROJECT_DIR/.claude/state"
+STATE_DIR="$PROJECT_DIR/sentinel-state"
 LAST_GOOD_SHA="$STATE_DIR/last-known-good.sha"
 PRE_FIX_SHA="$STATE_DIR/pre-fix.sha"
 HEALTH_URL="http://localhost:8100/health"
