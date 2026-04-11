@@ -28,7 +28,7 @@ TG_CHAT_ACTIVE_PREFIX = "algobond:agent:tg_chat_active:"
 _SEPARATOR = "━━━━━━━━━━━━━━━━━"
 
 # Таймаут ожидания ответа Sentinel на сообщение в чате (секунды)
-_CHAT_RESPONSE_TIMEOUT = 30
+_CHAT_RESPONSE_TIMEOUT = 90
 
 
 class SentinelChatStates(StatesGroup):
@@ -361,7 +361,7 @@ async def handle_sentinel_chat_message(
             pass
 
         if response_text:
-            # Разбить длинные ответы на части (TG лимит 4096 символов)
+            # Разбить длинные ответы (TG лимит 4096 символов)
             if len(response_text) > 4000:
                 parts = [response_text[i:i+4000] for i in range(0, len(response_text), 4000)]
                 for i, part in enumerate(parts):
@@ -374,7 +374,7 @@ async def handle_sentinel_chat_message(
                 )
         else:
             await message.answer(
-                "⏰ Sentinel не ответил за 30 секунд.\n"
+                "⏰ Sentinel не ответил за 90 секунд.\n"
                 "Возможно, агент занят или не запущен.\n"
                 "Проверьте статус командой /sentinel",
                 reply_markup=_chat_keyboard(),
