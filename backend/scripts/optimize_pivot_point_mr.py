@@ -259,3 +259,250 @@ def run_one_backtest(args: tuple) -> dict:
             "score": -999.0,
             "error": str(e),
         }
+
+
+def _run_phase(
+    phase_name: str,
+    base_configs: list[dict],
+    grid: dict[str, list[Any]],
+    symbol: str,
+    timeframe: str,
+    workers: int,
+    cache_dir: Path,
+    max_combinations: int | None = None,
+) -> list[dict]:
+    """Run one phase: for each base config, try all grid combinations."""
+    grid_combos = expand_grid(grid)
+    tasks = []
+    run_id = 0
+    for base in base_configs:
+        for combo in grid_combos:
+            cfg = apply_params(base, combo)
+            tasks.append((symbol, timeframe, cfg, run_id, str(cache_dir)))
+            run_id += 1
+
+    if max_combinations is not None and len(tasks) > max_combinations:
+        rng = np.random.default_rng(42)
+        indices = rng.choice(len(tasks), size=max_combinations, replace=False)
+        tasks = [tasks[i] for i in sorted(indices)]
+        logger.info(
+            "%s: sampled %d from %d combinations",
+            phase_name,
+            len(tasks),
+            len(grid_combos) * len(base_configs),
+        )
+
+    logger.info(
+        "%s: running %d backtests on %d workers...",
+        phase_name,
+        len(tasks),
+        workers,
+    )
+    start = time.time()
+
+    if workers == 1:
+        results = [run_one_backtest(t) for t in tasks]
+    else:
+        with Pool(workers) as pool:
+            results = pool.map(run_one_backtest, tasks)
+
+    elapsed = time.time() - start
+    logger.info(
+        "%s: done in %.1fs (%.2fs per backtest)",
+        phase_name,
+        elapsed,
+        elapsed / max(len(tasks), 1),
+    )
+
+    results.sort(key=lambda r: r.get("score", -999.0), reverse=True)
+    return results
+
+
+def _save_progress(symbol: str, timeframe: str, phase: str, results: list[dict]) -> Path:
+    """Save intermediate results after each phase."""
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    path = RESULTS_DIR / f"pivot_mr_{symbol}_{timeframe}_{phase}_{ts}.json"
+    with path.open("w", encoding="utf-8") as f:
+        json.dump({
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "phase": phase,
+            "timestamp": ts,
+            "count": len(results),
+            "results": results,
+        }, f, indent=2, default=str)
+    logger.info("Saved %s phase progress -> %s", phase, path.name)
+    return path
+
+
+def _save_final(
+    symbol: str,
+    timeframe: str,
+    days_back: int,
+    base_config: dict,
+    phase_results: dict[str, list[dict]],
+    runtime_seconds: float,
+    top_n: int,
+) -> tuple[Path, Path]:
+    """Save final JSON + markdown report."""
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+
+    final_phase = next(
+        (p for p in ("tuning", "fine", "coarse") if p in phase_results),
+        "coarse",
+    )
+    final_top = phase_results[final_phase][:top_n]
+
+    json_path = RESULTS_DIR / f"pivot_mr_{symbol}_{timeframe}_{ts}.json"
+    payload = {
+        "symbol": symbol,
+        "timeframe": timeframe,
+        "days_back": days_back,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "runtime_seconds": runtime_seconds,
+        "base_config": base_config,
+        "phases": {
+            name: {
+                "combinations_tested": len(results),
+                "top_10": results[:10],
+            }
+            for name, results in phase_results.items()
+        },
+        "final_top_10": final_top,
+    }
+    with json_path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, default=str)
+
+    md_path = RESULTS_DIR / f"pivot_mr_{symbol}_{timeframe}_{ts}.md"
+    lines = [
+        f"# Pivot Point MR -- {symbol} {timeframe}m -- {ts[:8]}",
+        "",
+        f"**Runtime:** {runtime_seconds:.1f}s  |  **Final phase:** {final_phase}  |  **Top-{top_n}**",
+        "",
+        "## Top Configs",
+        "",
+        "| # | Score | PnL% | DD% | WR | PF | Sharpe | Trades | AvgDur | pivot | min_conf | sl_max | cooldown |",
+        "|---|-------|------|-----|-----|-----|--------|--------|--------|-------|----------|--------|----------|",
+    ]
+    for i, r in enumerate(final_top, 1):
+        m = r["metrics"]
+        c = r["config"]
+        lines.append(
+            f"| {i} | {r['score']:.1f} | {m.get('total_pnl_pct', 0):.1f} | "
+            f"{m.get('max_drawdown', 0):.1f} | {m.get('win_rate', 0):.2f} | "
+            f"{m.get('profit_factor', 0):.2f} | {m.get('sharpe_ratio', 0):.2f} | "
+            f"{m.get('total_trades', 0)} | {m.get('avg_trade_duration_bars', 0):.1f} | "
+            f"{c.get('pivot', {}).get('period', '?')} | "
+            f"{c.get('entry', {}).get('min_confluence', '?')} | "
+            f"{c.get('risk', {}).get('sl_max_pct', '?')} | "
+            f"{c.get('entry', {}).get('cooldown_bars', '?')} |"
+        )
+    lines.append("")
+    lines.append("## Best Config (full JSON)")
+    lines.append("")
+    lines.append("```json")
+    if final_top:
+        lines.append(json.dumps(final_top[0]["config"], indent=2))
+    lines.append("```")
+
+    md_path.write_text("\n".join(lines), encoding="utf-8")
+
+    logger.info("Final results: %s + %s", json_path.name, md_path.name)
+    return json_path, md_path
+
+
+def optimize_symbol(
+    symbol: str,
+    timeframe: str,
+    phase: str,
+    workers: int,
+    top_n: int,
+    days_back: int,
+    cache_dir: Path,
+) -> dict[str, list[dict]]:
+    """Run full optimization pipeline for one symbol+timeframe."""
+    start_time = time.time()
+    base_config = load_base_config()
+
+    phase_results: dict[str, list[dict]] = {}
+
+    if phase in ("coarse", "all"):
+        results_coarse = _run_phase(
+            "coarse", [base_config], PHASE1_COARSE_GRID,
+            symbol, timeframe, workers, cache_dir,
+        )
+        phase_results["coarse"] = results_coarse
+        _save_progress(symbol, timeframe, "coarse", results_coarse)
+
+    if phase in ("fine", "all"):
+        if "coarse" not in phase_results:
+            raise RuntimeError("Fine phase requires coarse phase results")
+        top10_coarse = [r["config"] for r in phase_results["coarse"][:10]]
+        results_fine = _run_phase(
+            "fine", top10_coarse, PHASE2_FINE_ADDITIONAL_GRID,
+            symbol, timeframe, workers, cache_dir,
+            max_combinations=PHASE2_MAX_COMBINATIONS,
+        )
+        phase_results["fine"] = results_fine
+        _save_progress(symbol, timeframe, "fine", results_fine)
+
+    if phase in ("tuning", "all"):
+        if "fine" not in phase_results:
+            raise RuntimeError("Tuning phase requires fine phase results")
+        top3_fine = [r["config"] for r in phase_results["fine"][:PHASE3_TOP_N_BASELINE]]
+        results_tuning = _run_phase(
+            "tuning", top3_fine, PHASE3_TUNING_GRID,
+            symbol, timeframe, workers, cache_dir,
+        )
+        phase_results["tuning"] = results_tuning
+        _save_progress(symbol, timeframe, "tuning", results_tuning)
+
+    runtime = time.time() - start_time
+    _save_final(symbol, timeframe, days_back, base_config, phase_results, runtime, top_n)
+    return phase_results
+
+
+def main() -> int:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+    )
+    args = parse_args()
+
+    workers = args.workers if args.workers is not None else max(1, cpu_count() - 2)
+
+    for symbol in args.symbols:
+        path = CANDLES_DIR / f"{symbol}_{args.timeframe}.parquet"
+        if not path.exists():
+            logger.error(
+                "Cache missing: %s. Run download_candles.py first for %s %sm",
+                path, symbol, args.timeframe,
+            )
+            return 1
+
+    errors = 0
+    for symbol in args.symbols:
+        logger.info("=" * 60)
+        logger.info("Optimizing %s %sm", symbol, args.timeframe)
+        logger.info("=" * 60)
+        try:
+            optimize_symbol(
+                symbol=symbol,
+                timeframe=args.timeframe,
+                phase=args.phase,
+                workers=workers,
+                top_n=args.top_n,
+                days_back=args.days,
+                cache_dir=CANDLES_DIR,
+            )
+        except Exception as e:
+            logger.error("Failed to optimize %s: %s", symbol, e, exc_info=True)
+            errors += 1
+
+    return 0 if errors == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
