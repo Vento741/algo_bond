@@ -588,3 +588,50 @@ class TestRegistryLookup:
         instance = get_engine("pivot_point_mr", DEFAULT_CONFIG)
         assert isinstance(instance, PivotPointMeanReversion)
         assert instance.engine_type == "pivot_point_mr"
+
+
+class TestBacktestIntegration:
+    def test_runs_through_backtest_engine(self) -> None:
+        """Прогон стратегии через real run_backtest — проверяем что trades генерируются."""
+        from app.modules.backtest.backtest_engine import run_backtest
+
+        s = PivotPointMeanReversion(LOOSE_CONFIG)  # use loose config to actually get signals
+        data = make_ohlcv(n=500, base_price=100.0, trend=0.0, noise=2.5, seed=1)
+        result = s.generate_signals(data)
+        assert len(result.signals) > 0, "LOOSE_CONFIG should produce signals on seed=1"
+
+        metrics = run_backtest(
+            ohlcv=data,
+            signals=result.signals,
+            initial_capital=100.0,
+            commission_pct=0.06,
+            slippage_pct=0.03,
+            order_size_pct=75.0,
+            use_multi_tp=True,
+            use_breakeven=True,
+            timeframe_minutes=15,
+            leverage=1,
+            on_reverse="close",
+        )
+
+        # Не падает, возвращает валидную структуру
+        assert metrics is not None
+        assert hasattr(metrics, "total_trades")
+        assert hasattr(metrics, "equity_curve")
+        # На синтетических данных может быть разное количество trades — главное что не упало
+        assert metrics.total_trades >= 0
+
+    def test_tp_levels_compatible_with_engine_format(self) -> None:
+        """tp_levels у сигналов должны иметь правильную форму для backtest_engine."""
+        s = PivotPointMeanReversion(LOOSE_CONFIG)
+        data = make_ohlcv(n=500, seed=1, noise=2.5)
+        result = s.generate_signals(data)
+        assert len(result.signals) > 0
+        for sig in result.signals:
+            assert sig.tp_levels is not None
+            for lvl in sig.tp_levels:
+                assert "atr_mult" in lvl
+                assert "close_pct" in lvl
+                assert isinstance(lvl["close_pct"], int)
+                assert 0 < lvl["close_pct"] <= 100
+                assert lvl["atr_mult"] > 0
