@@ -82,8 +82,118 @@ def download_symbol(
     cache_dir: Path | None = None,
     client: BybitClient | None = None,
 ) -> pd.DataFrame:
-    """Download candles for one symbol, using parquet cache if available.
+    """Download OHLCV candles for one symbol, using parquet cache.
 
-    This is a stub — real implementation in Task 2.
+    Args:
+        symbol: Bybit symbol (e.g., "WLDUSDT")
+        timeframe: Kline interval in minutes (e.g., "5")
+        days: How many days of history to fetch
+        force: Ignore cache, re-download
+        cache_dir: Directory for parquet files (default: data/candles/)
+        client: BybitClient instance (optional, creates new if None)
+
+    Returns:
+        DataFrame with columns: timestamp, open, high, low, close, volume, turnover
     """
-    raise NotImplementedError("Will be implemented in Task 2")
+    cache_dir = cache_dir or DEFAULT_CACHE_DIR
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    path = cache_path(symbol, timeframe, cache_dir)
+
+    end_ms = int(time.time() * 1000)
+    start_ms = end_ms - days * MS_PER_DAY
+
+    # Try cache: if parquet exists and non-empty, use it (unless --force)
+    if not force and path.exists():
+        try:
+            df = pd.read_parquet(path)
+            if not df.empty:
+                cached_min = int(df["timestamp"].min())
+                cached_max = int(df["timestamp"].max())
+                logger.info(
+                    "Using cache %s (%d rows, %s -> %s)",
+                    path.name, len(df),
+                    pd.Timestamp(cached_min, unit="ms"),
+                    pd.Timestamp(cached_max, unit="ms"),
+                )
+                return df
+        except Exception as e:
+            logger.warning("Cache read failed for %s, re-downloading: %s", path, e)
+
+    # Download via pagination
+    if client is None:
+        client = BybitClient()
+
+    all_candles: list[dict] = []
+    current_end = end_ms
+    retries_left = 3
+    backoff = 1.0
+
+    while current_end > start_ms:
+        try:
+            batch = client.get_klines(
+                symbol=symbol,
+                interval=timeframe,
+                limit=BYBIT_BATCH_LIMIT,
+                start=start_ms,
+                end=current_end,
+            )
+        except BybitAPIError as e:
+            if getattr(e, "code", None) == 429 and retries_left > 0:
+                logger.warning("Rate limit hit for %s, retrying in %.1fs", symbol, backoff)
+                time.sleep(backoff)
+                backoff *= 2
+                retries_left -= 1
+                continue
+            raise
+
+        if not batch:
+            break
+
+        all_candles = batch + all_candles
+        first_ts = int(batch[0]["timestamp"])
+        if first_ts <= start_ms:
+            break
+        current_end = first_ts - 1
+        retries_left = 3
+        backoff = 1.0
+
+    if not all_candles:
+        logger.warning("Empty result for %s %s", symbol, timeframe)
+        df = pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume", "turnover"])
+    else:
+        df = pd.DataFrame(all_candles)
+        df = df.drop_duplicates(subset=["timestamp"], keep="first")
+        df = df.sort_values("timestamp").reset_index(drop=True)
+
+    df.to_parquet(path, compression="snappy", engine="pyarrow")
+    logger.info("Downloaded %d candles for %s %sm -> %s", len(df), symbol, timeframe, path.name)
+    return df
+
+
+def main() -> int:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+    )
+    args = parse_args()
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+
+    errors = 0
+    for symbol in args.symbols:
+        try:
+            download_symbol(
+                symbol=symbol,
+                timeframe=args.timeframe,
+                days=args.days,
+                force=args.force,
+            )
+        except Exception as e:
+            logger.error("Failed to download %s: %s", symbol, e)
+            errors += 1
+
+    return 0 if errors == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
