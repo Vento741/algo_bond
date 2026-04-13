@@ -131,7 +131,7 @@ class SentinelService:
         items: list[SentinelIncident] = []
         for raw in raw_items:
             try:
-                data = json.loads(raw)
+                data = json.loads(raw, strict=False)
                 items.append(SentinelIncident(**data))
             except (json.JSONDecodeError, TypeError) as e:
                 logger.warning("Failed to parse incident: %s - %s", raw, e)
@@ -154,7 +154,7 @@ class SentinelService:
         messages: list[ChatMessage] = []
         for raw in raw_items:
             try:
-                data = json.loads(raw)
+                data = json.loads(raw, strict=False)
                 messages.append(ChatMessage(**data))
             except (json.JSONDecodeError, TypeError) as e:
                 logger.warning("Failed to parse chat message: %s - %s", raw, e)
@@ -173,7 +173,7 @@ class SentinelService:
         items: list[ApprovalRequest] = []
         for _key, raw in data.items():
             try:
-                parsed = json.loads(raw)
+                parsed = json.loads(raw, strict=False)
                 items.append(ApprovalRequest(**parsed))
             except (json.JSONDecodeError, TypeError) as e:
                 logger.warning("Failed to parse approval: %s", e)
@@ -230,7 +230,7 @@ class SentinelService:
         raw = await self.redis.get(AGENT_CONFIG_KEY)
         if raw:
             try:
-                data = json.loads(raw)
+                data = json.loads(raw, strict=False)
                 return AgentConfig(**data)
             except (json.JSONDecodeError, TypeError):
                 pass
@@ -267,7 +267,7 @@ class SentinelService:
         entries: list[HealthHistoryEntry] = []
         for raw in raw_items:
             try:
-                data = json.loads(raw)
+                data = json.loads(raw, strict=False)
                 entries.append(HealthHistoryEntry(**data))
             except (json.JSONDecodeError, TypeError) as e:
                 logger.warning("Failed to parse health entry: %s", e)
@@ -284,7 +284,7 @@ class SentinelService:
         commits: list[CommitEntry] = []
         for raw in raw_items:
             try:
-                data = json.loads(raw)
+                data = json.loads(raw, strict=False)
                 commits.append(CommitEntry(**data))
             except (json.JSONDecodeError, TypeError) as e:
                 logger.warning("Failed to parse commit: %s", e)

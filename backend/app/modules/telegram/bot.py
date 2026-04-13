@@ -86,7 +86,7 @@ async def _sentinel_chat_listener() -> None:
             if raw["type"] != "message":
                 continue
             try:
-                data = json.loads(raw["data"])
+                data = json.loads(raw["data"], strict=False)
                 msg_type = data.get("type", "")
                 content = data.get("content", "")
                 if not content or msg_type not in ("agent_message", "agent_log"):
