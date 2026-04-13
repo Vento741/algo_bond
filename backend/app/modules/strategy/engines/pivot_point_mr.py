@@ -272,6 +272,67 @@ class PivotPointMeanReversion(BaseStrategy):
             hard_cap = entry * (1.0 + sl_max)
             return min(level_sl, hard_cap)
 
+    def _calculate_confluence(
+        self,
+        zone: int,
+        direction: str,
+        regime: int,
+        rsi_val: float,
+        squeeze: bool,
+        close_val: float,
+        ema_val: float,
+        volume_val: float,
+        volume_sma_val: float,
+        cfg: dict,
+    ) -> float:
+        """Confluence score для сигнала. Минимум 1.0 (базовый), максимум ~5.0.
+
+        Breakdown:
+            +1.0  базовый сигнал (валидная зона)
+            +1.0  ZONE 2
+            +1.5  ZONE 3
+            +0.5  regime == RANGE (низкий ADX — идеал для mean reversion)
+            +0.5  RSI подтверждает (oversold для long, overbought для short)
+            +0.5  Squeeze ON (сжатие BB в Keltner)
+            +0.5  Volume > SMA * 1.2
+            +0.5  Направление сигнала совпадает с EMA trend
+        """
+        score = 1.0
+
+        # Глубина зоны
+        if zone == 2:
+            score += 1.0
+        elif zone == 3:
+            score += 1.5
+
+        # Range regime
+        if regime == REGIME_RANGE:
+            score += 0.5
+
+        # RSI подтверждение
+        if not np.isnan(rsi_val):
+            if direction == "long" and rsi_val < cfg["filters"]["rsi_oversold"]:
+                score += 0.5
+            elif direction == "short" and rsi_val > cfg["filters"]["rsi_overbought"]:
+                score += 0.5
+
+        # Squeeze ON
+        if squeeze:
+            score += 0.5
+
+        # Повышенный объём (фиксированный порог 1.2x, не из config)
+        if volume_sma_val > 0 and volume_val > volume_sma_val * 1.2:
+            score += 0.5
+
+        # EMA trend alignment
+        if not np.isnan(ema_val):
+            if direction == "long" and close_val > ema_val:
+                score += 0.5
+            elif direction == "short" and close_val < ema_val:
+                score += 0.5
+
+        return score
+
     def generate_signals(self, data: OHLCV) -> StrategyResult:
         """MVP stub — будет заполнен в Task 9."""
         cfg = self._validate_config(self.config)

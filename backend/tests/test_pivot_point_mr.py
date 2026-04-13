@@ -357,3 +357,66 @@ class TestCalculateSl:
         # level_sl = 87.5
         # max(87.5, 97.0) = 97.0
         assert sl == pytest.approx(97.0)
+
+
+class TestCalculateConfluence:
+    def setup_method(self) -> None:
+        self.strat = PivotPointMeanReversion(DEFAULT_CONFIG)
+        self.cfg = self.strat._validate_config(DEFAULT_CONFIG)
+
+    def test_minimal_long_zone1(self) -> None:
+        """Zone 1 long, нейтральные фильтры — только базовый 1.0."""
+        score = self.strat._calculate_confluence(
+            zone=1, direction="long", regime=REGIME_WEAK_TREND,
+            rsi_val=50.0, squeeze=False, close_val=100.0, ema_val=100.0,
+            volume_val=1000.0, volume_sma_val=1000.0, cfg=self.cfg,
+        )
+        assert score == pytest.approx(1.0)
+
+    def test_zone2_adds_depth(self) -> None:
+        score = self.strat._calculate_confluence(
+            zone=2, direction="long", regime=REGIME_WEAK_TREND,
+            rsi_val=50.0, squeeze=False, close_val=100.0, ema_val=100.0,
+            volume_val=1000.0, volume_sma_val=1000.0, cfg=self.cfg,
+        )
+        assert score == pytest.approx(2.0)
+
+    def test_zone3_deeper_bonus(self) -> None:
+        score = self.strat._calculate_confluence(
+            zone=3, direction="long", regime=REGIME_WEAK_TREND,
+            rsi_val=50.0, squeeze=False, close_val=100.0, ema_val=100.0,
+            volume_val=1000.0, volume_sma_val=1000.0, cfg=self.cfg,
+        )
+        assert score == pytest.approx(2.5)
+
+    def test_range_regime_adds_half(self) -> None:
+        score = self.strat._calculate_confluence(
+            zone=1, direction="long", regime=REGIME_RANGE,
+            rsi_val=50.0, squeeze=False, close_val=100.0, ema_val=100.0,
+            volume_val=1000.0, volume_sma_val=1000.0, cfg=self.cfg,
+        )
+        assert score == pytest.approx(1.5)
+
+    def test_all_bonuses_strong_long(self) -> None:
+        """Максимум: zone3 + range + rsi + squeeze + volume + trend = 1+1.5+0.5+0.5+0.5+0.5+0.5 = 5.0"""
+        score = self.strat._calculate_confluence(
+            zone=3, direction="long", regime=REGIME_RANGE,
+            rsi_val=30.0, squeeze=True,
+            close_val=100.0, ema_val=95.0,  # close > ema → trend bonus
+            volume_val=1500.0, volume_sma_val=1000.0,  # 1.5x > 1.2x → volume bonus
+            cfg=self.cfg,
+        )
+        assert score == pytest.approx(5.0)
+
+    def test_short_rsi_bonus_requires_overbought(self) -> None:
+        score_no_rsi = self.strat._calculate_confluence(
+            zone=1, direction="short", regime=REGIME_WEAK_TREND,
+            rsi_val=50.0, squeeze=False, close_val=100.0, ema_val=100.0,
+            volume_val=1000.0, volume_sma_val=1000.0, cfg=self.cfg,
+        )
+        score_rsi = self.strat._calculate_confluence(
+            zone=1, direction="short", regime=REGIME_WEAK_TREND,
+            rsi_val=70.0, squeeze=False, close_val=100.0, ema_val=100.0,
+            volume_val=1000.0, volume_sma_val=1000.0, cfg=self.cfg,
+        )
+        assert score_rsi - score_no_rsi == pytest.approx(0.5)
