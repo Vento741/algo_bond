@@ -5,7 +5,8 @@
 - Разработка ведётся ЛОКАЛЬНО (Windows), деплой на VPS (Linux Docker)
 - После каждого рабочего этапа: `git commit` + `git push` + сборка\деплой на VPS
 - Все проверки и тестирование - на VPS (Docker окружение)
-- Деплой: `ssh jeremy-vps "cd /var/www/dev_james_usr/data/www/dev-james.bond/algo_trade && git pull && docker compose up -d --build api"`
+- Деплой API: `ssh jeremy-vps "cd /var/www/dev_james_usr/data/www/dev-james.bond/algo_trade && git pull && docker compose up -d --build api"`
+- **Деплой engine/strategy/indicators изменений:** пересобирать **все** сервисы которые импортируют эти модули, не только api: `docker compose up -d --build api celery-worker celery-beat bybit-listener` — иначе celery таски упадут на `Unknown engine type` при использовании нового движка
 - Health check после деплоя: `ssh jeremy-vps "curl -sf http://localhost:8100/health"`
 
 Веб-платформа алготрейдинга криптофьючерсами на Bybit. Стратегия: Lorentzian KNN (+710% RIVERUSDT).
