@@ -166,6 +166,72 @@ class PivotPointMeanReversion(BaseStrategy):
                 return ("short", 3)
         return None
 
+    @staticmethod
+    def _price_to_distance(tp_price: float, entry: float, direction: str) -> float:
+        """Конвертировать абсолютную TP цену в raw distance для Signal.tp_levels.
+
+        ВАЖНО: поле `atr_mult` в Signal.tp_levels исторически названо,
+        но backtest_engine.py:299 использует его как raw price distance:
+            tp_price = entry + atr_dist  (long)
+            tp_price = entry - atr_dist  (short)
+        """
+        if direction == "long":
+            return tp_price - entry
+        return entry - tp_price  # short
+
+    def _build_tp_levels(
+        self,
+        direction: str,
+        zone: int,
+        entry: float,
+        pivot: float,
+        s1: float,
+        s2: float,
+        s3: float,
+        r1: float,
+        r2: float,
+        r3: float,
+        cfg: dict,
+    ) -> list[dict]:
+        """Построить список tp_levels в формате платформы.
+
+        Распределение по зонам:
+            ZONE 1: [TP1=pivot (tp1_pct), TP2=r1/s1 (tp2_pct)]
+            ZONE 2: [TP1=s1/r1 (40%), TP2=pivot (40%), TP3=r1/s1 (20%)]
+            ZONE 3: [TP1=s2/r2 (30%), TP2=s1/r1 (30%), TP3=pivot (30%), TP4=r1/s1 (10%)]
+
+        ZONE 1 percentages — из config (tp1_close_pct, tp2_close_pct).
+        ZONE 2/3 percentages — hardcoded (см. спек).
+        Фильтрует уровни с NaN или неправильной стороной от entry.
+        """
+        tp1_pct = int(cfg["risk"]["tp1_close_pct"] * 100)
+        tp2_pct = int(cfg["risk"]["tp2_close_pct"] * 100)
+
+        if direction == "long":
+            if zone == 1:
+                tp_prices = [(pivot, tp1_pct), (r1, tp2_pct)]
+            elif zone == 2:
+                tp_prices = [(s1, 40), (pivot, 40), (r1, 20)]
+            else:  # zone 3
+                tp_prices = [(s2, 30), (s1, 30), (pivot, 30), (r1, 10)]
+        else:  # short
+            if zone == 1:
+                tp_prices = [(pivot, tp1_pct), (s1, tp2_pct)]
+            elif zone == 2:
+                tp_prices = [(r1, 40), (pivot, 40), (s1, 20)]
+            else:  # zone 3
+                tp_prices = [(r2, 30), (r1, 30), (pivot, 30), (s1, 10)]
+
+        levels: list[dict] = []
+        for tp_price, close_pct in tp_prices:
+            if np.isnan(tp_price):
+                continue
+            atr_dist = self._price_to_distance(tp_price, entry, direction)
+            if atr_dist <= 0:  # TP на неправильной стороне
+                continue
+            levels.append({"atr_mult": float(atr_dist), "close_pct": int(close_pct)})
+        return levels
+
     def generate_signals(self, data: OHLCV) -> StrategyResult:
         """MVP stub — будет заполнен в Task 9."""
         cfg = self._validate_config(self.config)

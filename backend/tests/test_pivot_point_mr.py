@@ -197,3 +197,107 @@ class TestDetectZone:
             s1=99.0, s2=98.0, r1=101.0, r2=102.0,
         )
         assert res is None
+
+
+class TestPriceToDistance:
+    def setup_method(self) -> None:
+        self.strat = PivotPointMeanReversion(DEFAULT_CONFIG)
+
+    def test_long_positive_distance(self) -> None:
+        # TP выше entry → distance положительный
+        d = self.strat._price_to_distance(tp_price=105.0, entry=100.0, direction="long")
+        assert d == pytest.approx(5.0)
+
+    def test_short_positive_distance(self) -> None:
+        # TP ниже entry → distance положительный (для short)
+        d = self.strat._price_to_distance(tp_price=95.0, entry=100.0, direction="short")
+        assert d == pytest.approx(5.0)
+
+    def test_wrong_side_long_negative(self) -> None:
+        # TP ниже entry для long → отрицательная дистанция (фильтруется позже)
+        d = self.strat._price_to_distance(tp_price=95.0, entry=100.0, direction="long")
+        assert d == pytest.approx(-5.0)
+
+
+class TestBuildTpLevels:
+    def setup_method(self) -> None:
+        self.strat = PivotPointMeanReversion(DEFAULT_CONFIG)
+        self.cfg = self.strat._validate_config(DEFAULT_CONFIG)
+
+    def test_long_zone1_two_tps(self) -> None:
+        """Zone 1 long: TP1=pivot (60%), TP2=r1 (40%)."""
+        levels = self.strat._build_tp_levels(
+            direction="long", zone=1, entry=99.5,
+            pivot=100.0, s1=99.0, s2=98.0, s3=97.0,
+            r1=101.0, r2=102.0, r3=103.0,
+            cfg=self.cfg,
+        )
+        assert len(levels) == 2
+        assert levels[0]["atr_mult"] == pytest.approx(0.5)  # 100 - 99.5
+        assert levels[0]["close_pct"] == 60
+        assert levels[1]["atr_mult"] == pytest.approx(1.5)  # 101 - 99.5
+        assert levels[1]["close_pct"] == 40
+
+    def test_long_zone2_three_tps(self) -> None:
+        """Zone 2 long: TP1=s1, TP2=pivot, TP3=r1 — 40/40/20."""
+        levels = self.strat._build_tp_levels(
+            direction="long", zone=2, entry=98.5,
+            pivot=100.0, s1=99.0, s2=98.0, s3=97.0,
+            r1=101.0, r2=102.0, r3=103.0,
+            cfg=self.cfg,
+        )
+        assert len(levels) == 3
+        assert levels[0]["atr_mult"] == pytest.approx(0.5)
+        assert levels[0]["close_pct"] == 40
+        assert levels[1]["close_pct"] == 40
+        assert levels[2]["close_pct"] == 20
+
+    def test_long_zone3_four_tps(self) -> None:
+        """Zone 3 long: TP1=s2, TP2=s1, TP3=pivot, TP4=r1 — 30/30/30/10."""
+        levels = self.strat._build_tp_levels(
+            direction="long", zone=3, entry=97.0,
+            pivot=100.0, s1=99.0, s2=98.0, s3=97.0,
+            r1=101.0, r2=102.0, r3=103.0,
+            cfg=self.cfg,
+        )
+        assert len(levels) == 4
+        assert [l["close_pct"] for l in levels] == [30, 30, 30, 10]
+        # все distances положительные
+        assert all(l["atr_mult"] > 0 for l in levels)
+
+    def test_short_zone1_mirrored(self) -> None:
+        """Short zone 1: TP1=pivot, TP2=s1 — зеркально."""
+        levels = self.strat._build_tp_levels(
+            direction="short", zone=1, entry=100.5,
+            pivot=100.0, s1=99.0, s2=98.0, s3=97.0,
+            r1=101.0, r2=102.0, r3=103.0,
+            cfg=self.cfg,
+        )
+        assert len(levels) == 2
+        assert levels[0]["atr_mult"] == pytest.approx(0.5)  # 100.5 - 100
+        assert levels[0]["close_pct"] == 60
+        assert levels[1]["atr_mult"] == pytest.approx(1.5)  # 100.5 - 99
+        assert levels[1]["close_pct"] == 40
+
+    def test_filters_out_wrong_side_levels(self) -> None:
+        """Если TP уровень оказался на неправильной стороне — отфильтровать."""
+        levels = self.strat._build_tp_levels(
+            direction="long", zone=1, entry=100.5,  # entry > pivot
+            pivot=100.0, s1=99.0, s2=98.0, s3=97.0,
+            r1=101.0, r2=102.0, r3=103.0,
+            cfg=self.cfg,
+        )
+        # TP1=pivot=100 меньше entry=100.5 → отфильтровано
+        # TP2=r1=101 больше entry=100.5 → остался
+        assert len(levels) == 1
+        assert levels[0]["atr_mult"] == pytest.approx(0.5)
+
+    def test_nan_levels_skipped(self) -> None:
+        levels = self.strat._build_tp_levels(
+            direction="long", zone=1, entry=99.5,
+            pivot=100.0, s1=99.0, s2=98.0, s3=97.0,
+            r1=float("nan"), r2=102.0, r3=103.0,
+            cfg=self.cfg,
+        )
+        # TP2=r1=NaN → отфильтровано, остался только TP1
+        assert len(levels) == 1
