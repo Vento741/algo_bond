@@ -232,6 +232,46 @@ class PivotPointMeanReversion(BaseStrategy):
             levels.append({"atr_mult": float(atr_dist), "close_pct": int(close_pct)})
         return levels
 
+    def _calculate_sl(
+        self,
+        direction: str,
+        zone: int,
+        entry: float,
+        atr_val: float,
+        s1: float,
+        s2: float,
+        s3: float,
+        r1: float,
+        r2: float,
+        r3: float,
+        cfg: dict,
+        regime: int,
+    ) -> float:
+        """SL привязан к зональному S/R уровню + ATR buffer с hard cap по %.
+
+        LONG:  SL = max(level_sl - atr*sl_atr_mult, entry*(1 - sl_max_pct))
+        SHORT: SL = min(level_sl + atr*sl_atr_mult, entry*(1 + sl_max_pct))
+
+        В STRONG_TREND (если разрешён) sl_max_pct умножается на 1.5.
+        """
+        sl_atr = cfg["risk"]["sl_atr_mult"]
+        sl_max = cfg["risk"]["sl_max_pct"]
+        if regime == REGIME_STRONG_TREND:
+            sl_max *= 1.5
+
+        if direction == "long":
+            level_map = {1: s1, 2: s2, 3: s3}
+            level = level_map[zone]
+            level_sl = level - atr_val * sl_atr
+            hard_cap = entry * (1.0 - sl_max)
+            return max(level_sl, hard_cap)
+        else:  # short
+            level_map = {1: r1, 2: r2, 3: r3}
+            level = level_map[zone]
+            level_sl = level + atr_val * sl_atr
+            hard_cap = entry * (1.0 + sl_max)
+            return min(level_sl, hard_cap)
+
     def generate_signals(self, data: OHLCV) -> StrategyResult:
         """MVP stub — будет заполнен в Task 9."""
         cfg = self._validate_config(self.config)

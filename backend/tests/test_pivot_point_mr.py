@@ -301,3 +301,59 @@ class TestBuildTpLevels:
         )
         # TP2=r1=NaN → отфильтровано, остался только TP1
         assert len(levels) == 1
+
+
+class TestCalculateSl:
+    def setup_method(self) -> None:
+        self.strat = PivotPointMeanReversion(DEFAULT_CONFIG)
+        self.cfg = self.strat._validate_config(DEFAULT_CONFIG)
+
+    def test_long_zone1_uses_s1_minus_atr(self) -> None:
+        """SL для long zone 1 = max(s1 - atr*0.5, entry*(1 - 0.02))."""
+        sl = self.strat._calculate_sl(
+            direction="long", zone=1, entry=99.5, atr_val=0.4,
+            s1=99.0, s2=98.0, s3=97.0, r1=101.0, r2=102.0, r3=103.0,
+            cfg=self.cfg, regime=REGIME_RANGE,
+        )
+        # level_sl = 99.0 - 0.4*0.5 = 98.8
+        # hard_cap = 99.5 * (1 - 0.02) = 97.51
+        # max(98.8, 97.51) = 98.8
+        assert sl == pytest.approx(98.8)
+
+    def test_long_hard_cap_when_level_too_far(self) -> None:
+        """Если level_sl слишком глубоко — ограничиваем по sl_max_pct."""
+        sl = self.strat._calculate_sl(
+            direction="long", zone=3, entry=100.0, atr_val=5.0,
+            s1=99.0, s2=98.0, s3=90.0, r1=101.0, r2=102.0, r3=103.0,
+            cfg=self.cfg, regime=REGIME_RANGE,
+        )
+        # level_sl = 90 - 5*0.5 = 87.5
+        # hard_cap = 100 * 0.98 = 98.0
+        # max(87.5, 98.0) = 98.0
+        assert sl == pytest.approx(98.0)
+
+    def test_short_zone1_uses_r1_plus_atr(self) -> None:
+        sl = self.strat._calculate_sl(
+            direction="short", zone=1, entry=100.5, atr_val=0.4,
+            s1=99.0, s2=98.0, s3=97.0, r1=101.0, r2=102.0, r3=103.0,
+            cfg=self.cfg, regime=REGIME_RANGE,
+        )
+        # level_sl = 101.0 + 0.4*0.5 = 101.2
+        # hard_cap = 100.5 * 1.02 = 102.51
+        # min(101.2, 102.51) = 101.2
+        assert sl == pytest.approx(101.2)
+
+    def test_strong_trend_widens_hard_cap(self) -> None:
+        """В STRONG_TREND sl_max_pct умножается на 1.5."""
+        cfg = dict(self.cfg)
+        cfg["regime"] = {**self.cfg["regime"], "allow_strong_trend": True}
+        sl = self.strat._calculate_sl(
+            direction="long", zone=3, entry=100.0, atr_val=5.0,
+            s1=99.0, s2=98.0, s3=90.0, r1=101.0, r2=102.0, r3=103.0,
+            cfg=cfg, regime=REGIME_STRONG_TREND,
+        )
+        # sl_max_pct = 0.02 * 1.5 = 0.03
+        # hard_cap = 100 * 0.97 = 97.0
+        # level_sl = 87.5
+        # max(87.5, 97.0) = 97.0
+        assert sl == pytest.approx(97.0)
