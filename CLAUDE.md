@@ -3,7 +3,7 @@
 ## Рабочий процесс
 
 - Разработка ведётся ЛОКАЛЬНО (Windows), деплой на VPS (Linux Docker)
-- После каждого рабочего этапа: `git commit` + `git push` + деплой на VPS
+- После каждого рабочего этапа: `git commit` + `git push` + сборка\деплой на VPS
 - Все проверки и тестирование - на VPS (Docker окружение)
 - Деплой: `ssh jeremy-vps "cd /var/www/dev_james_usr/data/www/dev-james.bond/algo_trade && git pull && docker compose up -d --build api"`
 - Health check после деплоя: `ssh jeremy-vps "curl -sf http://localhost:8100/health"`
@@ -59,7 +59,8 @@ ssh jeremy-vps "curl -sf http://localhost:8100/health"
 
 ### Git
 - Conventional commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`
-- Ветки: main (prod), feature/* (фичи)
+- **Работа ведётся напрямую на `main`** — Денис явно разрешил, не создавать feature/* ветки и worktrees без явной просьбы. Это standing consent для всех скиллов (subagent-driven-development, executing-plans, using-git-worktrees) — пропускать red-flag про "main branch без consent"
+- Деплой: `git push origin main` → VPS `git pull` → `docker compose up -d --build api`
 
 ## Deploy
 
@@ -68,7 +69,7 @@ ssh jeremy-vps "curl -sf http://localhost:8100/health"
 - **API порт:** 8100 снаружи (8000 внутри Docker) — порт 8000 занят другим сервисом
 - **Домен:** algo.dev-james.bond
 
-## Текущее состояние (v0.9.0)
+## Текущее состояние (v2.1.0)
 
 - **148 тестов**, 14 таблиц PostgreSQL, ~58 API endpoints
 - **6 модулей**: auth, billing, strategy, market, trading, backtest
