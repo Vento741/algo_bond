@@ -178,6 +178,79 @@ STRATEGIES = [
             },
         },
     },
+    {
+        "name": "Pivot Point Mean Reversion",
+        "slug": "pivot-point-mr",
+        "engine_type": "pivot_point_mr",
+        "description": (
+            "Mean reversion на rolling pivot point S/R уровнях. "
+            "Вход против отклонения от pivot с ожиданием возврата к равновесию. "
+            "Regime detection (ADX + pivot velocity + EMA), multi-zone entries (S1-S3/R1-R3) "
+            "с зонально-адаптивным SL и multi-TP, RSI confirmation, squeeze filter, "
+            "anti-impulse protection и cooldown. Оптимальна для волатильных альткойнов в range/low-ADX фазах. "
+            "Inspired by Rubicon BotMarket Pivot Point S/R стратегией-победителем."
+        ),
+        "is_public": True,
+        "version": "1.0.0",
+        "default_config": {
+            "pivot": {"period": 48, "velocity_lookback": 12},
+            "trend": {"ema_period": 200},
+            "regime": {
+                "adx_weak_trend": 20,
+                "adx_strong_trend": 30,
+                "pivot_drift_max": 0.3,
+                "allow_strong_trend": False,
+            },
+            "entry": {
+                "min_distance_pct": 0.15,
+                "min_confluence": 1.5,
+                "use_deep_levels": True,
+                "cooldown_bars": 3,
+                "impulse_check_bars": 5,
+            },
+            "filters": {
+                "adx_enabled": True,
+                "adx_period": 14,
+                "rsi_enabled": True,
+                "rsi_period": 14,
+                "rsi_oversold": 40,
+                "rsi_overbought": 60,
+                "squeeze_enabled": True,
+                "squeeze_bb_len": 20,
+                "squeeze_bb_mult": 2.0,
+                "squeeze_kc_len": 20,
+                "squeeze_kc_mult": 1.5,
+                "volume_filter_enabled": False,
+                "volume_sma_period": 20,
+                "volume_min_ratio": 1.2,
+            },
+            "risk": {
+                "sl_atr_mult": 0.5,
+                "sl_max_pct": 0.02,
+                "atr_period": 14,
+                "tp1_close_pct": 0.6,
+                "tp2_close_pct": 0.4,
+                "trailing_atr_mult": 1.5,
+                "max_hold_bars": 60,
+            },
+            "backtest": {
+                "initial_capital": 100,
+                "currency": "USDT",
+                "order_size": 75,
+                "order_size_type": "percent_equity",
+                "pyramiding": 0,
+                "commission": 0.06,
+                "slippage": 0.03,
+                "margin_long": 100,
+                "margin_short": 100,
+            },
+            "live": {
+                "order_size": 30,
+                "leverage": 1,
+                "on_reverse": "close",
+            },
+        },
+    },
 ]
 
 
