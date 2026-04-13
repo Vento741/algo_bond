@@ -143,3 +143,57 @@ class TestDetectRegime:
     def test_nan_pv_treated_as_zero_drift(self) -> None:
         r = self.strat._detect_regime(adx_val=15.0, pv_val=float("nan"), cfg=self.cfg)
         assert r == REGIME_RANGE
+
+
+class TestDetectZone:
+    def setup_method(self) -> None:
+        self.strat = PivotPointMeanReversion(DEFAULT_CONFIG)
+
+    def test_long_zone_1_between_s1_and_pivot(self) -> None:
+        res = self.strat._detect_zone(
+            close_val=99.5, pivot_val=100.0,
+            s1=99.0, s2=98.0, r1=101.0, r2=102.0,
+        )
+        assert res == ("long", 1)
+
+    def test_long_zone_2_between_s2_and_s1(self) -> None:
+        res = self.strat._detect_zone(
+            close_val=98.5, pivot_val=100.0,
+            s1=99.0, s2=98.0, r1=101.0, r2=102.0,
+        )
+        assert res == ("long", 2)
+
+    def test_long_zone_3_below_s2(self) -> None:
+        res = self.strat._detect_zone(
+            close_val=97.0, pivot_val=100.0,
+            s1=99.0, s2=98.0, r1=101.0, r2=102.0,
+        )
+        assert res == ("long", 3)
+
+    def test_short_zone_1(self) -> None:
+        res = self.strat._detect_zone(
+            close_val=100.5, pivot_val=100.0,
+            s1=99.0, s2=98.0, r1=101.0, r2=102.0,
+        )
+        assert res == ("short", 1)
+
+    def test_short_zone_2(self) -> None:
+        res = self.strat._detect_zone(
+            close_val=101.5, pivot_val=100.0,
+            s1=99.0, s2=98.0, r1=101.0, r2=102.0,
+        )
+        assert res == ("short", 2)
+
+    def test_short_zone_3(self) -> None:
+        res = self.strat._detect_zone(
+            close_val=103.0, pivot_val=100.0,
+            s1=99.0, s2=98.0, r1=101.0, r2=102.0,
+        )
+        assert res == ("short", 3)
+
+    def test_exactly_at_pivot_returns_none(self) -> None:
+        res = self.strat._detect_zone(
+            close_val=100.0, pivot_val=100.0,
+            s1=99.0, s2=98.0, r1=101.0, r2=102.0,
+        )
+        assert res is None

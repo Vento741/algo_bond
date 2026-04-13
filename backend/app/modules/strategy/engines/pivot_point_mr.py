@@ -130,6 +130,42 @@ class PivotPointMeanReversion(BaseStrategy):
 
         return regime
 
+    def _detect_zone(
+        self,
+        close_val: float,
+        pivot_val: float,
+        s1: float,
+        s2: float,
+        r1: float,
+        r2: float,
+    ) -> tuple[str, int] | None:
+        """Определить зону входа по положению цены относительно pivot и S/R.
+
+        LONG зоны (цена ниже pivot):
+            ZONE_1: s1 <= close < pivot       — стандартная глубина
+            ZONE_2: s2 <= close < s1          — глубокая
+            ZONE_3: close < s2                — экстремальная
+
+        SHORT зоны зеркально относительно r1/r2.
+
+        Returns: (direction, zone) или None если цена ровно на pivot.
+        """
+        if close_val < pivot_val:
+            if s1 <= close_val < pivot_val:
+                return ("long", 1)
+            if s2 <= close_val < s1:
+                return ("long", 2)
+            if close_val < s2:
+                return ("long", 3)
+        elif close_val > pivot_val:
+            if pivot_val < close_val <= r1:
+                return ("short", 1)
+            if r1 < close_val <= r2:
+                return ("short", 2)
+            if close_val > r2:
+                return ("short", 3)
+        return None
+
     def generate_signals(self, data: OHLCV) -> StrategyResult:
         """MVP stub — будет заполнен в Task 9."""
         cfg = self._validate_config(self.config)
