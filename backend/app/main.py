@@ -71,7 +71,7 @@ async def lifespan(app: FastAPI):
     from app.modules.trading.ws_bridge import stop_ws_bridge
     await stop_ws_bridge()
     from app.redis import pool
-    await pool.disconnect()
+    await pool.aclose()
 
 
 from app.modules.admin.models import DEFAULT_APP_VERSION
