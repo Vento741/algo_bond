@@ -103,3 +103,43 @@ class TestStrategyBasics:
         result = s.generate_signals(data)
         assert isinstance(result, StrategyResult)
         assert result.signals == []
+
+
+class TestDetectRegime:
+    def setup_method(self) -> None:
+        self.strat = PivotPointMeanReversion(DEFAULT_CONFIG)
+        self.cfg = self.strat._validate_config(DEFAULT_CONFIG)
+
+    def test_range_low_adx_low_drift(self) -> None:
+        r = self.strat._detect_regime(adx_val=15.0, pv_val=0.1, cfg=self.cfg)
+        assert r == REGIME_RANGE
+
+    def test_weak_trend_medium_adx(self) -> None:
+        r = self.strat._detect_regime(adx_val=25.0, pv_val=0.1, cfg=self.cfg)
+        assert r == REGIME_WEAK_TREND
+
+    def test_strong_trend_high_adx(self) -> None:
+        r = self.strat._detect_regime(adx_val=40.0, pv_val=0.1, cfg=self.cfg)
+        assert r == REGIME_STRONG_TREND
+
+    def test_pivot_drift_override_range_to_weak(self) -> None:
+        """ADX низкий, но pivot дрейфует → минимум WEAK_TREND."""
+        r = self.strat._detect_regime(adx_val=15.0, pv_val=0.5, cfg=self.cfg)
+        assert r == REGIME_WEAK_TREND
+
+    def test_pivot_drift_negative_also_override(self) -> None:
+        r = self.strat._detect_regime(adx_val=15.0, pv_val=-0.5, cfg=self.cfg)
+        assert r == REGIME_WEAK_TREND
+
+    def test_strong_trend_not_downgraded_by_drift(self) -> None:
+        """STRONG_TREND остаётся STRONG даже если pv маленький."""
+        r = self.strat._detect_regime(adx_val=40.0, pv_val=0.1, cfg=self.cfg)
+        assert r == REGIME_STRONG_TREND
+
+    def test_nan_adx_returns_range(self) -> None:
+        r = self.strat._detect_regime(adx_val=float("nan"), pv_val=0.1, cfg=self.cfg)
+        assert r == REGIME_RANGE
+
+    def test_nan_pv_treated_as_zero_drift(self) -> None:
+        r = self.strat._detect_regime(adx_val=15.0, pv_val=float("nan"), cfg=self.cfg)
+        assert r == REGIME_RANGE

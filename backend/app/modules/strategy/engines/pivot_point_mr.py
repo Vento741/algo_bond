@@ -106,6 +106,30 @@ class PivotPointMeanReversion(BaseStrategy):
             },
         }
 
+    def _detect_regime(self, adx_val: float, pv_val: float, cfg: dict) -> int:
+        """Определить текущий рыночный режим.
+
+        RANGE (0)          — ADX < adx_weak_trend и нет дрейфа pivot
+        WEAK_TREND (1)     — ADX между weak/strong или pivot дрейфует
+        STRONG_TREND (2)   — ADX > adx_strong_trend
+
+        NaN ADX → RANGE (безопасное значение по умолчанию).
+        """
+        if np.isnan(adx_val):
+            return REGIME_RANGE
+
+        regime = REGIME_RANGE
+        if adx_val > cfg["regime"]["adx_strong_trend"]:
+            regime = REGIME_STRONG_TREND
+        elif adx_val > cfg["regime"]["adx_weak_trend"]:
+            regime = REGIME_WEAK_TREND
+
+        # Pivot drift override: если pivot сам ползёт — рынок трендовый
+        if not np.isnan(pv_val) and abs(pv_val) > cfg["regime"]["pivot_drift_max"]:
+            regime = max(regime, REGIME_WEAK_TREND)
+
+        return regime
+
     def generate_signals(self, data: OHLCV) -> StrategyResult:
         """MVP stub — будет заполнен в Task 9."""
         cfg = self._validate_config(self.config)
