@@ -63,3 +63,41 @@ class TestRollingPivot:
         for arr in results:
             assert arr.shape == (n,)
             assert arr.dtype == np.float64
+
+
+class TestPivotVelocity:
+    def test_positive_drift(self) -> None:
+        """Восходящий pivot → положительная velocity."""
+        # pivot[0..9] = 100, 101, 102, ..., 109
+        pivot = np.arange(100, 110, dtype=np.float64)
+        vel = pivot_velocity(pivot, lookback=5)
+        # vel[5] = (105 - 100) / 100 * 100 = 5.0
+        assert vel[5] == pytest.approx(5.0)
+        assert vel[9] == pytest.approx((109 - 104) / 104 * 100)
+
+    def test_flat_pivot_zero_velocity(self) -> None:
+        pivot = np.full(20, 100.0)
+        vel = pivot_velocity(pivot, lookback=5)
+        assert vel[5] == pytest.approx(0.0)
+        assert vel[19] == pytest.approx(0.0)
+
+    def test_nan_before_lookback(self) -> None:
+        pivot = np.arange(100, 120, dtype=np.float64)
+        vel = pivot_velocity(pivot, lookback=5)
+        assert all(np.isnan(vel[:5]))
+        assert not np.isnan(vel[5])
+
+    def test_nan_input_propagates(self) -> None:
+        pivot = np.array([np.nan, np.nan, 100.0, 101.0, 102.0, 103.0], dtype=np.float64)
+        vel = pivot_velocity(pivot, lookback=2)
+        # vel[2] = (100 - nan) → nan
+        assert np.isnan(vel[2])
+        assert np.isnan(vel[3])
+        # vel[4] = (102 - 100) / 100 * 100 = 2.0
+        assert vel[4] == pytest.approx(2.0)
+
+    def test_zero_denominator_safe(self) -> None:
+        """Если pivot[i - lookback] == 0 → NaN, не деление на ноль."""
+        pivot = np.array([0.0, 1.0, 2.0, 3.0, 4.0], dtype=np.float64)
+        vel = pivot_velocity(pivot, lookback=2)
+        assert np.isnan(vel[2])  # pivot[0]=0 → деление на ноль

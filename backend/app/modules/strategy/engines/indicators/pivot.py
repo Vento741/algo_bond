@@ -66,6 +66,27 @@ def rolling_pivot(
     return pivot, r1, s1, r2, s2, r3, s3
 
 
-def pivot_velocity(*args, **kwargs):  # noqa: ANN002, ANN003, ANN201
-    """Placeholder — реализуется в Task 2."""
-    raise NotImplementedError("pivot_velocity will be implemented in Task 2")
+def pivot_velocity(pivot: NDArray, lookback: int) -> NDArray:
+    """Скорость изменения pivot в процентах за `lookback` баров.
+
+    velocity[i] = (pivot[i] - pivot[i - lookback]) / pivot[i - lookback] * 100
+
+    Используется для детекции дрейфа: если pivot сам уплывает —
+    рынок фактически трендовый, даже если ADX ещё низкий.
+
+    Первые `lookback` значений — NaN. NaN-safe на NaN входе.
+    """
+    n = len(pivot)
+    out = np.full(n, np.nan, dtype=np.float64)
+
+    if n <= lookback or lookback <= 0:
+        return out
+
+    for i in range(lookback, n):
+        curr = pivot[i]
+        prev = pivot[i - lookback]
+        if np.isnan(curr) or np.isnan(prev) or prev == 0.0:
+            continue
+        out[i] = (curr - prev) / prev * 100.0
+
+    return out
