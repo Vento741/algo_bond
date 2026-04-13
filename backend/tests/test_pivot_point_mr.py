@@ -420,3 +420,70 @@ class TestCalculateConfluence:
             volume_val=1000.0, volume_sma_val=1000.0, cfg=self.cfg,
         )
         assert score_rsi - score_no_rsi == pytest.approx(0.5)
+
+
+class TestGenerateSignalsIntegration:
+    def test_runs_without_error_on_ranging_data(self) -> None:
+        """На ranging синтетике стратегия должна хотя бы не падать."""
+        s = PivotPointMeanReversion(DEFAULT_CONFIG)
+        data = make_ohlcv(n=300, base_price=100.0, trend=0.0, noise=2.0)
+        result = s.generate_signals(data)
+        assert isinstance(result, StrategyResult)
+        assert result.confluence_scores_long.shape == (300,)
+        assert result.confluence_scores_short.shape == (300,)
+
+    def test_signals_have_valid_sl_and_tp(self) -> None:
+        """Все сигналы должны иметь валидные SL и TP."""
+        s = PivotPointMeanReversion(DEFAULT_CONFIG)
+        data = make_ohlcv(n=500, base_price=100.0, trend=0.0, noise=3.0, seed=1)
+        result = s.generate_signals(data)
+        for sig in result.signals:
+            assert sig.stop_loss > 0
+            assert sig.take_profit > 0
+            if sig.direction == "long":
+                assert sig.stop_loss < sig.entry_price
+                assert sig.take_profit > sig.entry_price
+            else:
+                assert sig.stop_loss > sig.entry_price
+                assert sig.take_profit < sig.entry_price
+            assert sig.signal_type == "mean_reversion"
+            assert sig.tp_levels is not None and len(sig.tp_levels) > 0
+            assert sig.indicators is not None
+            assert "confluence_tier" in sig.indicators
+            assert sig.indicators["confluence_tier"] in ("strong", "normal", "weak")
+            assert sig.indicators["regime"] in ("range", "weak_trend", "strong_trend")
+
+    def test_cooldown_enforced(self) -> None:
+        """Два последовательных сигнала не могут быть ближе cooldown_bars."""
+        s = PivotPointMeanReversion(DEFAULT_CONFIG)
+        data = make_ohlcv(n=500, base_price=100.0, trend=0.0, noise=4.0, seed=7)
+        result = s.generate_signals(data)
+        cooldown = DEFAULT_CONFIG["entry"]["cooldown_bars"]
+        for prev, curr in zip(result.signals, result.signals[1:]):
+            assert curr.bar_index - prev.bar_index >= cooldown
+
+    def test_min_confluence_enforced(self) -> None:
+        s = PivotPointMeanReversion(DEFAULT_CONFIG)
+        data = make_ohlcv(n=500, seed=3)
+        result = s.generate_signals(data)
+        min_conf = DEFAULT_CONFIG["entry"]["min_confluence"]
+        for sig in result.signals:
+            assert sig.confluence_score >= min_conf
+
+    def test_strong_trend_skipped_when_not_allowed(self) -> None:
+        """При allow_strong_trend=False в STRONG_TREND сигналы не создаются."""
+        cfg = {**DEFAULT_CONFIG}
+        cfg["regime"] = {**DEFAULT_CONFIG["regime"], "allow_strong_trend": False}
+        s = PivotPointMeanReversion(cfg)
+        # Сильный восходящий тренд с минимальным шумом → STRONG_TREND
+        data = make_ohlcv(n=500, base_price=100.0, trend=0.3, noise=0.2, seed=2)
+        result = s.generate_signals(data)
+        # Все сигналы должны быть не STRONG_TREND
+        for sig in result.signals:
+            assert sig.indicators["regime"] != "strong_trend"
+
+    def test_empty_on_insufficient_data(self) -> None:
+        s = PivotPointMeanReversion(DEFAULT_CONFIG)
+        data = make_ohlcv(n=20)  # меньше period
+        result = s.generate_signals(data)
+        assert result.signals == []

@@ -334,14 +334,232 @@ class PivotPointMeanReversion(BaseStrategy):
         return score
 
     def generate_signals(self, data: OHLCV) -> StrategyResult:
-        """MVP stub — будет заполнен в Task 9."""
+        """Главный метод — проход по барам с фильтрами и генерацией сигналов."""
         cfg = self._validate_config(self.config)
         n = len(data)
         empty_arr = np.zeros(n, dtype=np.float64)
-        return StrategyResult(
+        empty_result = StrategyResult(
             signals=[],
             confluence_scores_long=empty_arr.copy(),
             confluence_scores_short=empty_arr.copy(),
+            knn_scores=empty_arr.copy(),
+            knn_classes=empty_arr.copy(),
+            knn_confidence=empty_arr.copy(),
+        )
+
+        if n < cfg["pivot"]["period"] + cfg["trend"]["ema_period"] // 4:
+            return empty_result
+
+        # === Фаза 0: расчёт всех индикаторов ===
+        pivot, r1, s1, r2, s2, r3, s3 = rolling_pivot(
+            data.high, data.low, data.close, cfg["pivot"]["period"]
+        )
+        pv = pivot_velocity(pivot, cfg["pivot"]["velocity_lookback"])
+
+        atr_arr = atr(data.high, data.low, data.close, cfg["risk"]["atr_period"])
+        _, _, adx_arr = dmi(data.high, data.low, data.close, cfg["filters"]["adx_period"])
+        ema_arr = ema(data.close, cfg["trend"]["ema_period"])
+        rsi_arr = rsi(data.close, cfg["filters"]["rsi_period"])
+        volume_sma = sma(data.volume, cfg["filters"]["volume_sma_period"])
+
+        squeeze_on, _, _ = squeeze_momentum(
+            data.high, data.low, data.close,
+            bb_period=cfg["filters"]["squeeze_bb_len"],
+            bb_mult=cfg["filters"]["squeeze_bb_mult"],
+            kc_period=cfg["filters"]["squeeze_kc_len"],
+            kc_mult=cfg["filters"]["squeeze_kc_mult"],
+        )
+
+        # Дистанция цены от pivot в %
+        distance_pct = np.full(n, np.nan, dtype=np.float64)
+        valid_pivot = (pivot > 0) & ~np.isnan(pivot)
+        distance_pct[valid_pivot] = (
+            (data.close[valid_pivot] - pivot[valid_pivot]) / pivot[valid_pivot] * 100.0
+        )
+
+        # Per-bar confluence arrays (для UI overlay)
+        conf_long = np.zeros(n, dtype=np.float64)
+        conf_short = np.zeros(n, dtype=np.float64)
+
+        signals: list[Signal] = []
+        last_signal_bar = -10_000
+
+        # === Главный цикл ===
+        for i in range(cfg["pivot"]["period"], n):
+            pivot_val = pivot[i]
+            if np.isnan(pivot_val):
+                continue
+
+            atr_val = atr_arr[i]
+            if np.isnan(atr_val) or atr_val < 1e-8:
+                continue
+
+            close_val = float(data.close[i])
+            distance = distance_pct[i]
+
+            # Фильтр: deadzone (минимальное отклонение от pivot)
+            if np.isnan(distance) or abs(distance) < cfg["entry"]["min_distance_pct"]:
+                continue
+
+            # Определение зоны
+            zone_result = self._detect_zone(
+                close_val=close_val,
+                pivot_val=float(pivot_val),
+                s1=float(s1[i]), s2=float(s2[i]),
+                r1=float(r1[i]), r2=float(r2[i]),
+            )
+            if zone_result is None:
+                continue
+            direction, zone = zone_result
+
+            # Regime detection
+            regime = self._detect_regime(
+                adx_val=float(adx_arr[i]),
+                pv_val=float(pv[i]),
+                cfg=cfg,
+            )
+
+            # STRONG_TREND gate
+            if regime == REGIME_STRONG_TREND:
+                if not cfg["regime"]["allow_strong_trend"]:
+                    continue
+                # Если разрешён — только по тренду
+                ema_val = ema_arr[i]
+                if np.isnan(ema_val):
+                    continue
+                if direction == "long" and close_val <= ema_val:
+                    continue
+                if direction == "short" and close_val >= ema_val:
+                    continue
+
+            # WEAK_TREND: только по тренду
+            if regime == REGIME_WEAK_TREND:
+                ema_val = ema_arr[i]
+                if np.isnan(ema_val):
+                    continue
+                if direction == "long" and close_val <= ema_val:
+                    continue
+                if direction == "short" and close_val >= ema_val:
+                    continue
+
+            # Фильтр: RSI
+            if cfg["filters"]["rsi_enabled"]:
+                rsi_val = rsi_arr[i]
+                if np.isnan(rsi_val):
+                    continue
+                if direction == "long" and rsi_val >= cfg["filters"]["rsi_oversold"]:
+                    continue
+                if direction == "short" and rsi_val <= cfg["filters"]["rsi_overbought"]:
+                    continue
+
+            # Фильтр: volume
+            if cfg["filters"]["volume_filter_enabled"]:
+                vol_sma = volume_sma[i]
+                if np.isnan(vol_sma) or vol_sma <= 0:
+                    continue
+                if data.volume[i] < vol_sma * cfg["filters"]["volume_min_ratio"]:
+                    continue
+
+            # Фильтр: cooldown
+            if (i - last_signal_bar) < cfg["entry"]["cooldown_bars"]:
+                continue
+
+            # Фильтр: anti-impulse (не ловим падающий нож)
+            window = cfg["entry"]["impulse_check_bars"]
+            if i >= window:
+                last_bars = data.close[i - window + 1:i + 1] - data.open[i - window + 1:i + 1]
+                if direction == "long" and np.all(last_bars < 0):
+                    continue
+                if direction == "short" and np.all(last_bars > 0):
+                    continue
+
+            # Confluence
+            score = self._calculate_confluence(
+                zone=zone,
+                direction=direction,
+                regime=regime,
+                rsi_val=float(rsi_arr[i]),
+                squeeze=bool(squeeze_on[i]) if cfg["filters"]["squeeze_enabled"] else False,
+                close_val=close_val,
+                ema_val=float(ema_arr[i]) if not np.isnan(ema_arr[i]) else float("nan"),
+                volume_val=float(data.volume[i]),
+                volume_sma_val=float(volume_sma[i]) if not np.isnan(volume_sma[i]) else 0.0,
+                cfg=cfg,
+            )
+
+            if direction == "long":
+                conf_long[i] = score
+            else:
+                conf_short[i] = score
+
+            if score < cfg["entry"]["min_confluence"]:
+                continue
+
+            # Build SL
+            sl = self._calculate_sl(
+                direction=direction, zone=zone, entry=close_val, atr_val=float(atr_val),
+                s1=float(s1[i]), s2=float(s2[i]), s3=float(s3[i]),
+                r1=float(r1[i]), r2=float(r2[i]), r3=float(r3[i]),
+                cfg=cfg, regime=regime,
+            )
+
+            # Build TP levels
+            tp_levels = self._build_tp_levels(
+                direction=direction, zone=zone, entry=close_val,
+                pivot=float(pivot_val),
+                s1=float(s1[i]), s2=float(s2[i]), s3=float(s3[i]),
+                r1=float(r1[i]), r2=float(r2[i]), r3=float(r3[i]),
+                cfg=cfg,
+            )
+            if not tp_levels:
+                continue  # нет валидных TP — пропускаем сигнал
+
+            # Первая TP цена для legacy поля Signal.take_profit
+            first_tp_price = (
+                close_val + tp_levels[0]["atr_mult"]
+                if direction == "long"
+                else close_val - tp_levels[0]["atr_mult"]
+            )
+
+            # Confluence tier для UI
+            if score >= 4.0:
+                tier = "strong"
+            elif score >= 2.5:
+                tier = "normal"
+            else:
+                tier = "weak"
+
+            signal = Signal(
+                bar_index=i,
+                direction=direction,
+                entry_price=close_val,
+                stop_loss=float(sl),
+                take_profit=float(first_tp_price),
+                trailing_atr=float(atr_val * cfg["risk"]["trailing_atr_mult"]),
+                confluence_score=float(score),
+                signal_type="mean_reversion",
+                tp_levels=tp_levels,
+                indicators={
+                    "pivot": float(pivot_val),
+                    "s1": float(s1[i]), "s2": float(s2[i]), "s3": float(s3[i]),
+                    "r1": float(r1[i]), "r2": float(r2[i]), "r3": float(r3[i]),
+                    "zone": int(zone),
+                    "regime": _REGIME_NAMES[regime],
+                    "rsi": float(rsi_arr[i]) if not np.isnan(rsi_arr[i]) else 0.0,
+                    "adx": float(adx_arr[i]) if not np.isnan(adx_arr[i]) else 0.0,
+                    "distance_pct": float(distance),
+                    "pivot_velocity": float(pv[i]) if not np.isnan(pv[i]) else 0.0,
+                    "squeeze_on": bool(squeeze_on[i]),
+                    "confluence_tier": tier,
+                },
+            )
+            signals.append(signal)
+            last_signal_bar = i
+
+        return StrategyResult(
+            signals=signals,
+            confluence_scores_long=conf_long,
+            confluence_scores_short=conf_short,
             knn_scores=empty_arr.copy(),
             knn_classes=empty_arr.copy(),
             knn_confidence=empty_arr.copy(),
