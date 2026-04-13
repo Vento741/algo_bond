@@ -164,6 +164,98 @@ def score_mean_reversion(metrics: dict) -> float:
     return round(score, 2)
 
 
-# Stub — will be implemented in Task 5
+def _dataframe_to_ohlcv(df: pd.DataFrame) -> OHLCV:
+    """Convert parquet DataFrame to OHLCV dataclass."""
+    return OHLCV(
+        open=df["open"].to_numpy(dtype=np.float64),
+        high=df["high"].to_numpy(dtype=np.float64),
+        low=df["low"].to_numpy(dtype=np.float64),
+        close=df["close"].to_numpy(dtype=np.float64),
+        volume=df["volume"].to_numpy(dtype=np.float64),
+        timestamps=df["timestamp"].to_numpy(dtype=np.float64),
+    )
+
+
+def _metrics_to_dict(metrics: Any) -> dict:
+    """Serialize BacktestMetrics dataclass to dict, extract MR-specific stats."""
+    trades_log = getattr(metrics, "trades_log", []) or []
+
+    durations = []
+    wins_streak = 0
+    max_streak = 0
+    for t in trades_log:
+        entry_bar = t.get("entry_bar", 0)
+        exit_bar = t.get("exit_bar", entry_bar)
+        durations.append(exit_bar - entry_bar)
+        pnl = t.get("pnl", 0.0)
+        if pnl > 0:
+            wins_streak += 1
+            max_streak = max(max_streak, wins_streak)
+        else:
+            wins_streak = 0
+
+    avg_duration = float(np.mean(durations)) if durations else 0.0
+
+    return {
+        "total_pnl": float(getattr(metrics, "total_pnl", 0.0)),
+        "total_pnl_pct": float(getattr(metrics, "total_pnl_pct", 0.0)),
+        "total_trades": int(getattr(metrics, "total_trades", 0)),
+        "winning_trades": int(getattr(metrics, "winning_trades", 0)),
+        "losing_trades": int(getattr(metrics, "losing_trades", 0)),
+        "win_rate": float(getattr(metrics, "win_rate", 0.0)),
+        "profit_factor": float(getattr(metrics, "profit_factor", 0.0)),
+        "max_drawdown": float(getattr(metrics, "max_drawdown", 0.0)),
+        "sharpe_ratio": float(getattr(metrics, "sharpe_ratio", 0.0)),
+        "avg_trade_duration_bars": avg_duration,
+        "max_winning_streak": max_streak,
+    }
+
+
 def run_one_backtest(args: tuple) -> dict:
-    raise NotImplementedError("Will be implemented in Task 5")
+    """Multiprocessing worker: run one config backtest."""
+    symbol, timeframe, config, run_id, cache_dir_str = args
+    try:
+        path = Path(cache_dir_str) / f"{symbol}_{timeframe}.parquet"
+        df = pd.read_parquet(path)
+        ohlcv = _dataframe_to_ohlcv(df)
+
+        engine = get_engine("pivot_point_mr", config)
+        result = engine.generate_signals(ohlcv)
+
+        bt_cfg = config.get("backtest", {})
+        metrics = run_backtest(
+            ohlcv=ohlcv,
+            signals=result.signals,
+            initial_capital=float(bt_cfg.get("initial_capital", 100.0)),
+            commission_pct=float(bt_cfg.get("commission", 0.06)),
+            slippage_pct=float(bt_cfg.get("slippage", 0.03)),
+            order_size_pct=float(bt_cfg.get("order_size", 75.0)),
+            use_multi_tp=True,
+            use_breakeven=True,
+            timeframe_minutes=int(timeframe),
+            leverage=1,
+            on_reverse="close",
+        )
+
+        metrics_dict = _metrics_to_dict(metrics)
+        score = score_mean_reversion(metrics_dict)
+
+        return {
+            "run_id": run_id,
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "config": config,
+            "metrics": metrics_dict,
+            "score": score,
+            "error": None,
+        }
+    except Exception as e:
+        return {
+            "run_id": run_id,
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "config": config,
+            "metrics": {},
+            "score": -999.0,
+            "error": str(e),
+        }
