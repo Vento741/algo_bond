@@ -52,7 +52,7 @@ WLD Pivot Point S/R — mean reversion стратегия с платформы 
 
 | # | Проблема | Решение |
 |---|---|---|
-| 1 | `tp_levels` — платформа поддерживает только формат `{"atr_mult": N, "close_pct": N}`, а ТЗ требует абсолютные цены (pivot, S1, R1) | **Конвертация price → atr_mult внутри стратегии**. Стратегия сама вычисляет `atr_mult = (tp_price - entry) / atr[i]` для long (и зеркально для short). Backtest engine реконструирует ту же цену обратно через `entry + atr * atr_mult`. Lossless. Движки не трогаем. |
+| 1 | `tp_levels` — платформа поддерживает только формат `{"atr_mult": N, "close_pct": N}`, а ТЗ требует абсолютные цены (pivot, S1, R1) | **Конвертация price → raw distance внутри стратегии**. ВАЖНО: поле `atr_mult` в backtest_engine.py:299 на самом деле хранит сырую ценовую дистанцию (не множитель ATR) — имя поля историческое. Движок вычисляет `tp_price = entry_price ± atr_dist` напрямую. Стратегия кладёт в это поле `tp_price - entry_price` для long и `entry_price - tp_price` для short. Lossless. Движки не трогаем. |
 | 2 | `max_hold_bars` — движки не поддерживают форс-выход по времени | **Выкидываем из MVP.** Параметр остаётся в конфиге как no-op с TODO-маркером. Риск зависания в убытке частично закрывают `trailing_atr` (активен после TP1) и жёсткий потолок `sl_max_pct = 2%`. Если бэктесты покажут что max_hold критичен — добавим в следующей итерации отдельной задачей с явной правкой движков. |
 | 3 | `signal_type` — ТЗ хочет `"strong"/"normal"/"weak"`, платформа ожидает семантику паттерна (`"trend"/"breakout"/"mean_reversion"`) | **`signal_type = "mean_reversion"` всегда**, уровень силы кладётся в `Signal.indicators["confluence_tier"] = "strong"|"normal"|"weak"`. `indicators` — свободный словарь, никто его не валидирует. |
 | 4 | Close-percentages для ZONE_2 (40/40/20) и ZONE_3 (30/30/30/10) | **Hardcoded в коде стратегии.** В конфиге — только `tp1_close_pct`/`tp2_close_pct` для ZONE_1 (60/40), как в ТЗ. Если потом понадобится — парметризуем локально, никого не касается. |
@@ -327,16 +327,23 @@ def _calculate_sl(direction, zone, entry, atr_val, levels, cfg) -> float:
 
 **В STRONG_TREND** (если разрешён): `sl_max *= 1.5`.
 
-#### Take Profit — price-based → atr_mult конверсия
+#### Take Profit — конверсия price → raw distance
 
-Конверсия необходима т.к. платформа принимает `tp_levels` только в формате atr_mult:
+ВАЖНО: поле `atr_mult` в backtest_engine.py:299 исторически названо, но фактически хранит **сырую ценовую дистанцию** (см. `tp_price = entry_price + atr_dist`). Стратегия сама вычисляет дистанцию до желаемой цены:
 
 ```python
-def _price_to_atr_mult(tp_price: float, entry: float, atr_val: float, direction: str) -> float:
+def _price_to_distance(tp_price: float, entry: float, direction: str) -> float:
+    """Конвертирует абсолютную TP цену в сырую дистанцию для поля atr_mult.
+
+    ВНИМАНИЕ: имя поля `atr_mult` в Signal.tp_levels историческое —
+    backtest_engine использует его как price distance напрямую:
+        tp_price = entry + atr_dist  (long)
+        tp_price = entry - atr_dist  (short)
+    """
     if direction == "long":
-        return (tp_price - entry) / atr_val
-    else:  # short — atr_mult положительный если TP ниже entry
-        return (entry - tp_price) / atr_val
+        return tp_price - entry     # положительная если TP > entry
+    else:  # short
+        return entry - tp_price     # положительная если TP < entry
 ```
 
 **TP распределение по зонам:**
@@ -372,9 +379,10 @@ tp_prices_zone3_long = [
 tp_levels = []
 for tp_price, close_pct in tp_prices:
     if tp_price > 0 and not np.isnan(tp_price):
-        atr_mult = _price_to_atr_mult(tp_price, entry, atr_val, direction)
-        if atr_mult > 0:  # TP в правильную сторону от entry
-            tp_levels.append({"atr_mult": atr_mult, "close_pct": close_pct * 100})
+        atr_dist = _price_to_distance(tp_price, entry, direction)
+        if atr_dist > 0:  # TP в правильную сторону от entry
+            # Поле называется atr_mult исторически, но содержит price distance
+            tp_levels.append({"atr_mult": atr_dist, "close_pct": int(close_pct * 100)})
 ```
 
 **Важно:** `close_pct` в формате backtest_engine — проценты 0-100, а не доля 0-1 (см. `multi_tp` логику в `backtest_engine.py:296-310`). В коде конверсии умножаем на 100.
