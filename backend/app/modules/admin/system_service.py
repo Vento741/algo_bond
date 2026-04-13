@@ -19,6 +19,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.modules.admin.models import DEFAULT_APP_VERSION, SK_APP_VERSION, SystemSetting
 from app.modules.admin.system_schemas import (
     CeleryInfo,
     CeleryWorkerInfo,
@@ -118,7 +119,6 @@ class SystemService:
             name="api",
             status="healthy",
             latency_ms=round(latency, 2),
-            details={"version": "0.9.0"},
         )
 
     async def _check_postgresql(self) -> ServiceHealth:
@@ -553,6 +553,30 @@ class SystemService:
 
         return ErrorLogResponse(items=items, total=total)
 
+    # === Settings (key-value) ===
+
+    async def get_setting(self, key: str, default: str = "") -> str:
+        """Получить значение настройки из БД."""
+        result = await self.db.execute(
+            select(SystemSetting.value).where(SystemSetting.key == key)
+        )
+        value = result.scalar_one_or_none()
+        return value if value is not None else default
+
+    async def set_setting(self, key: str, value: str) -> str:
+        """Установить значение настройки в БД (upsert)."""
+        existing = await self.db.get(SystemSetting, key)
+        if existing:
+            existing.value = value
+            existing.updated_at = datetime.now(timezone.utc)
+        else:
+            self.db.add(SystemSetting(
+                key=key, value=value,
+                updated_at=datetime.now(timezone.utc),
+            ))
+        await self.db.commit()
+        return value
+
     # === Config ===
 
     async def get_config(self) -> SystemConfig:
@@ -563,6 +587,8 @@ class SystemService:
             if key.startswith(("APP_", "DATABASE_", "REDIS_", "CELERY_", "JWT_",
                                "BYBIT_", "CORS_", "ENCRYPTION_", "FRONTEND_")):
                 env_vars[key] = _mask_value(key, value)
+
+        app_version = await self.get_setting(SK_APP_VERSION, DEFAULT_APP_VERSION)
 
         # Git commit
         git_commit = "unknown"
@@ -601,16 +627,15 @@ class SystemService:
 
         return SystemConfig(
             env_vars=env_vars,
-            app_version=settings.app_version,
+            app_version=app_version,
             python_version=platform.python_version(),
             git_commit=git_commit,
             docker_containers=containers,
         )
 
     async def update_app_version(self, version: str) -> str:
-        """Обновить версию приложения в runtime."""
-        settings.app_version = version
-        return version
+        """Обновить версию приложения в БД."""
+        return await self.set_setting(SK_APP_VERSION, version)
 
     # === Platform P&L ===
 

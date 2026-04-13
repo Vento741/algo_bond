@@ -48,6 +48,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         _logger.warning("Startup: failed to sync trading pairs: %s", e)
 
+    # Загрузить версию из БД в кеш
+    from app.modules.admin.models import DEFAULT_APP_VERSION, SK_APP_VERSION, SystemSetting
+    try:
+        from app.database import async_session
+        from sqlalchemy import select
+        async with async_session() as db:
+            result = await db.execute(
+                select(SystemSetting.value).where(SystemSetting.key == SK_APP_VERSION)
+            )
+            app.state.app_version = result.scalar_one_or_none() or DEFAULT_APP_VERSION
+    except Exception:
+        app.state.app_version = DEFAULT_APP_VERSION
+
     from app.modules.telegram.bot import setup_telegram_bot
     await setup_telegram_bot()
 
@@ -61,10 +74,12 @@ async def lifespan(app: FastAPI):
     await pool.disconnect()
 
 
+from app.modules.admin.models import DEFAULT_APP_VERSION
+
 app = FastAPI(
     title=settings.app_name,
     description="Платформа алгоритмической торговли криптовалютными фьючерсами",
-    version=settings.app_version,
+    version=DEFAULT_APP_VERSION,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     lifespan=lifespan,
@@ -106,5 +121,5 @@ async def health_check():
     return {
         "status": "ok",
         "app": settings.app_name,
-        "version": settings.app_version,
+        "version": getattr(app.state, "app_version", DEFAULT_APP_VERSION),
     }

@@ -1,6 +1,6 @@
 """API-эндпоинты системного мониторинга."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -103,12 +103,14 @@ async def error_logs(
 
 @router.put("/version", response_model=VersionResponse)
 async def update_app_version(
+    request: Request,
     data: VersionUpdate,
     admin: User = Depends(get_admin_user),
     service: SystemService = Depends(_get_service),
 ) -> VersionResponse:
     """Обновить версию приложения (только admin)."""
     version = await service.update_app_version(data.version)
+    request.app.state.app_version = version
     return VersionResponse(version=version)
 
 

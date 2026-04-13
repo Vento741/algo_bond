@@ -20,6 +20,7 @@ from app.modules.market.models import CandleSyncState, OHLCVCandle, TradingPair 
 from app.modules.analytics.models import AnalyticsSession, AnalyticsEvent, AnalyticsConversion  # noqa: F401
 from app.modules.notifications.models import Notification, NotificationPreference  # noqa: F401
 from app.modules.telegram.models import TelegramLink, TelegramDeepLinkToken  # noqa: F401
+from app.modules.admin.models import SystemSetting  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
