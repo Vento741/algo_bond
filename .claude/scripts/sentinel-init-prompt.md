@@ -58,7 +58,7 @@ CronCreate: `*/5 * * * *`
 2. Если fail: подождать 30с, retry
 3. Если повторный fail: TG алерт "⚠️ Health check FAILED, restarting API..." -> `docker compose restart api` -> перезапустить Monitor API -> TG алерт о результате
 4. Если Redis/DB down: TG алерт "🔴 Redis/DB down" (НЕ рестартить, критично)
-5. Если OK: молчать в TG (экономия токенов), но писать в chat:out
+5. Если OK: **молчать везде** — НЕ публиковать agent_log в chat:out на успешный health check (listener пересылает все agent_log в TG, это создаёт спам). Только HSET в Redis status.
 6. Обновить Redis: `docker exec algobond-redis redis-cli HSET algobond:agent:status last_health_check "$(date -u +%Y-%m-%dT%H:%M:%SZ)" last_health_result ok`
 7. Записать в health history:
    ```bash
@@ -100,7 +100,17 @@ MSG=$(docker exec algobond-redis redis-cli LPOP algobond:agent:chat:inbox)
 
 При `user_message`:
 1. Если начинается с `/` - команда (restart, health_check, reconcile, deploy, reset_circuit)
-2. Иначе - свободный текст, ответить в chat:out
+2. Иначе - свободный текст. **ОБЯЗАТЕЛЬНО опубликовать ответ в chat:out через redis PUBLISH**, иначе пользователь ничего не получит. Твой внутренний текст в tmux НЕ доходит до TG — только PUBLISH считается доставкой:
+   ```bash
+   REPLY_ID=$(cat /proc/sys/kernel/random/uuid)
+   TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+   REPLY_JSON=$(jq -nc --arg id "$REPLY_ID" --arg c "ТЕКСТ_ОТВЕТА" --arg ts "$TS" \
+     '{id:$id,type:"agent_message",content:$c,timestamp:$ts}')
+   docker exec algobond-redis redis-cli PUBLISH algobond:agent:chat:out "$REPLY_JSON"
+   docker exec algobond-redis redis-cli RPUSH algobond:agent:chat "$REPLY_JSON"
+   docker exec algobond-redis redis-cli LTRIM algobond:agent:chat -200 -1
+   ```
+   Этот шаг обязателен для КАЖДОГО user_message. Без PUBLISH ответ не доставлен.
 
 При `approval_response`:
 1. Прочитать `metadata.approval_id` и `metadata.decision`

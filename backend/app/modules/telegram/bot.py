@@ -92,6 +92,11 @@ async def _sentinel_chat_listener() -> None:
                 if not content or msg_type not in ("agent_message", "agent_log"):
                     continue
 
+                if msg_type == "agent_log" and content.lstrip().startswith(
+                    ("✅ Health", "Health check OK", "📋 Health check OK")
+                ):
+                    continue
+
                 prefix = "🤖 <b>Sentinel:</b>\n" if msg_type == "agent_message" else "📋 "
                 text = prefix + content
                 if len(text) > 4000:
