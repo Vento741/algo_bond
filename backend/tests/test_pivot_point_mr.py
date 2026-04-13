@@ -76,6 +76,30 @@ DEFAULT_CONFIG = {
 }
 
 
+# Loose config for integration tests — smaller periods to actually exercise signal creation on small synthetic OHLCV
+LOOSE_CONFIG = {
+    **DEFAULT_CONFIG,
+    "pivot": {"period": 12, "velocity_lookback": 4},
+    "trend": {"ema_period": 50},
+    "entry": {
+        **DEFAULT_CONFIG["entry"],
+        "min_distance_pct": 0.05,    # easier to qualify
+        "min_confluence": 1.0,        # accept "weak" signals
+        "cooldown_bars": 1,
+        "impulse_check_bars": 3,
+    },
+    "filters": {
+        **DEFAULT_CONFIG["filters"],
+        "rsi_enabled": False,         # disable RSI for higher signal rate
+        "squeeze_enabled": False,     # disable squeeze for higher signal rate
+    },
+    "regime": {
+        **DEFAULT_CONFIG["regime"],
+        "allow_strong_trend": True,
+    },
+}
+
+
 class TestStrategyBasics:
     def test_instantiation(self) -> None:
         s = PivotPointMeanReversion(DEFAULT_CONFIG)
@@ -487,3 +511,70 @@ class TestGenerateSignalsIntegration:
         data = make_ohlcv(n=20)  # меньше period
         result = s.generate_signals(data)
         assert result.signals == []
+
+
+class TestGenerateSignalsLoose:
+    """Integration tests with loose config — actually exercise signal-creation code path."""
+
+    def _find_seed_with_signals(self) -> tuple[int, "list[Signal]"]:
+        """Try several seeds until we find one that produces signals.
+
+        With LOOSE_CONFIG one of the small seeds should produce signals reliably.
+        If none do — that's a real bug, surface it via assertion.
+        """
+        s = PivotPointMeanReversion(LOOSE_CONFIG)
+        for seed in range(1, 30):
+            data = make_ohlcv(n=400, base_price=100.0, trend=0.0, noise=2.5, seed=seed)
+            result = s.generate_signals(data)
+            if result.signals:
+                return seed, result.signals
+        raise AssertionError(
+            "LOOSE_CONFIG produced 0 signals across seeds 1-29 — signal creation path is unreachable; real bug."
+        )
+
+    def test_at_least_one_signal_with_loose_config(self) -> None:
+        seed, signals = self._find_seed_with_signals()
+        assert len(signals) >= 1, f"seed={seed} returned no signals"
+
+    def test_signal_fields_are_well_formed(self) -> None:
+        seed, signals = self._find_seed_with_signals()
+        for sig in signals:
+            # Basic invariants
+            assert sig.entry_price > 0
+            assert sig.stop_loss > 0
+            assert sig.take_profit > 0
+            assert sig.signal_type == "mean_reversion"
+            assert sig.direction in ("long", "short")
+            # SL/TP on correct side of entry
+            if sig.direction == "long":
+                assert sig.stop_loss < sig.entry_price, f"long SL={sig.stop_loss} >= entry={sig.entry_price}"
+                assert sig.take_profit > sig.entry_price
+            else:
+                assert sig.stop_loss > sig.entry_price
+                assert sig.take_profit < sig.entry_price
+            # tp_levels well-formed
+            assert sig.tp_levels is not None
+            assert len(sig.tp_levels) >= 1
+            for lvl in sig.tp_levels:
+                assert lvl["atr_mult"] > 0
+                assert isinstance(lvl["close_pct"], int)
+                assert 0 < lvl["close_pct"] <= 100
+            # indicators dict
+            assert sig.indicators is not None
+            assert sig.indicators["confluence_tier"] in ("strong", "normal", "weak")
+            assert sig.indicators["regime"] in ("range", "weak_trend", "strong_trend")
+            assert sig.indicators["zone"] in (1, 2, 3)
+            # trailing
+            assert sig.trailing_atr is not None and sig.trailing_atr > 0
+
+    def test_loose_config_cooldown_respected(self) -> None:
+        """With cooldown_bars=1 from LOOSE_CONFIG, signals can be on consecutive bars but not same bar."""
+        seed, signals = self._find_seed_with_signals()
+        for prev, curr in zip(signals, signals[1:]):
+            gap = curr.bar_index - prev.bar_index
+            assert gap >= LOOSE_CONFIG["entry"]["cooldown_bars"], f"gap={gap} < cooldown={LOOSE_CONFIG['entry']['cooldown_bars']}"
+
+    def test_loose_config_min_confluence_respected(self) -> None:
+        seed, signals = self._find_seed_with_signals()
+        for sig in signals:
+            assert sig.confluence_score >= LOOSE_CONFIG["entry"]["min_confluence"]
