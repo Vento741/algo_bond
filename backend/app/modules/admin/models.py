@@ -9,7 +9,7 @@ from app.database import Base
 
 # Константы ключей system_settings
 SK_APP_VERSION = "app_version"
-DEFAULT_APP_VERSION = "0.0.0"
+DEFAULT_APP_VERSION = "0.9.0"
 
 
 class SystemSetting(Base):
