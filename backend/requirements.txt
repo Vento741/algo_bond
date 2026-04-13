@@ -42,6 +42,7 @@ python-dotenv==1.0.1
 # Аналитика
 numpy==1.26.4
 pandas==2.2.3
+pyarrow>=14.0
 
 # Bybit
 pybit==5.14.0

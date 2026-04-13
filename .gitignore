@@ -77,3 +77,13 @@ algo_bond.rar
 # Sentinel state (runtime, not tracked)
 sentinel-state/*.sha
 sentinel-state/incident-log.jsonl
+
+# Presentation guides (local only)
+docs/superpowers/guides/
+
+# Local grid search artifacts
+data/candles/*.parquet
+data/candles/*.json.gz
+optimize_results/
+!optimize_results/.gitkeep
+!data/candles/.gitkeep
