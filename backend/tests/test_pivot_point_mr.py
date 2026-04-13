@@ -578,3 +578,13 @@ class TestGenerateSignalsLoose:
         seed, signals = self._find_seed_with_signals()
         for sig in signals:
             assert sig.confluence_score >= LOOSE_CONFIG["entry"]["min_confluence"]
+
+
+class TestRegistryLookup:
+    def test_get_engine_returns_instance(self) -> None:
+        from app.modules.strategy.engines import get_engine, ENGINE_REGISTRY
+
+        assert "pivot_point_mr" in ENGINE_REGISTRY
+        instance = get_engine("pivot_point_mr", DEFAULT_CONFIG)
+        assert isinstance(instance, PivotPointMeanReversion)
+        assert instance.engine_type == "pivot_point_mr"
