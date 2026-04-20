@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Bot,
   Brain,
   TrendingUp,
+  TrendingDown,
   Activity,
   ArrowUpRight,
   Loader2,
@@ -12,10 +13,14 @@ import {
   BarChart3,
   CircleDot,
   LayoutDashboard,
+  Wallet,
+  Crown,
+  Flame,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useBalance, type BalanceData } from '@/hooks/useBalance';
 import api from '@/lib/api';
 import type { Strategy, BotResponse } from '@/types/api';
 
@@ -33,6 +38,86 @@ function formatPercent(value: number): string {
 
 function shortenId(id: string): string {
   return id.slice(0, 6).toUpperCase();
+}
+
+/** Форматирование USD баланса с разделителями тысяч */
+function formatUsd(value: number): string {
+  return value.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/** localStorage baseline для расчёта изменений за сутки */
+interface DayBaseline {
+  date: string; // YYYY-MM-DD
+  equity: number;
+  totalPnl: number;
+  ts: number;
+}
+
+const BASELINE_KEY_PREFIX = 'algobond:dashboard:baseline:';
+
+function readBaseline(date: string): DayBaseline | null {
+  try {
+    const raw = localStorage.getItem(BASELINE_KEY_PREFIX + date);
+    if (!raw) return null;
+    return JSON.parse(raw) as DayBaseline;
+  } catch {
+    return null;
+  }
+}
+
+function writeBaseline(b: DayBaseline): void {
+  try {
+    localStorage.setItem(BASELINE_KEY_PREFIX + b.date, JSON.stringify(b));
+  } catch {
+    /* quota — игнорируем */
+  }
+}
+
+function pruneOldBaselines(): void {
+  try {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(BASELINE_KEY_PREFIX)) keys.push(k);
+    }
+    for (const k of keys) {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      try {
+        const b = JSON.parse(raw) as DayBaseline;
+        if (b.ts < cutoff) localStorage.removeItem(k);
+      } catch {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Хук: фиксирует первый замер equity/totalPnl за день, возвращает изменения */
+function useDayBaseline(equity: number | null, totalPnl: number) {
+  const [baseline, setBaseline] = useState<DayBaseline | null>(null);
+
+  useEffect(() => {
+    if (equity === null || equity === 0) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const existing = readBaseline(today);
+    if (existing) {
+      setBaseline(existing);
+      return;
+    }
+    const fresh: DayBaseline = { date: today, equity, totalPnl, ts: Date.now() };
+    writeBaseline(fresh);
+    setBaseline(fresh);
+    pruneOldBaselines();
+  }, [equity, totalPnl]);
+
+  return baseline;
 }
 
 const STATUS_MAP: Record<string, { label: string; dot: string }> = {
@@ -71,6 +156,8 @@ export function Dashboard() {
       .finally(() => setLoadingBots(false));
   }, []);
 
+  const { balance, isLoading: balanceLoading } = useBalance();
+
   const liveBots = bots.filter((b) => b.mode === 'live');
   const activeBots = liveBots.filter((b) => b.status === 'running').length;
   const totalPnl = liveBots.reduce((sum, b) => sum + Number(b.total_pnl), 0);
@@ -88,6 +175,21 @@ export function Dashboard() {
 
   // Max drawdown: максимальный из всех live ботов
   const maxDrawdown = liveBots.length > 0 ? Math.max(...liveBots.map((b) => Math.abs(Number(b.max_drawdown)))) : 0;
+
+  // Топ-перформер за всё время (самый прибыльный live бот)
+  const topBot = useMemo(() => {
+    if (liveBots.length === 0) return null;
+    return liveBots.reduce((best, b) => (Number(b.total_pnl) > Number(best.total_pnl) ? b : best));
+  }, [liveBots]);
+
+  // Дневной baseline через localStorage — изменения за сутки
+  const baseline = useDayBaseline(balance?.equity ?? null, totalPnl);
+  const equityChange = balance && baseline ? balance.equity - baseline.equity : 0;
+  const equityChangePct = baseline?.equity ? (equityChange / baseline.equity) * 100 : 0;
+  const pnlChangeToday = baseline ? totalPnl - baseline.totalPnl : 0;
+
+  // ROI = накопленный P&L относительно текущего equity
+  const roiPct = balance?.equity && balance.equity > 0 ? (totalPnl / balance.equity) * 100 : 0;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -117,6 +219,17 @@ export function Dashboard() {
           <div className="mt-4 sm:mt-5 h-px bg-gradient-to-r from-brand-accent/30 via-brand-premium/10 to-transparent" />
         </div>
       </div>
+
+      {/* ---- Balance + Daily Change (mobile приоритет) ---- */}
+      <BalanceCard
+        balance={balance}
+        loading={balanceLoading}
+        equityChange={equityChange}
+        equityChangePct={equityChangePct}
+        pnlChangeToday={pnlChangeToday}
+        roiPct={roiPct}
+        baselineExists={baseline !== null}
+      />
 
       {/* ---- Hero P&L Card ---- */}
       <div
@@ -170,8 +283,8 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* ---- Stat Cards ---- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* ---- Stat Cards: 2x2 на мобиле (плотнее), 4x1 на lg ---- */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         <StatCard
           title="Стратегии"
           value={loadingStrategies ? '...' : String(strategies.length)}
@@ -201,6 +314,36 @@ export function Dashboard() {
           loading={loadingBots}
         />
       </div>
+
+      {/* ---- Top Performer (mobile only — на десктопе уже виден через Live боты) ---- */}
+      {topBot && Number(topBot.total_pnl) !== 0 && (
+        <Link
+          to={`/bots/${topBot.id}`}
+          className="lg:hidden flex items-center justify-between gap-3 p-3 rounded-xl border border-brand-premium/15 bg-gradient-to-r from-brand-premium/[0.06] to-transparent hover:border-brand-premium/30 transition-all min-h-[56px] cursor-pointer"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-brand-premium/10 flex-shrink-0">
+              <Crown className="h-4 w-4 text-brand-premium" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-brand-premium uppercase tracking-widest font-heading">Лидер</p>
+              <p className="text-xs text-gray-300 font-data truncate">
+                BOT-{shortenId(topBot.id)} · WR {formatPercent(Number(topBot.win_rate))}
+              </p>
+            </div>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <p
+              className={`text-base font-bold font-data ${
+                Number(topBot.total_pnl) > 0 ? 'text-brand-profit' : 'text-brand-loss'
+              }`}
+            >
+              {formatPnl(Number(topBot.total_pnl))}
+            </p>
+            <p className="text-[10px] text-gray-600 font-data">{topBot.total_trades} сделок</p>
+          </div>
+        </Link>
+      )}
 
       {/* ---- Main Grid ---- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -452,10 +595,145 @@ export function Dashboard() {
                 color="text-brand-premium"
                 loading={loadingBots}
               />
+              <MetricRow
+                label="ROI"
+                value={balanceLoading || balance === null ? '---' : formatPercent(roiPct)}
+                color={roiPct >= 0 ? 'text-brand-profit' : 'text-brand-loss'}
+                loading={balanceLoading}
+              />
+              <MetricRow
+                label="Сегодня"
+                value={!baseline ? '---' : `${pnlChangeToday >= 0 ? '+' : ''}$${pnlChangeToday.toFixed(2)}`}
+                color={pnlChangeToday >= 0 ? 'text-brand-profit' : 'text-brand-loss'}
+                loading={!baseline}
+              />
             </CardContent>
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  BalanceCard — компактная карточка с балансом и изменениями        */
+/* ------------------------------------------------------------------ */
+
+interface BalanceCardProps {
+  balance: BalanceData | null;
+  loading: boolean;
+  equityChange: number;
+  equityChangePct: number;
+  pnlChangeToday: number;
+  roiPct: number;
+  baselineExists: boolean;
+}
+
+function BalanceCard({
+  balance,
+  loading,
+  equityChange,
+  equityChangePct,
+  pnlChangeToday,
+  roiPct,
+  baselineExists,
+}: BalanceCardProps) {
+  // Не привязан Bybit-аккаунт — карточку прячем целиком
+  if (!loading && balance === null) return null;
+
+  const isUp = equityChange >= 0;
+  const upnl = balance?.unrealized_pnl ?? 0;
+  const upnlPositive = upnl >= 0;
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-xl border border-white/[0.08] p-3 sm:p-4"
+      style={{
+        background: 'linear-gradient(135deg, rgba(68,136,255,0.05) 0%, rgba(13,13,26,1) 70%)',
+      }}
+    >
+      <div
+        className="absolute top-0 left-0 right-0 h-[1px]"
+        style={{
+          background: 'linear-gradient(90deg, transparent, rgba(68,136,255,0.5), transparent)',
+        }}
+      />
+
+      <div className="flex items-start justify-between gap-3">
+        {/* Left: Balance */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Wallet className="h-3 w-3 text-brand-accent flex-shrink-0" />
+            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-heading">
+              Баланс {balance?.is_demo && <span className="text-brand-premium/70">· demo</span>}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-2xl sm:text-3xl font-bold font-data text-white tracking-tight">
+              {loading ? <span className="text-gray-700">---</span> : `$${formatUsd(balance?.equity ?? 0)}`}
+            </span>
+            {!loading && balance && baselineExists && Math.abs(equityChange) >= 0.01 && (
+              <span
+                className={`flex items-center gap-0.5 text-xs font-data font-semibold ${
+                  isUp ? 'text-brand-profit' : 'text-brand-loss'
+                }`}
+              >
+                {isUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                {isUp ? '+' : ''}
+                {equityChangePct.toFixed(2)}%
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-gray-600 font-data mt-1">
+            {loading ? '...' : `Доступно $${formatUsd(balance?.available ?? 0)}`}
+            {!loading && baselineExists && Math.abs(equityChange) >= 0.01 && (
+              <span className={`ml-2 ${isUp ? 'text-brand-profit/70' : 'text-brand-loss/70'}`}>
+                {isUp ? '+' : ''}${equityChange.toFixed(2)} сегодня
+              </span>
+            )}
+          </p>
+        </div>
+
+        {/* Right: Unrealized PnL + ROI mini-stack */}
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+          <div className="text-right">
+            <p className="text-[9px] text-gray-600 uppercase tracking-wider font-heading">uPnL</p>
+            <p
+              className={`text-sm sm:text-base font-bold font-data ${
+                upnl === 0 ? 'text-gray-500' : upnlPositive ? 'text-brand-profit' : 'text-brand-loss'
+              }`}
+            >
+              {loading ? '---' : `${upnlPositive ? '+' : ''}$${upnl.toFixed(2)}`}
+            </p>
+          </div>
+          {!loading && balance && balance.equity > 0 && (
+            <div className="text-right">
+              <p className="text-[9px] text-gray-600 uppercase tracking-wider font-heading">ROI</p>
+              <p
+                className={`text-xs sm:text-sm font-bold font-data ${
+                  roiPct >= 0 ? 'text-brand-profit/80' : 'text-brand-loss/80'
+                }`}
+              >
+                {roiPct >= 0 ? '+' : ''}
+                {roiPct.toFixed(2)}%
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile inline P&L change today */}
+      {!loading && baselineExists && Math.abs(pnlChangeToday) >= 0.01 && (
+        <div className="mt-3 pt-3 border-t border-white/[0.05] flex items-center justify-between text-[10px] sm:text-xs">
+          <span className="text-gray-500 uppercase tracking-wider font-heading flex items-center gap-1.5">
+            <Flame className="h-3 w-3 text-brand-premium/60" />
+            P&L за сутки
+          </span>
+          <span className={`font-data font-semibold ${pnlChangeToday >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+            {pnlChangeToday >= 0 ? '+' : ''}${pnlChangeToday.toFixed(2)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
