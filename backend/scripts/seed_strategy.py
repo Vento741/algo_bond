@@ -314,6 +314,89 @@ STRATEGIES = [
             },
         },
     },
+    {
+        "name": "SMC Sweep Scalper v2",
+        "slug": "smc-sweep-scalper-v2",
+        "engine_type": "smc_sweep_scalper_v2",
+        "description": (
+            "v2: улучшенный SMC scalper с регим-фильтрами. BOS выключен по умолчанию "
+            "(токсичен в v1), добавлены ATR-percentile gate, session killzone "
+            "(London + NY AM), HTF EMA slope bias, fee-beat TP-распределение "
+            "(TP1=0.5R/50%, TP2=1.5R/30%, TP3=3R/20%), trailing выключен по умолчанию."
+        ),
+        "is_public": True,
+        "version": "2.0.0",
+        "default_config": {
+            "sweep": {"lookback": 20},
+            "confirmation": {
+                "window": 3,
+                "fvg_min_size": 0.3,
+                "bos_pivot": 5,
+                "use_bos": False,  # FIX 1
+                "use_fvg": True,
+                "use_ob": True,
+            },
+            "trend": {"ema_period": 200},
+            "filters": {
+                "trend_filter_enabled": False,
+                "rsi_filter_enabled": True,
+                "rsi_period": 14,
+                "volume_filter_enabled": True,
+                "volume_sma_period": 20,
+                "volume_min_ratio": 1.2,
+                # FIX 3
+                "atr_regime_enabled": True,
+                "atr_percentile_window": 200,
+                "atr_percentile_min": 0.40,
+                "atr_percentile_max": 0.95,
+                # FIX 4
+                "session_filter_enabled": True,
+                "session_hours": [7, 8, 9, 13, 14, 15],
+                # FIX 6
+                "htf_bias_enabled": True,
+                "htf_ema_period": 50,
+                "htf_slope_min": 0.0002,
+                "htf_bars_per_htf": 12,
+                "htf_slope_lookback": 6,
+            },
+            "entry": {
+                "min_confluence": 1.5,
+                "cooldown_bars": 3,
+            },
+            "risk": {
+                "atr_period": 14,
+                "sl_atr_buffer": 0.3,
+                "sl_max_pct": 0.015,
+                # FIX 7: fee-beat
+                "tp1_r_mult": 0.5,
+                "tp1_close_pct": 0.5,
+                "tp2_r_mult": 1.5,
+                "tp2_close_pct": 0.3,
+                "tp3_enabled": True,
+                "tp3_r_mult": 3.0,
+                "tp3_close_pct": 0.2,
+                # FIX 2
+                "trailing_atr_mult": 4.0,
+                "disable_trailing": True,
+            },
+            "backtest": {
+                "initial_capital": 100,
+                "currency": "USDT",
+                "order_size": 75,
+                "order_size_type": "percent_equity",
+                "pyramiding": 0,
+                "commission": 0.06,
+                "slippage": 0.03,
+                "margin_long": 100,
+                "margin_short": 100,
+            },
+            "live": {
+                "order_size": 30,
+                "leverage": 5,
+                "on_reverse": "close",
+            },
+        },
+    },
 ]
 
 

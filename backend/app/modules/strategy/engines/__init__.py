@@ -6,6 +6,7 @@ from app.modules.strategy.engines.supertrend_squeeze import SuperTrendSqueezeStr
 from app.modules.strategy.engines.hybrid_knn_supertrend import HybridKNNSuperTrendStrategy
 from app.modules.strategy.engines.pivot_point_mr import PivotPointMeanReversion
 from app.modules.strategy.engines.smc_sweep_scalper import SMCSweepScalperStrategy
+from app.modules.strategy.engines.smc_sweep_scalper_v2 import SMCSweepScalperV2Strategy
 
 # Реестр доступных движков: engine_type → class
 ENGINE_REGISTRY: dict[str, type[BaseStrategy]] = {
@@ -14,6 +15,7 @@ ENGINE_REGISTRY: dict[str, type[BaseStrategy]] = {
     "hybrid_knn_supertrend": HybridKNNSuperTrendStrategy,
     "pivot_point_mr": PivotPointMeanReversion,
     "smc_sweep_scalper": SMCSweepScalperStrategy,
+    "smc_sweep_scalper_v2": SMCSweepScalperV2Strategy,
 }
 
 
