@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useState,
-  useCallback,
-  useRef,
-  useMemo,
-} from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -37,24 +31,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@/components/ui/table';
-import {
-  createChart,
-  AreaSeries,
-  ColorType,
-  LineStyle,
-} from 'lightweight-charts';
-import type {
-  IChartApi,
-  Time,
-} from 'lightweight-charts';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { createChart, AreaSeries, ColorType, LineStyle } from 'lightweight-charts';
+import type { IChartApi, ISeriesApi, Time } from 'lightweight-charts';
 import api from '@/lib/api';
 import type {
   BotResponse,
@@ -73,10 +52,7 @@ import type {
 const REFRESH_INTERVAL_MS = 10_000;
 const REFRESH_INTERVAL_SSE_MS = 30_000;
 
-const STATUS_CONFIG: Record<
-  BotStatus,
-  { variant: 'profit' | 'default' | 'loss'; label: string; dot: string }
-> = {
+const STATUS_CONFIG: Record<BotStatus, { variant: 'profit' | 'default' | 'loss'; label: string; dot: string }> = {
   idle: { variant: 'default', label: 'Ожидание', dot: 'bg-gray-500' },
   running: { variant: 'profit', label: 'Работает', dot: 'bg-brand-profit' },
   stopped: { variant: 'default', label: 'Остановлен', dot: 'bg-gray-500' },
@@ -95,10 +71,7 @@ const MODE_BADGE_STYLES: Record<BotMode, string> = {
   paper: 'bg-gray-500/10 text-gray-400 ring-gray-500/20',
 };
 
-const LOG_LEVEL_CONFIG: Record<
-  BotLogLevel,
-  { icon: typeof Info; color: string; label: string }
-> = {
+const LOG_LEVEL_CONFIG: Record<BotLogLevel, { icon: typeof Info; color: string; label: string }> = {
   info: { icon: Info, color: 'text-blue-400', label: 'Info' },
   warn: { icon: AlertTriangle, color: 'text-yellow-400', label: 'Warn' },
   error: { icon: XCircle, color: 'text-brand-loss', label: 'Error' },
@@ -249,9 +222,7 @@ export function BotDetail() {
 
       // Fetch strategy config for name display
       try {
-        const { data: cfgData } = await api.get<StrategyConfig>(
-          `/strategies/configs/${data.strategy_config_id}`,
-        );
+        const { data: cfgData } = await api.get<StrategyConfig>(`/strategies/configs/${data.strategy_config_id}`);
         setConfig(cfgData);
       } catch {
         // Config may be inaccessible, not critical
@@ -268,9 +239,7 @@ export function BotDetail() {
       if (!id) return;
       if (!silent) setSignalsLoading(true);
       try {
-        const { data } = await api.get<TradeSignalResponse[]>(
-          `/trading/bots/${id}/signals`,
-        );
+        const { data } = await api.get<TradeSignalResponse[]>(`/trading/bots/${id}/signals`);
         setSignals(data);
       } catch {
         if (!silent) setSignals([]);
@@ -286,9 +255,7 @@ export function BotDetail() {
       if (!id) return;
       if (!silent) setOrdersLoading(true);
       try {
-        const { data } = await api.get<OrderResponse[]>(
-          `/trading/bots/${id}/orders`,
-        );
+        const { data } = await api.get<OrderResponse[]>(`/trading/bots/${id}/orders`);
         setOrders(data);
       } catch {
         if (!silent) setOrders([]);
@@ -304,9 +271,7 @@ export function BotDetail() {
       if (!id) return;
       if (!silent) setPositionsLoading(true);
       try {
-        const { data } = await api.get<PositionResponse[]>(
-          `/trading/bots/${id}/positions`,
-        );
+        const { data } = await api.get<PositionResponse[]>(`/trading/bots/${id}/positions`);
         setPositions(data);
       } catch {
         if (!silent) setPositions([]);
@@ -322,10 +287,9 @@ export function BotDetail() {
       if (!id) return;
       if (!silent) setLogsLoading(true);
       try {
-        const { data } = await api.get<BotLogResponse[]>(
-          `/trading/bots/${id}/logs`,
-          { params: { skip: page * 50, limit: 50 } },
-        );
+        const { data } = await api.get<BotLogResponse[]>(`/trading/bots/${id}/logs`, {
+          params: { skip: page * 50, limit: 50 },
+        });
         if (append) {
           setLogs((prev) => [...prev, ...data]);
         } else {
@@ -490,35 +454,23 @@ export function BotDetail() {
             ...p,
             status: 'closed' as const,
             unrealized_pnl: 0,
-            realized_pnl: payload.realized_pnl
-              ? Number(payload.realized_pnl)
-              : p.realized_pnl,
-            current_price: payload.mark_price
-              ? Number(payload.mark_price)
-              : p.current_price,
+            realized_pnl: payload.realized_pnl ? Number(payload.realized_pnl) : p.realized_pnl,
+            current_price: payload.mark_price ? Number(payload.mark_price) : p.current_price,
           };
         }
 
         return {
           ...p,
           unrealized_pnl: Number(payload.unrealized_pnl),
-          current_price: payload.mark_price
-            ? Number(payload.mark_price)
-            : p.current_price,
+          current_price: payload.mark_price ? Number(payload.mark_price) : p.current_price,
           quantity: Number(payload.quantity),
           stop_loss: Number(payload.stop_loss),
           take_profit: Number(payload.take_profit),
-          trailing_stop: payload.trailing_stop
-            ? Number(payload.trailing_stop)
-            : p.trailing_stop,
+          trailing_stop: payload.trailing_stop ? Number(payload.trailing_stop) : p.trailing_stop,
           max_pnl: Number(payload.max_pnl),
           min_pnl: Number(payload.min_pnl),
-          max_price: payload.max_price
-            ? Number(payload.max_price)
-            : p.max_price,
-          min_price: payload.min_price
-            ? Number(payload.min_price)
-            : p.min_price,
+          max_price: payload.max_price ? Number(payload.max_price) : p.max_price,
+          min_price: payload.min_price ? Number(payload.min_price) : p.min_price,
         };
       }),
     );
@@ -543,14 +495,8 @@ export function BotDetail() {
   // Auto-refresh — reduce interval when SSE is active
   useEffect(() => {
     if (bot?.status === 'running') {
-      const interval =
-        sseStatus === 'connected'
-          ? REFRESH_INTERVAL_SSE_MS
-          : REFRESH_INTERVAL_MS;
-      refreshTimerRef.current = setInterval(
-        () => refreshAll(true),
-        interval,
-      );
+      const interval = sseStatus === 'connected' ? REFRESH_INTERVAL_SSE_MS : REFRESH_INTERVAL_MS;
+      refreshTimerRef.current = setInterval(() => refreshAll(true), interval);
     }
     return () => {
       if (refreshTimerRef.current) {
@@ -585,9 +531,7 @@ export function BotDetail() {
           prev
             ? {
                 ...prev,
-                status: (prev.status === 'running'
-                  ? 'stopped'
-                  : 'running') as BotStatus,
+                status: (prev.status === 'running' ? 'stopped' : 'running') as BotStatus,
               }
             : prev,
         );
@@ -614,10 +558,7 @@ export function BotDetail() {
   }
 
   const filteredLogs = useMemo(
-    () =>
-      logFilter === 'all'
-        ? logs
-        : logs.filter((l) => l.level === logFilter),
+    () => (logFilter === 'all' ? logs : logs.filter((l) => l.level === logFilter)),
     [logs, logFilter],
   );
 
@@ -629,20 +570,14 @@ export function BotDetail() {
       ? `Бот ${bot.id.slice(0, 8)}`
       : 'Загрузка...';
 
-  const openPosition = useMemo(
-    () => positions.find((p) => p.status === 'open') ?? null,
-    [positions],
-  );
+  const openPosition = useMemo(() => positions.find((p) => p.status === 'open') ?? null, [positions]);
 
-  const lastClosedPosition = useMemo(
-    () => {
-      const closed = positions
-        .filter((p) => p.status === 'closed')
-        .sort((a, b) => new Date(b.closed_at ?? 0).getTime() - new Date(a.closed_at ?? 0).getTime());
-      return closed[0] ?? null;
-    },
-    [positions],
-  );
+  const lastClosedPosition = useMemo(() => {
+    const closed = positions
+      .filter((p) => p.status === 'closed')
+      .sort((a, b) => new Date(b.closed_at ?? 0).getTime() - new Date(a.closed_at ?? 0).getTime());
+    return closed[0] ?? null;
+  }, [positions]);
 
   // Extract leverage from strategy config
   const leverage = useMemo(() => {
@@ -682,14 +617,8 @@ export function BotDetail() {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <AlertCircle className="h-12 w-12 text-brand-loss mb-4" />
-        <p className="text-gray-400 text-lg">
-          {error ?? 'Бот не найден'}
-        </p>
-        <Button
-          variant="ghost"
-          className="mt-4 text-gray-400"
-          onClick={() => navigate('/bots')}
-        >
+        <p className="text-gray-400 text-lg">{error ?? 'Бот не найден'}</p>
+        <Button variant="ghost" className="mt-4 text-gray-400" onClick={() => navigate('/bots')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Вернуться к ботам
         </Button>
@@ -717,13 +646,8 @@ export function BotDetail() {
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold text-white truncate">
-                {botName}
-              </h1>
-              <Badge
-                variant={status.variant}
-                className="flex items-center gap-1.5 shrink-0"
-              >
+              <h1 className="text-xl font-bold text-white truncate">{botName}</h1>
+              <Badge variant={status.variant} className="flex items-center gap-1.5 shrink-0">
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${status.dot} ${
                     bot.status === 'running' ? 'animate-pulse' : ''
@@ -737,17 +661,13 @@ export function BotDetail() {
                 {MODE_LABELS[bot.mode]}
               </span>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              Создан {formatDatetime(bot.created_at)}
-            </p>
+            <p className="text-xs text-gray-400 mt-1">Создан {formatDatetime(bot.created_at)}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           {/* SSE Connection indicator */}
-          {bot.status === 'running' && (
-            <SseIndicator status={sseStatus} />
-          )}
+          {bot.status === 'running' && <SseIndicator status={sseStatus} />}
           <span className="text-[10px] text-gray-600 mr-2 hidden sm:inline">
             Обновлено{' '}
             {lastRefresh.toLocaleTimeString('ru-RU', {
@@ -805,10 +725,14 @@ export function BotDetail() {
             {/* P&L */}
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex items-center gap-1.5">
-                <div className={`w-1.5 h-1.5 rounded-full ${Number(bot.total_pnl) >= 0 ? 'bg-brand-profit' : 'bg-brand-loss'} animate-pulse`} />
+                <div
+                  className={`w-1.5 h-1.5 rounded-full ${Number(bot.total_pnl) >= 0 ? 'bg-brand-profit' : 'bg-brand-loss'} animate-pulse`}
+                />
                 <span className="text-[10px] text-gray-500 uppercase tracking-wider">P&L</span>
               </div>
-              <span className={`text-lg font-bold font-mono ${Number(bot.total_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+              <span
+                className={`text-lg font-bold font-mono ${Number(bot.total_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
+              >
                 {formatPnl(bot.total_pnl)}
               </span>
               <span className="text-[10px] font-mono text-gray-600">| пик: {formatPnl(bot.max_pnl)}</span>
@@ -824,7 +748,9 @@ export function BotDetail() {
               </div>
               {openPosition ? (
                 <>
-                  <span className={`text-lg font-bold font-mono ${Number(openPosition.unrealized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+                  <span
+                    className={`text-lg font-bold font-mono ${Number(openPosition.unrealized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
+                  >
                     {formatPnl(openPosition.unrealized_pnl)}
                   </span>
                   <div className="flex gap-2 text-[10px] font-mono">
@@ -843,9 +769,7 @@ export function BotDetail() {
             <div className="flex items-center gap-3 min-w-0">
               <span className="text-[10px] text-gray-500 uppercase tracking-wider">Win</span>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-bold font-mono text-white">
-                  {Number(bot.win_rate).toFixed(1)}%
-                </span>
+                <span className="text-lg font-bold font-mono text-white">{Number(bot.win_rate).toFixed(1)}%</span>
                 <div className="w-16 h-1 rounded-full bg-white/5 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-brand-premium transition-all duration-500"
@@ -869,9 +793,7 @@ export function BotDetail() {
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-[10px] text-gray-500 uppercase tracking-wider">DD</span>
               <span className="text-lg font-bold font-mono text-brand-loss">
-                {Number(bot.max_drawdown) !== 0
-                  ? `-$${Math.abs(Number(bot.max_drawdown)).toFixed(2)}`
-                  : '$0.00'}
+                {Number(bot.max_drawdown) !== 0 ? `-$${Math.abs(Number(bot.max_drawdown)).toFixed(2)}` : '$0.00'}
               </span>
             </div>
 
@@ -889,15 +811,10 @@ export function BotDetail() {
       </Card>
 
       {/* ---- Risk/Reward Card ---- */}
-      <RiskRewardCard
-        openPosition={openPosition}
-        lastClosedPosition={lastClosedPosition}
-      />
+      <RiskRewardCard openPosition={openPosition} lastClosedPosition={lastClosedPosition} />
 
       {/* ---- Live Position Card ---- */}
-      {openPosition && (
-        <LivePositionCard position={openPosition} />
-      )}
+      {openPosition && <LivePositionCard position={openPosition} />}
 
       {/* ---- Tabs ---- */}
       <Tabs defaultValue="signals">
@@ -950,31 +867,17 @@ export function BotDetail() {
                 <TableBody>
                   {orders.map((o) => (
                     <TableRow key={o.id}>
-                      <TableCell className="text-xs whitespace-nowrap">
-                        {formatDatetime(o.created_at)}
-                      </TableCell>
-                      <TableCell className="font-mono text-white font-medium">
-                        {o.symbol}
-                      </TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">{formatDatetime(o.created_at)}</TableCell>
+                      <TableCell className="font-mono text-white font-medium">{o.symbol}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant={o.side === 'buy' ? 'profit' : 'loss'}
-                        >
+                        <Badge variant={o.side === 'buy' ? 'profit' : 'loss'}>
                           {o.side === 'buy' ? 'BUY' : 'SELL'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="uppercase text-xs">
-                        {o.type}
-                      </TableCell>
-                      <TableCell className="font-mono">
-                        {formatQty(o.quantity)}
-                      </TableCell>
-                      <TableCell className="font-mono">
-                        {formatPrice(o.price)}
-                      </TableCell>
-                      <TableCell className="font-mono">
-                        {formatPrice(o.filled_price)}
-                      </TableCell>
+                      <TableCell className="uppercase text-xs">{o.type}</TableCell>
+                      <TableCell className="font-mono">{formatQty(o.quantity)}</TableCell>
+                      <TableCell className="font-mono">{formatPrice(o.price)}</TableCell>
+                      <TableCell className="font-mono">{formatPrice(o.filled_price)}</TableCell>
                       <TableCell>
                         <OrderStatusBadge status={o.status} />
                       </TableCell>
@@ -1012,23 +915,17 @@ export function BotDetail() {
           <div className="flex items-center gap-2 mb-3">
             <Filter className="h-3.5 w-3.5 text-gray-400" />
             <span className="text-xs text-gray-400 mr-1">Фильтр:</span>
-            {(['all', 'info', 'warn', 'error', 'debug'] as const).map(
-              (level) => (
-                <button
-                  key={level}
-                  onClick={() => setLogFilter(level)}
-                  className={`text-[10px] font-medium px-2 py-0.5 rounded-md transition-colors ${
-                    logFilter === level
-                      ? 'bg-white/10 text-white'
-                      : 'text-gray-400 hover:text-gray-300'
-                  }`}
-                >
-                  {level === 'all'
-                    ? 'Все'
-                    : level.charAt(0).toUpperCase() + level.slice(1)}
-                </button>
-              ),
-            )}
+            {(['all', 'info', 'warn', 'error', 'debug'] as const).map((level) => (
+              <button
+                key={level}
+                onClick={() => setLogFilter(level)}
+                className={`text-[10px] font-medium px-2 py-0.5 rounded-md transition-colors ${
+                  logFilter === level ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-gray-300'
+                }`}
+              >
+                {level === 'all' ? 'Все' : level.charAt(0).toUpperCase() + level.slice(1)}
+              </button>
+            ))}
           </div>
 
           {logsLoading && logs.length === 0 ? (
@@ -1047,32 +944,19 @@ export function BotDetail() {
                 const isExpanded = expandedLogs.has(log.id);
 
                 return (
-                  <div
-                    key={log.id}
-                    className="rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3"
-                  >
+                  <div key={log.id} className="rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3">
                     <div className="flex items-start gap-3">
-                      <LevelIcon
-                        className={`h-4 w-4 mt-0.5 shrink-0 ${levelCfg.color}`}
-                      />
+                      <LevelIcon className={`h-4 w-4 mt-0.5 shrink-0 ${levelCfg.color}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-300 break-words">
-                          {log.message}
-                        </p>
-                        <p className="text-[10px] text-gray-600 mt-1">
-                          {formatDatetime(log.created_at)}
-                        </p>
+                        <p className="text-sm text-gray-300 break-words">{log.message}</p>
+                        <p className="text-[10px] text-gray-600 mt-1">{formatDatetime(log.created_at)}</p>
                       </div>
                       {log.details && (
                         <button
                           onClick={() => toggleLogExpand(log.id)}
                           className="text-gray-400 hover:text-gray-300 transition-colors shrink-0"
                         >
-                          {isExpanded ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
+                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </button>
                       )}
                     </div>
@@ -1099,9 +983,7 @@ export function BotDetail() {
                     disabled={logsLoading}
                     className="text-gray-400 hover:text-white"
                   >
-                    {logsLoading ? (
-                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                    ) : null}
+                    {logsLoading ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
                     Загрузить ещё
                   </Button>
                 </div>
@@ -1118,10 +1000,7 @@ export function BotDetail() {
 
 /** SSE connection status indicator */
 function SseIndicator({ status }: { status: SseStatus }) {
-  const config: Record<
-    SseStatus,
-    { color: string; pulse: boolean; label: string; Icon: typeof Wifi }
-  > = {
+  const config: Record<SseStatus, { color: string; pulse: boolean; label: string; Icon: typeof Wifi }> = {
     connected: {
       color: 'text-brand-profit',
       pulse: false,
@@ -1146,19 +1025,10 @@ function SseIndicator({ status }: { status: SseStatus }) {
   const IconComponent = c.Icon;
 
   return (
-    <div
-      className={`flex items-center gap-1.5 mr-2 ${c.color}`}
-      title={c.label}
-    >
-      <span
-        className={`h-1.5 w-1.5 rounded-full bg-current ${
-          c.pulse ? 'animate-pulse' : ''
-        }`}
-      />
+    <div className={`flex items-center gap-1.5 mr-2 ${c.color}`} title={c.label}>
+      <span className={`h-1.5 w-1.5 rounded-full bg-current ${c.pulse ? 'animate-pulse' : ''}`} />
       <IconComponent className="h-3.5 w-3.5" />
-      <span className="text-[10px] font-medium hidden sm:inline">
-        {c.label}
-      </span>
+      <span className="text-[10px] font-medium hidden sm:inline">{c.label}</span>
     </div>
   );
 }
@@ -1212,7 +1082,10 @@ function SignalsList({ signals }: { signals: TradeSignalResponse[] }) {
           </button>
         </div>
         <span className="text-[9px] text-gray-600">
-          Исполнено: <span className="text-brand-premium font-mono">{signals.filter((s) => s.was_executed).length}/{signals.length}</span>
+          Исполнено:{' '}
+          <span className="text-brand-premium font-mono">
+            {signals.filter((s) => s.was_executed).length}/{signals.length}
+          </span>
         </span>
       </div>
       <div className="space-y-1">
@@ -1231,15 +1104,14 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
   const entry = Number(snap.entry_price ?? 0);
   const sl = Number(snap.stop_loss ?? 0);
   const tp = Number(snap.take_profit ?? 0);
-  const rrRatio = Math.abs(sl - entry) > 0
-    ? Math.abs(tp - entry) / Math.abs(sl - entry)
-    : 0;
+  const rrRatio = Math.abs(sl - entry) > 0 ? Math.abs(tp - entry) / Math.abs(sl - entry) : 0;
 
   // SL/TP percentages from entry
   const slPct = entry > 0 ? ((sl - entry) / entry) * 100 : 0;
   const tpPct = entry > 0 ? ((tp - entry) / entry) * 100 : 0;
 
-  const knnColor = s.knn_class === 'BULL' ? 'text-blue-400' : s.knn_class === 'BEAR' ? 'text-brand-loss' : 'text-gray-500';
+  const knnColor =
+    s.knn_class === 'BULL' ? 'text-blue-400' : s.knn_class === 'BEAR' ? 'text-brand-loss' : 'text-gray-500';
 
   const Pill = ({ label, value, state }: { label: string; value: string; state: 'bull' | 'bear' | 'neutral' }) => {
     const colors = {
@@ -1281,7 +1153,9 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
       <div className="flex-1">
         <div className="flex items-center justify-between px-3 py-2.5 bg-white/[0.02]">
           <div className="flex items-center gap-3">
-            <span className={`font-bold text-xs min-w-[42px] ${s.direction === 'long' ? 'text-brand-profit' : 'text-brand-loss'}`}>
+            <span
+              className={`font-bold text-xs min-w-[42px] ${s.direction === 'long' ? 'text-brand-profit' : 'text-brand-loss'}`}
+            >
               {s.direction === 'long' ? 'LONG' : 'SHORT'}
             </span>
             <span className={`font-mono text-xs ${knnColor}`}>
@@ -1319,12 +1193,18 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
                 <div className="flex-1 px-2.5 py-2 bg-brand-loss/[0.03]">
                   <p className="text-[8px] text-gray-600 uppercase">SL</p>
                   <p className="font-mono text-brand-loss text-sm font-semibold">{formatPrice(sl)}</p>
-                  <p className="font-mono text-brand-loss/40 text-[9px]">{slPct >= 0 ? '+' : ''}{slPct.toFixed(2)}%</p>
+                  <p className="font-mono text-brand-loss/40 text-[9px]">
+                    {slPct >= 0 ? '+' : ''}
+                    {slPct.toFixed(2)}%
+                  </p>
                 </div>
                 <div className="flex-1 px-2.5 py-2 bg-brand-profit/[0.03]">
                   <p className="text-[8px] text-gray-600 uppercase">TP</p>
                   <p className="font-mono text-brand-profit text-sm font-semibold">{formatPrice(tp)}</p>
-                  <p className="font-mono text-brand-profit/40 text-[9px]">{tpPct >= 0 ? '+' : ''}{tpPct.toFixed(2)}%</p>
+                  <p className="font-mono text-brand-profit/40 text-[9px]">
+                    {tpPct >= 0 ? '+' : ''}
+                    {tpPct.toFixed(2)}%
+                  </p>
                 </div>
                 <div className="flex-1 px-2.5 py-2 bg-brand-premium/[0.02] rounded-r-md">
                   <p className="text-[8px] text-gray-600 uppercase">R/R</p>
@@ -1338,24 +1218,60 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
                 <div>
                   <p className="text-[8px] text-gray-700 uppercase tracking-wider mb-1">Тренд</p>
                   <div className="flex flex-wrap gap-1">
-                    {emaTrend != null && <Pill label="EMA" value={emaTrend === 'bull' ? '↑' : '↓'} state={emaTrend === 'bull' ? 'bull' : 'bear'} />}
-                    {ribbon != null && <Pill label="Ribbon" value={ribbon === 'bull' ? 'BULL' : 'BEAR'} state={ribbon === 'bull' ? 'bull' : 'bear'} />}
+                    {emaTrend != null && (
+                      <Pill
+                        label="EMA"
+                        value={emaTrend === 'bull' ? '↑' : '↓'}
+                        state={emaTrend === 'bull' ? 'bull' : 'bear'}
+                      />
+                    )}
+                    {ribbon != null && (
+                      <Pill
+                        label="Ribbon"
+                        value={ribbon === 'bull' ? 'BULL' : 'BEAR'}
+                        state={ribbon === 'bull' ? 'bull' : 'bear'}
+                      />
+                    )}
                     {adx != null && <Pill label="ADX" value={String(adx)} state={adx > 20 ? 'bull' : 'neutral'} />}
                   </div>
                 </div>
                 <div>
                   <p className="text-[8px] text-gray-700 uppercase tracking-wider mb-1">Осцилляторы</p>
                   <div className="flex flex-wrap gap-1">
-                    {rsiVal != null && <Pill label="RSI" value={String(rsiVal)} state={rsiVal < 30 ? 'bull' : rsiVal > 70 ? 'bear' : 'neutral'} />}
-                    {volSpike != null && <Pill label="Vol" value={volSpike ? `↑${volRatio != null ? ` ${volRatio}x` : ''}` : '-'} state={volSpike ? 'bull' : 'neutral'} />}
-                    {bbPos != null && <Pill label="BB" value={bbPos} state={bbPos === 'lower' ? 'bull' : bbPos === 'upper' ? 'bear' : 'neutral'} />}
+                    {rsiVal != null && (
+                      <Pill
+                        label="RSI"
+                        value={String(rsiVal)}
+                        state={rsiVal < 30 ? 'bull' : rsiVal > 70 ? 'bear' : 'neutral'}
+                      />
+                    )}
+                    {volSpike != null && (
+                      <Pill
+                        label="Vol"
+                        value={volSpike ? `↑${volRatio != null ? ` ${volRatio}x` : ''}` : '-'}
+                        state={volSpike ? 'bull' : 'neutral'}
+                      />
+                    )}
+                    {bbPos != null && (
+                      <Pill
+                        label="BB"
+                        value={bbPos}
+                        state={bbPos === 'lower' ? 'bull' : bbPos === 'upper' ? 'bear' : 'neutral'}
+                      />
+                    )}
                   </div>
                 </div>
                 {(vwapPos != null || cvd != null || smc != null) && (
                   <div>
                     <p className="text-[8px] text-gray-700 uppercase tracking-wider mb-1">Order Flow</p>
                     <div className="flex flex-wrap gap-1">
-                      {vwapPos != null && <Pill label="VWAP" value={vwapPos === 'above' ? '↑' : '↓'} state={vwapPos === 'above' ? 'bull' : 'bear'} />}
+                      {vwapPos != null && (
+                        <Pill
+                          label="VWAP"
+                          value={vwapPos === 'above' ? '↑' : '↓'}
+                          state={vwapPos === 'above' ? 'bull' : 'bear'}
+                        />
+                      )}
                       {cvd != null && <Pill label="CVD" value={cvd} state={cvd === 'bull' ? 'bull' : 'bear'} />}
                       {smc != null && <Pill label="SMC" value={smc} state={smc === 'bull' ? 'bull' : 'bear'} />}
                     </div>
@@ -1365,19 +1281,31 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
             )}
 
             <div className="flex items-center gap-2.5 mt-2 pt-1.5 border-t border-white/[0.03] text-[9px] text-gray-600">
-              <span>KNN: <span className={knnColor}>{s.knn_class} {Number(s.knn_confidence).toFixed(1)}%</span></span>
+              <span>
+                KNN:{' '}
+                <span className={knnColor}>
+                  {s.knn_class} {Number(s.knn_confidence).toFixed(1)}%
+                </span>
+              </span>
               <span className="text-white/5">|</span>
-              <span>Confluence: <span className="text-white font-mono">{Number(s.signal_strength).toFixed(2)}</span><span className="text-gray-700">/6</span></span>
+              <span>
+                Confluence: <span className="text-white font-mono">{Number(s.signal_strength).toFixed(2)}</span>
+                <span className="text-gray-700">/6</span>
+              </span>
               {signalType && (
                 <>
                   <span className="text-white/5">|</span>
-                  <span>Тип: <span className="text-white/40">{signalType}</span></span>
+                  <span>
+                    Тип: <span className="text-white/40">{signalType}</span>
+                  </span>
                 </>
               )}
               {atrVal != null && (
                 <>
                   <span className="text-white/5">|</span>
-                  <span>ATR: <span className="text-white/40 font-mono">{atrVal.toFixed(4)}</span></span>
+                  <span>
+                    ATR: <span className="text-white/40 font-mono">{atrVal.toFixed(4)}</span>
+                  </span>
                 </>
               )}
             </div>
@@ -1396,13 +1324,13 @@ function PositionExpandableCard({ position: p, leverage }: { position: PositionR
   const pnlColor = pnlValue >= 0 ? 'text-brand-profit' : 'text-brand-loss';
   const entryPrice = Number(p.entry_price);
   const currentPrice = Number(p.current_price ?? entryPrice);
-  const qty = Number(p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) ? p.original_quantity : p.quantity);
+  const qty = Number(
+    p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) ? p.original_quantity : p.quantity,
+  );
   const entryAmount = entryPrice * qty;
 
   // Change percentage
-  const changePct = entryPrice !== 0
-    ? ((currentPrice - entryPrice) / entryPrice) * 100
-    : 0;
+  const changePct = entryPrice !== 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : 0;
   const roiPct = p.side === 'short' ? -changePct : changePct;
 
   // Duration
@@ -1418,27 +1346,20 @@ function PositionExpandableCard({ position: p, leverage }: { position: PositionR
   return (
     <Card
       className={`overflow-hidden cursor-pointer transition-all hover:border-white/10 ${
-        isClosed
-          ? 'border-white/[0.04] bg-white/[0.01]'
-          : 'border-brand-profit/[0.08] bg-white/[0.02]'
+        isClosed ? 'border-white/[0.04] bg-white/[0.01]' : 'border-brand-profit/[0.08] bg-white/[0.02]'
       } ${expanded ? 'ring-1 ring-brand-premium/20' : ''}`}
       onClick={() => setExpanded(!expanded)}
     >
       {/* Top accent for open positions */}
-      {!isClosed && (
-        <div className="h-[2px] bg-gradient-to-r from-brand-profit to-transparent" />
-      )}
+      {!isClosed && <div className="h-[2px] bg-gradient-to-r from-brand-profit to-transparent" />}
 
       {/* Summary row */}
       <div className="flex items-center justify-between px-4 py-2.5">
         <div className="flex items-center gap-2.5">
-          <Badge variant={p.side === 'long' ? 'profit' : 'loss'}
-            className={isClosed ? 'opacity-60' : ''}>
+          <Badge variant={p.side === 'long' ? 'profit' : 'loss'} className={isClosed ? 'opacity-60' : ''}>
             {p.side === 'long' ? 'LONG' : 'SHORT'}
           </Badge>
-          <span className={`font-mono font-semibold ${isClosed ? 'text-white/60' : 'text-white'}`}>
-            {p.symbol}
-          </span>
+          <span className={`font-mono font-semibold ${isClosed ? 'text-white/60' : 'text-white'}`}>{p.symbol}</span>
           <span className={`text-[10px] font-mono ${isClosed ? 'text-gray-600' : 'text-gray-500'}`}>
             {formatQty(qty)}
           </span>
@@ -1449,10 +1370,10 @@ function PositionExpandableCard({ position: p, leverage }: { position: PositionR
         </div>
         <div className="flex items-center gap-2.5">
           <div className="text-right">
-            <span className={`font-mono font-bold text-[15px] ${pnlColor}`}>
-              {formatPnl(pnlValue)}
-            </span>
-            <span className={`text-[9px] font-mono ml-1.5 ${roiPct >= 0 ? 'text-brand-profit/40' : 'text-brand-loss/40'}`}>
+            <span className={`font-mono font-bold text-[15px] ${pnlColor}`}>{formatPnl(pnlValue)}</span>
+            <span
+              className={`text-[9px] font-mono ml-1.5 ${roiPct >= 0 ? 'text-brand-profit/40' : 'text-brand-loss/40'}`}
+            >
               {formatPct(roiPct)}
             </span>
           </div>
@@ -1480,7 +1401,9 @@ function PositionExpandableCard({ position: p, leverage }: { position: PositionR
             </div>
             <div className="flex-1 px-2.5 py-2 bg-white/[0.02]">
               <p className="text-[8px] text-gray-600 uppercase tracking-wider">{isClosed ? 'Выход' : 'Текущая'}</p>
-              <p className={`font-mono text-sm font-semibold ${pnlValue >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+              <p
+                className={`font-mono text-sm font-semibold ${pnlValue >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
+              >
                 {formatPrice(currentPrice)}
               </p>
             </div>
@@ -1513,16 +1436,22 @@ function PositionExpandableCard({ position: p, leverage }: { position: PositionR
           <div className="flex gap-[2px] mb-3">
             <div className="flex-1 px-2.5 py-2 bg-white/[0.02] rounded-l-md">
               <p className="text-[8px] text-gray-600 uppercase tracking-wider">Нереализ.</p>
-              <p className={`font-mono text-sm font-bold ${Number(p.unrealized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+              <p
+                className={`font-mono text-sm font-bold ${Number(p.unrealized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
+              >
                 {isClosed ? '—' : formatPnl(p.unrealized_pnl)}
               </p>
             </div>
             <div className="flex-1 px-2.5 py-2 bg-white/[0.02]">
               <p className="text-[8px] text-gray-600 uppercase tracking-wider">Реализ.</p>
-              <p className={`font-mono text-sm font-bold ${(Number(p.realized_pnl ?? 0)) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+              <p
+                className={`font-mono text-sm font-bold ${Number(p.realized_pnl ?? 0) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
+              >
                 {p.realized_pnl != null && Number(p.realized_pnl) !== 0
                   ? formatPnl(p.realized_pnl)
-                  : isClosed ? formatPnl(0) : '—'}
+                  : isClosed
+                    ? formatPnl(0)
+                    : '—'}
               </p>
               {!isClosed && p.tp1_hit && p.realized_pnl != null && Number(p.realized_pnl) !== 0 && (
                 <p className="text-[8px] text-brand-profit/40">от TP1</p>
@@ -1542,25 +1471,37 @@ function PositionExpandableCard({ position: p, leverage }: { position: PositionR
           <div className="flex items-center gap-3 text-[10px] text-gray-600">
             {p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) && (
               <>
-                <span>Остаток: <span className="text-white/40 font-mono">{formatQty(p.quantity)}</span></span>
+                <span>
+                  Остаток: <span className="text-white/40 font-mono">{formatQty(p.quantity)}</span>
+                </span>
                 <span className="text-white/5">|</span>
               </>
             )}
             {p.trailing_stop && (
               <>
-                <span>Trail: <span className="text-white/40 font-mono">{formatPrice(p.trailing_stop)}</span></span>
+                <span>
+                  Trail: <span className="text-white/40 font-mono">{formatPrice(p.trailing_stop)}</span>
+                </span>
                 <span className="text-white/5">|</span>
               </>
             )}
-            <span>Макс: <span className="text-white/40 font-mono">{p.max_price ? formatPrice(p.max_price) : '—'}</span></span>
+            <span>
+              Макс: <span className="text-white/40 font-mono">{p.max_price ? formatPrice(p.max_price) : '—'}</span>
+            </span>
             <span className="text-white/5">|</span>
-            <span>Мин: <span className="text-white/40 font-mono">{p.min_price ? formatPrice(p.min_price) : '—'}</span></span>
+            <span>
+              Мин: <span className="text-white/40 font-mono">{p.min_price ? formatPrice(p.min_price) : '—'}</span>
+            </span>
             <span className="text-white/5">|</span>
-            <span>Открыта: <span className="text-white/40">{formatDatetime(p.opened_at)}</span></span>
+            <span>
+              Открыта: <span className="text-white/40">{formatDatetime(p.opened_at)}</span>
+            </span>
             {p.closed_at && (
               <>
                 <span className="text-white/5">|</span>
-                <span>Закрыта: <span className="text-white/40">{formatDatetime(p.closed_at)}</span></span>
+                <span>
+                  Закрыта: <span className="text-white/40">{formatDatetime(p.closed_at)}</span>
+                </span>
               </>
             )}
             <span className="text-white/5">|</span>
@@ -1578,10 +1519,7 @@ function SineWaveFill({ fillLeft, fillWidth, isProfit }: { fillLeft: number; fil
   if (fillWidth < 0.5) return null;
 
   return (
-    <div
-      className="absolute inset-y-0 overflow-hidden z-[2]"
-      style={{ left: `${fillLeft}%`, width: `${fillWidth}%` }}
-    >
+    <div className="absolute inset-y-0 overflow-hidden z-[2]" style={{ left: `${fillLeft}%`, width: `${fillWidth}%` }}>
       {/* Base fill */}
       <div className="absolute inset-0" style={{ background: `${color}10` }} />
       {/* Wave layer 1 */}
@@ -1639,20 +1577,12 @@ function RiskRewardCard({
 
   // Determine active TP for R/R ratio
   const hasMultiTp = tp1Price != null;
-  const activeTpPrice = hasMultiTp
-    ? (tp1Hit ? (tp2Price ?? tp1Price!) : tp1Price!)
-    : singleTp;
+  const activeTpPrice = hasMultiTp ? (tp1Hit ? (tp2Price ?? tp1Price!) : tp1Price!) : singleTp;
 
   // Calculate dollar amounts based on side
-  const riskPerUnit = side === 'long'
-    ? entryPrice - stopLoss
-    : stopLoss - entryPrice;
-  const rewardTp2PerUnit = tp2Price != null
-    ? (side === 'long' ? tp2Price - entryPrice : entryPrice - tp2Price)
-    : null;
-  const rewardActivePerUnit = side === 'long'
-    ? activeTpPrice - entryPrice
-    : entryPrice - activeTpPrice;
+  const riskPerUnit = side === 'long' ? entryPrice - stopLoss : stopLoss - entryPrice;
+  const rewardTp2PerUnit = tp2Price != null ? (side === 'long' ? tp2Price - entryPrice : entryPrice - tp2Price) : null;
+  const rewardActivePerUnit = side === 'long' ? activeTpPrice - entryPrice : entryPrice - activeTpPrice;
 
   const risk = Math.abs(riskPerUnit * quantity);
   const rewardTp2 = rewardTp2PerUnit != null ? Math.abs(rewardTp2PerUnit * quantity) : null;
@@ -1664,12 +1594,8 @@ function RiskRewardCard({
   const rrRatio = rewardActive / risk;
 
   // Active TP label and price for display
-  const activeTpLabel = hasMultiTp
-    ? (tp1Hit ? 'TP2' : 'TP1')
-    : 'TP';
-  const activeTpDisplayPrice = hasMultiTp
-    ? (tp1Hit ? tp2Price ?? tp1Price! : tp1Price!)
-    : singleTp;
+  const activeTpLabel = hasMultiTp ? (tp1Hit ? 'TP2' : 'TP1') : 'TP';
+  const activeTpDisplayPrice = hasMultiTp ? (tp1Hit ? (tp2Price ?? tp1Price!) : tp1Price!) : singleTp;
 
   return (
     <Card className="border-brand-premium/[0.06] bg-white/[0.02]">
@@ -1695,7 +1621,9 @@ function RiskRewardCard({
               <div className="text-[8px] text-gray-500 uppercase">Цель</div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-base font-bold font-mono text-brand-profit">+${rewardActive.toFixed(2)}</span>
-                <span className="text-[9px] font-mono text-brand-profit/30">{activeTpLabel} {formatPrice(activeTpDisplayPrice)}</span>
+                <span className="text-[9px] font-mono text-brand-profit/30">
+                  {activeTpLabel} {formatPrice(activeTpDisplayPrice)}
+                </span>
               </div>
             </div>
           </div>
@@ -1757,45 +1685,31 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
   const tp1Price = position.tp1_price != null ? Number(position.tp1_price) : null;
   const tp2Price = position.tp2_price != null ? Number(position.tp2_price) : null;
   // Эффективный TP для бара: если take_profit=0 (Partial mode), используем tp1 или tp2
-  const takeProfit = rawTp > 0 ? rawTp
-    : position.tp1_hit ? (tp2Price ?? tp1Price ?? entryPrice)
-    : (tp1Price ?? tp2Price ?? entryPrice);
+  const takeProfit =
+    rawTp > 0 ? rawTp : position.tp1_hit ? (tp2Price ?? tp1Price ?? entryPrice) : (tp1Price ?? tp2Price ?? entryPrice);
   // Какой TP сейчас активен
-  const activeTpLabel = !tp1Price ? 'TP'
-    : position.tp1_hit ? 'TP2' : 'TP1';
+  const activeTpLabel = !tp1Price ? 'TP' : position.tp1_hit ? 'TP2' : 'TP1';
   const unrealizedPnl = Number(position.unrealized_pnl);
   const maxPnl = Number(position.max_pnl);
   const minPnl = Number(position.min_pnl);
   const quantity = Number(position.quantity);
-  const trailingStop = position.trailing_stop
-    ? Number(position.trailing_stop)
-    : null;
+  const trailingStop = position.trailing_stop ? Number(position.trailing_stop) : null;
 
   // Change percentage
-  const changePct =
-    entryPrice !== 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : 0;
+  const changePct = entryPrice !== 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : 0;
   // For shorts, invert the percentage for ROI display
   const roiPct = position.side === 'short' ? -changePct : changePct;
 
   // Visual SL — Entry — TP bar calculation
   // Map the range [SL, TP] to [0%, 100%]
   const rangeTotal = takeProfit - stopLoss;
-  const entryPct =
-    rangeTotal !== 0
-      ? ((entryPrice - stopLoss) / rangeTotal) * 100
-      : 50;
-  const currentPct =
-    rangeTotal !== 0
-      ? ((currentPrice - stopLoss) / rangeTotal) * 100
-      : 50;
+  const entryPct = rangeTotal !== 0 ? ((entryPrice - stopLoss) / rangeTotal) * 100 : 50;
+  const currentPct = rangeTotal !== 0 ? ((currentPrice - stopLoss) / rangeTotal) * 100 : 50;
   // TP1 position on bar (if exists and different from TP2)
-  const tp1Pct = tp1Price && rangeTotal !== 0
-    ? ((tp1Price - stopLoss) / rangeTotal) * 100
-    : null;
+  const tp1Pct = tp1Price && rangeTotal !== 0 ? ((tp1Price - stopLoss) / rangeTotal) * 100 : null;
 
   // Clamp for visual display
-  const clamp = (v: number, min: number, max: number) =>
-    Math.max(min, Math.min(max, v));
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
   const entryPctClamped = clamp(entryPct, 2, 98);
   const currentPctClamped = clamp(currentPct, 0, 100);
 
@@ -1805,7 +1719,9 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
     <Card className="border-white/5 bg-white/[0.02] overflow-hidden">
       <CardContent className="p-0">
         {/* Top accent */}
-        <div className={`h-[2px] ${isProfit ? 'bg-gradient-to-r from-brand-profit via-brand-profit/60 to-transparent' : 'bg-gradient-to-r from-brand-loss via-brand-loss/60 to-transparent'}`} />
+        <div
+          className={`h-[2px] ${isProfit ? 'bg-gradient-to-r from-brand-profit via-brand-profit/60 to-transparent' : 'bg-gradient-to-r from-brand-loss via-brand-loss/60 to-transparent'}`}
+        />
 
         <div className="px-5 py-3">
           {/* Row 1: Header strip */}
@@ -1838,7 +1754,9 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
             <div className="w-px h-4 bg-white/5" />
             <div className="flex items-center gap-2">
               <span className="text-gray-500 uppercase text-[9px] tracking-wider">Тек.</span>
-              <span className={`font-mono ${isProfit ? 'text-brand-profit' : 'text-brand-loss'}`}>{formatPrice(currentPrice)}</span>
+              <span className={`font-mono ${isProfit ? 'text-brand-profit' : 'text-brand-loss'}`}>
+                {formatPrice(currentPrice)}
+              </span>
             </div>
             <div className="w-px h-4 bg-white/5" />
             <div className="flex items-center gap-2">
@@ -1853,7 +1771,9 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
             <div className="w-px h-4 bg-white/5" />
             <div className="flex items-center gap-2">
               <span className="text-gray-500 uppercase text-[9px] tracking-wider">Trail</span>
-              <span className="font-mono text-white/60">{trailingStop !== null ? formatPrice(trailingStop) : '--'}</span>
+              <span className="font-mono text-white/60">
+                {trailingStop !== null ? formatPrice(trailingStop) : '--'}
+              </span>
             </div>
             <div className="flex-1" />
             <div className="flex items-center gap-2 text-[10px] font-mono">
@@ -1900,14 +1820,18 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
                 className="absolute top-0 bottom-0 w-0.5 z-10 transition-all duration-300"
                 style={{ left: `${currentPctClamped}%`, backgroundColor: isProfit ? '#00E676' : '#FF1744' }}
               >
-                <div className={`absolute -top-0.5 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full ${isProfit ? 'bg-brand-profit animate-[heartbeat-profit_1.5s_ease-in-out_infinite]' : 'bg-brand-loss animate-[heartbeat-loss_1.5s_ease-in-out_infinite]'}`} />
+                <div
+                  className={`absolute -top-0.5 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full ${isProfit ? 'bg-brand-profit animate-[heartbeat-profit_1.5s_ease-in-out_infinite]' : 'bg-brand-loss animate-[heartbeat-loss_1.5s_ease-in-out_infinite]'}`}
+                />
               </div>
 
               {/* Labels on the bar */}
               <div className="absolute inset-0 flex items-center justify-between px-3 z-20 pointer-events-none">
                 <span className="text-[9px] font-mono text-brand-loss/60">SL {formatPrice(stopLoss)}</span>
                 <span className="text-[9px] font-mono text-white/25">{formatPrice(entryPrice)}</span>
-                <span className="text-[9px] font-mono text-brand-profit/60">{activeTpLabel} {formatPrice(takeProfit)}</span>
+                <span className="text-[9px] font-mono text-brand-profit/60">
+                  {activeTpLabel} {formatPrice(takeProfit)}
+                </span>
               </div>
             </div>
           </div>
@@ -1917,7 +1841,9 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
             <div className="flex items-center gap-4 mt-2 text-[10px]">
               <div className="flex items-center gap-1.5">
                 <span className="text-gray-500">TP1:</span>
-                <span className={`font-mono ${position.tp1_hit ? 'text-brand-profit/50 line-through' : 'text-brand-accent'}`}>
+                <span
+                  className={`font-mono ${position.tp1_hit ? 'text-brand-profit/50 line-through' : 'text-brand-accent'}`}
+                >
                   {formatPrice(tp1Price)}
                 </span>
                 {position.tp1_hit && <span className="text-brand-profit/40">исполнен</span>}
@@ -1938,7 +1864,9 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
                   <div className="w-px h-3 bg-white/5" />
                   <div className="flex items-center gap-1.5">
                     <span className="text-gray-500">Реализ.:</span>
-                    <span className={`font-mono ${Number(position.realized_pnl) >= 0 ? 'text-brand-profit/60' : 'text-brand-loss/60'}`}>
+                    <span
+                      className={`font-mono ${Number(position.realized_pnl) >= 0 ? 'text-brand-profit/60' : 'text-brand-loss/60'}`}
+                    >
                       {formatPnl(position.realized_pnl)}
                     </span>
                   </div>
@@ -1952,20 +1880,14 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
   );
 }
 
-function OrderStatusBadge({
-  status,
-}: {
-  status: OrderResponse['status'];
-}) {
-  const config: Record<
-    OrderResponse['status'],
-    { variant: 'profit' | 'default' | 'loss' | 'premium'; label: string }
-  > = {
-    open: { variant: 'premium', label: 'Открыт' },
-    filled: { variant: 'profit', label: 'Исполнен' },
-    cancelled: { variant: 'default', label: 'Отменён' },
-    error: { variant: 'loss', label: 'Ошибка' },
-  };
+function OrderStatusBadge({ status }: { status: OrderResponse['status'] }) {
+  const config: Record<OrderResponse['status'], { variant: 'profit' | 'default' | 'loss' | 'premium'; label: string }> =
+    {
+      open: { variant: 'premium', label: 'Открыт' },
+      filled: { variant: 'profit', label: 'Исполнен' },
+      cancelled: { variant: 'default', label: 'Отменён' },
+      error: { variant: 'loss', label: 'Ошибка' },
+    };
   const c = config[status];
   return <Badge variant={c.variant}>{c.label}</Badge>;
 }
@@ -1977,20 +1899,11 @@ interface EquityDataPoint {
   value: number;
 }
 
-function EquityCurveTab({
-  positions,
-  loading,
-}: {
-  positions: PositionResponse[];
-  loading: boolean;
-}) {
+function EquityCurveTab({ positions, loading }: { positions: PositionResponse[]; loading: boolean }) {
   const equityData = useMemo<EquityDataPoint[]>(() => {
     const closed = positions
       .filter((p) => p.status === 'closed' && p.closed_at && p.realized_pnl != null)
-      .sort(
-        (a, b) =>
-          new Date(a.closed_at!).getTime() - new Date(b.closed_at!).getTime(),
-      );
+      .sort((a, b) => new Date(a.closed_at!).getTime() - new Date(b.closed_at!).getTime());
 
     if (closed.length === 0) return [];
 
@@ -2047,11 +1960,7 @@ function EquityCurveTab({
             ) : (
               <TrendingDown className="h-4 w-4 text-brand-loss" />
             )}
-            <span
-              className={`font-mono text-lg font-semibold ${
-                isPositive ? 'text-brand-profit' : 'text-brand-loss'
-              }`}
-            >
+            <span className={`font-mono text-lg font-semibold ${isPositive ? 'text-brand-profit' : 'text-brand-loss'}`}>
               {formatPnl(totalPnl)}
             </span>
             <span className="text-xs text-gray-500">USDT</span>
@@ -2066,18 +1975,12 @@ function EquityCurveTab({
           <div className="flex items-center gap-1.5">
             <Hash className="h-3 w-3 text-gray-500" />
             <span className="text-xs text-gray-500">Сделок:</span>
-            <span className="text-xs font-mono text-gray-300">
-              {tradeCount}
-            </span>
+            <span className="text-xs font-mono text-gray-300">{tradeCount}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <BarChart3 className="h-3 w-3 text-gray-500" />
             <span className="text-xs text-gray-500">Средняя:</span>
-            <span
-              className={`text-xs font-mono ${
-                avgPnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'
-              }`}
-            >
+            <span className={`text-xs font-mono ${avgPnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
               {formatPnl(avgPnl)}
             </span>
           </div>
@@ -2090,18 +1993,17 @@ function EquityCurveTab({
 function BotEquityChart({ data }: { data: EquityDataPoint[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Area'> | null>(null);
 
   const lastValue = data.length > 0 ? data[data.length - 1].value : 0;
   const isPositive = lastValue >= 0;
 
-  const initChart = useCallback(() => {
-    if (!containerRef.current || data.length === 0) return;
-
-    // Cleanup previous chart
-    if (chartRef.current) {
-      chartRef.current.remove();
-      chartRef.current = null;
-    }
+  // Chart создаётся ОДИН раз на mount. Раньше пересоздавался на каждом polling
+  // (каждые 10с) из-за зависимости initChart от data → cleanup делал chart.remove(),
+  // а initChart затем повторно вызывал .remove() на уже disposed chart →
+  // lightweight-charts кидал "Object is disposed" → ErrorBoundary показывал 500.
+  useEffect(() => {
+    if (!containerRef.current) return;
 
     const chart = createChart(containerRef.current, {
       layout: {
@@ -2114,50 +2016,31 @@ function BotEquityChart({ data }: { data: EquityDataPoint[] }) {
         vertLines: { color: 'rgba(255,255,255,0.03)' },
         horzLines: { color: 'rgba(255,255,255,0.03)' },
       },
-      rightPriceScale: {
-        borderColor: 'rgba(255,255,255,0.06)',
-      },
+      rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
       timeScale: {
         borderColor: 'rgba(255,255,255,0.06)',
         timeVisible: true,
         secondsVisible: false,
       },
       crosshair: {
-        vertLine: {
-          color: 'rgba(255,255,255,0.1)',
-          labelBackgroundColor: '#1a1a2e',
-        },
-        horzLine: {
-          color: 'rgba(255,255,255,0.1)',
-          labelBackgroundColor: '#1a1a2e',
-        },
+        vertLine: { color: 'rgba(255,255,255,0.1)', labelBackgroundColor: '#1a1a2e' },
+        horzLine: { color: 'rgba(255,255,255,0.1)', labelBackgroundColor: '#1a1a2e' },
       },
       height: 350,
     });
     chartRef.current = chart;
 
-    // Line color based on final PnL sign
-    const lineColor = isPositive ? '#00E676' : '#FF1744';
-    const topColor = isPositive
-      ? 'rgba(0,230,118,0.12)'
-      : 'rgba(255,23,68,0.12)';
-    const bottomColor = isPositive
-      ? 'rgba(0,230,118,0.0)'
-      : 'rgba(255,23,68,0.0)';
-
     const areaSeries = chart.addSeries(AreaSeries, {
-      lineColor,
-      topColor,
-      bottomColor,
+      lineColor: '#00E676',
+      topColor: 'rgba(0,230,118,0.12)',
+      bottomColor: 'rgba(0,230,118,0.0)',
       lineWidth: 2,
       crosshairMarkerRadius: 4,
-      crosshairMarkerBorderColor: lineColor,
+      crosshairMarkerBorderColor: '#00E676',
       crosshairMarkerBackgroundColor: '#0d0d1a',
     });
+    seriesRef.current = areaSeries;
 
-    areaSeries.setData(data);
-
-    // Zero baseline
     areaSeries.createPriceLine({
       price: 0,
       color: 'rgba(255,255,255,0.08)',
@@ -2166,9 +2049,6 @@ function BotEquityChart({ data }: { data: EquityDataPoint[] }) {
       axisLabelVisible: false,
     });
 
-    chart.timeScale().fitContent();
-
-    // Resize observer
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         chart.applyOptions({ width: entry.contentRect.width });
@@ -2179,13 +2059,32 @@ function BotEquityChart({ data }: { data: EquityDataPoint[] }) {
     return () => {
       ro.disconnect();
       chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
     };
-  }, [data, isPositive]);
+  }, []);
 
+  // Обновление данных без пересоздания chart
   useEffect(() => {
-    const cleanup = initChart();
-    return () => cleanup?.();
-  }, [initChart]);
+    const series = seriesRef.current;
+    const chart = chartRef.current;
+    if (!series || !chart || data.length === 0) return;
+    series.setData(data);
+    chart.timeScale().fitContent();
+  }, [data]);
+
+  // Смена цвета при переходе PnL через ноль
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series) return;
+    const lineColor = isPositive ? '#00E676' : '#FF1744';
+    series.applyOptions({
+      lineColor,
+      topColor: isPositive ? 'rgba(0,230,118,0.12)' : 'rgba(255,23,68,0.12)',
+      bottomColor: isPositive ? 'rgba(0,230,118,0.0)' : 'rgba(255,23,68,0.0)',
+      crosshairMarkerBorderColor: lineColor,
+    });
+  }, [isPositive]);
 
   return <div ref={containerRef} className="w-full" style={{ minHeight: 350 }} />;
 }

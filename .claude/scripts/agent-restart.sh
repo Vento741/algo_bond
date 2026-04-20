@@ -1,5 +1,8 @@
 #!/bin/bash
-# agent-restart.sh - Graceful restart Sentinel (context rotation, каждые 12ч)
+# agent-restart.sh - Graceful restart Sentinel (context rotation, каждые 12ч через cron)
+#
+# Защита: НЕ рестартить если status=stopped/crashed. Раньше cron тарашил
+# Sentinel каждые 12 часов независимо от того, остановлен ли он вручную.
 
 set -euo pipefail
 
@@ -11,6 +14,16 @@ fi
 
 SESSION_NAME="algobond-agent"
 INIT_SCRIPT="/var/www/dev_james_usr/data/www/dev-james.bond/algo_trade/.claude/scripts/agent-init.sh"
+
+redis() {
+  docker exec algobond-redis redis-cli "$@" 2>/dev/null
+}
+
+STATUS=$(redis HGET algobond:agent:status status || echo "")
+if [[ "$STATUS" == "stopped" || "$STATUS" == "crashed" ]]; then
+  echo "[restart] $(date -u +%Y-%m-%dT%H:%M:%SZ) Status=$STATUS - пропускаем cron-рестарт"
+  exit 0
+fi
 
 echo "[restart] $(date -u +%Y-%m-%dT%H:%M:%SZ) Starting graceful restart..."
 
@@ -28,7 +41,9 @@ else
   echo "[restart] No active session found"
 fi
 
-docker exec algobond-redis redis-cli HSET algobond:agent:status status restarting > /dev/null 2>&1 || true
+redis HSET algobond:agent:status status restarting > /dev/null || true
+# Сброс circuit breaker: плановый рестарт - не крэш
+redis DEL algobond:agent:restart_count algobond:agent:restart_window_start > /dev/null || true
 
 echo "[restart] Starting fresh session..."
 sleep 5
