@@ -251,6 +251,69 @@ STRATEGIES = [
             },
         },
     },
+    {
+        "name": "SMC Sweep Scalper",
+        "slug": "smc-sweep-scalper",
+        "engine_type": "smc_sweep_scalper",
+        "description": (
+            "Скальпер на liquidity sweeps с SMC-подтверждением (BOS / FVG / Order Block). "
+            "После ложного пробоя локального экстремума ищет структурный разворот в окне "
+            "подтверждения, SL у свип-экстремума, multi-TP по R-multiple. "
+            "Таргет частоты 5-10 сигналов/день на TF=5m, рассчитан на волатильные альткойны."
+        ),
+        "is_public": True,
+        "version": "1.0.0",
+        "default_config": {
+            "sweep": {"lookback": 20},
+            "confirmation": {
+                "window": 3,
+                "fvg_min_size": 0.3,
+                "bos_pivot": 5,
+                "use_bos": True,
+                "use_fvg": True,
+                "use_ob": True,
+            },
+            "trend": {"ema_period": 200},
+            "filters": {
+                "trend_filter_enabled": False,
+                "rsi_filter_enabled": True,
+                "rsi_period": 14,
+                "volume_filter_enabled": True,
+                "volume_sma_period": 20,
+                "volume_min_ratio": 1.2,
+            },
+            "entry": {
+                "min_confluence": 1.5,
+                "cooldown_bars": 3,
+            },
+            "risk": {
+                "atr_period": 14,
+                "sl_atr_buffer": 0.3,
+                "sl_max_pct": 0.015,
+                "tp1_r_mult": 1.0,
+                "tp2_r_mult": 2.0,
+                "tp1_close_pct": 0.5,
+                "tp2_close_pct": 0.3,
+                "trailing_atr_mult": 1.5,
+            },
+            "backtest": {
+                "initial_capital": 100,
+                "currency": "USDT",
+                "order_size": 75,
+                "order_size_type": "percent_equity",
+                "pyramiding": 0,
+                "commission": 0.06,
+                "slippage": 0.03,
+                "margin_long": 100,
+                "margin_short": 100,
+            },
+            "live": {
+                "order_size": 30,
+                "leverage": 5,
+                "on_reverse": "close",
+            },
+        },
+    },
 ]
 
 
