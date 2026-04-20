@@ -629,24 +629,24 @@ export function BotDetail() {
   const status = STATUS_CONFIG[bot.status];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* ---- Header ---- */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate('/bots')}
-            className="text-gray-400 hover:text-white shrink-0"
+            className="h-10 w-10 text-gray-400 hover:text-white shrink-0"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-brand-premium/10 shrink-0">
             <Bot className="h-5 w-5 text-brand-premium" />
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold text-white truncate">{botName}</h1>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <h1 className="text-base sm:text-xl font-bold text-white truncate max-w-full">{botName}</h1>
               <Badge variant={status.variant} className="flex items-center gap-1.5 shrink-0">
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${status.dot} ${
@@ -661,11 +661,13 @@ export function BotDetail() {
                 {MODE_LABELS[bot.mode]}
               </span>
             </div>
-            <p className="text-xs text-gray-400 mt-1">Создан {formatDatetime(bot.created_at)}</p>
+            <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 sm:mt-1 truncate">
+              Создан {formatDatetime(bot.created_at)}
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
           {/* SSE Connection indicator */}
           {bot.status === 'running' && <SseIndicator status={sseStatus} />}
           <span className="text-[10px] text-gray-600 mr-2 hidden sm:inline">
@@ -679,7 +681,7 @@ export function BotDetail() {
             variant="ghost"
             size="icon"
             onClick={() => refreshAll(true)}
-            className="text-gray-400 hover:text-white"
+            className="h-10 w-10 shrink-0 text-gray-400 hover:text-white"
             title="Обновить"
           >
             <RefreshCw className="h-4 w-4" />
@@ -690,7 +692,7 @@ export function BotDetail() {
               size="sm"
               onClick={toggleBot}
               disabled={toggling}
-              className="border-brand-loss/30 text-brand-loss hover:bg-brand-loss/10 hover:text-brand-loss"
+              className="h-10 sm:h-9 flex-1 sm:flex-none border-brand-loss/30 text-brand-loss hover:bg-brand-loss/10 hover:text-brand-loss"
             >
               {toggling ? (
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -705,7 +707,7 @@ export function BotDetail() {
               size="sm"
               onClick={toggleBot}
               disabled={toggling}
-              className="border-brand-profit/30 text-brand-profit hover:bg-brand-profit/10 hover:text-brand-profit"
+              className="h-10 sm:h-9 flex-1 sm:flex-none border-brand-profit/30 text-brand-profit hover:bg-brand-profit/10 hover:text-brand-profit"
             >
               {toggling ? (
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -720,57 +722,64 @@ export function BotDetail() {
 
       {/* ---- Stats Strip ---- */}
       <Card className="border-white/5 bg-white/[0.02]">
-        <CardContent className="px-5 py-3">
-          <div className="flex items-center justify-between gap-6">
+        <CardContent className="px-3 py-3 sm:px-5">
+          {/* Mobile: 2-col grid with stacked cells. Desktop: single flex row with dividers. */}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:flex sm:items-center sm:justify-between sm:gap-6">
             {/* P&L */}
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex flex-col gap-0.5 min-w-0 sm:flex-row sm:items-center sm:gap-3">
               <div className="flex items-center gap-1.5">
                 <div
                   className={`w-1.5 h-1.5 rounded-full ${Number(bot.total_pnl) >= 0 ? 'bg-brand-profit' : 'bg-brand-loss'} animate-pulse`}
                 />
                 <span className="text-[10px] text-gray-500 uppercase tracking-wider">P&L</span>
               </div>
-              <span
-                className={`text-lg font-bold font-mono ${Number(bot.total_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
-              >
-                {formatPnl(bot.total_pnl)}
-              </span>
-              <span className="text-[10px] font-mono text-gray-600">| пик: {formatPnl(bot.max_pnl)}</span>
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span
+                  className={`text-base sm:text-lg font-bold font-mono truncate ${Number(bot.total_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
+                >
+                  {formatPnl(bot.total_pnl)}
+                </span>
+                <span className="text-[9px] sm:text-[10px] font-mono text-gray-600">
+                  <span className="hidden sm:inline">|</span> пик: {formatPnl(bot.max_pnl)}
+                </span>
+              </div>
             </div>
 
-            <div className="w-px h-8 bg-white/5" />
+            <div className="hidden sm:block w-px h-8 bg-white/5" />
 
             {/* Unrealized P&L */}
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex flex-col gap-0.5 min-w-0 sm:flex-row sm:items-center sm:gap-3">
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-brand-accent" />
                 <span className="text-[10px] text-gray-500 uppercase tracking-wider">Unrealized</span>
               </div>
               {openPosition ? (
-                <>
+                <div className="flex items-baseline gap-1.5 flex-wrap">
                   <span
-                    className={`text-lg font-bold font-mono ${Number(openPosition.unrealized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
+                    className={`text-base sm:text-lg font-bold font-mono truncate ${Number(openPosition.unrealized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
                   >
                     {formatPnl(openPosition.unrealized_pnl)}
                   </span>
-                  <div className="flex gap-2 text-[10px] font-mono">
+                  <div className="flex gap-1.5 text-[9px] sm:text-[10px] font-mono">
                     <span className="text-brand-profit/50">{formatPnl(openPosition.max_pnl)}</span>
                     <span className="text-brand-loss/50">{formatPnl(openPosition.min_pnl)}</span>
                   </div>
-                </>
+                </div>
               ) : (
-                <span className="text-lg font-bold font-mono text-gray-600">--</span>
+                <span className="text-base sm:text-lg font-bold font-mono text-gray-600">--</span>
               )}
             </div>
 
-            <div className="w-px h-8 bg-white/5" />
+            <div className="hidden sm:block w-px h-8 bg-white/5" />
 
             {/* Win Rate + mini bar */}
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex flex-col gap-0.5 min-w-0 sm:flex-row sm:items-center sm:gap-3">
               <span className="text-[10px] text-gray-500 uppercase tracking-wider">Win</span>
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-bold font-mono text-white">{Number(bot.win_rate).toFixed(1)}%</span>
-                <div className="w-16 h-1 rounded-full bg-white/5 overflow-hidden">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base sm:text-lg font-bold font-mono text-white">
+                  {Number(bot.win_rate).toFixed(1)}%
+                </span>
+                <div className="w-12 sm:w-16 h-1 rounded-full bg-white/5 overflow-hidden shrink-0">
                   <div
                     className="h-full rounded-full bg-brand-premium transition-all duration-500"
                     style={{ width: `${Math.min(Number(bot.win_rate), 100)}%` }}
@@ -779,30 +788,30 @@ export function BotDetail() {
               </div>
             </div>
 
-            <div className="w-px h-8 bg-white/5" />
+            <div className="hidden sm:block w-px h-8 bg-white/5" />
 
             {/* Trades */}
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex flex-col gap-0.5 min-w-0 sm:flex-row sm:items-center sm:gap-2">
               <span className="text-[10px] text-gray-500 uppercase tracking-wider">Trades</span>
-              <span className="text-lg font-bold font-mono text-white">{bot.total_trades}</span>
+              <span className="text-base sm:text-lg font-bold font-mono text-white">{bot.total_trades}</span>
             </div>
 
-            <div className="w-px h-8 bg-white/5" />
+            <div className="hidden sm:block w-px h-8 bg-white/5" />
 
             {/* Drawdown */}
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex flex-col gap-0.5 min-w-0 sm:flex-row sm:items-center sm:gap-2">
               <span className="text-[10px] text-gray-500 uppercase tracking-wider">DD</span>
-              <span className="text-lg font-bold font-mono text-brand-loss">
+              <span className="text-base sm:text-lg font-bold font-mono text-brand-loss truncate">
                 {Number(bot.max_drawdown) !== 0 ? `-$${Math.abs(Number(bot.max_drawdown)).toFixed(2)}` : '$0.00'}
               </span>
             </div>
 
-            <div className="w-px h-8 bg-white/5" />
+            <div className="hidden sm:block w-px h-8 bg-white/5" />
 
             {/* Uptime */}
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex flex-col gap-0.5 min-w-0 sm:flex-row sm:items-center sm:gap-2">
               <span className="text-[10px] text-gray-500 uppercase tracking-wider">Uptime</span>
-              <span className="text-lg font-bold font-mono text-white">
+              <span className="text-base sm:text-lg font-bold font-mono text-white truncate">
                 {bot.status === 'running' ? formatUptime(bot.started_at) : 'Stopped'}
               </span>
             </div>
@@ -818,19 +827,27 @@ export function BotDetail() {
 
       {/* ---- Tabs ---- */}
       <Tabs defaultValue="signals">
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="signals">
-            <Activity className="mr-1.5 h-3.5 w-3.5" />
-            Сигналы
-          </TabsTrigger>
-          <TabsTrigger value="orders">Ордера</TabsTrigger>
-          <TabsTrigger value="positions">Позиции</TabsTrigger>
-          <TabsTrigger value="equity">
-            <LineChart className="mr-1.5 h-3.5 w-3.5" />
-            Equity
-          </TabsTrigger>
-          <TabsTrigger value="logs">Логи</TabsTrigger>
-        </TabsList>
+        <div className="-mx-3 sm:mx-0 overflow-x-auto scrollbar-none">
+          <TabsList className="inline-flex w-max sm:w-auto sm:flex-wrap mx-3 sm:mx-0">
+            <TabsTrigger value="signals" className="whitespace-nowrap shrink-0">
+              <Activity className="mr-1.5 h-3.5 w-3.5" />
+              Сигналы
+            </TabsTrigger>
+            <TabsTrigger value="orders" className="whitespace-nowrap shrink-0">
+              Ордера
+            </TabsTrigger>
+            <TabsTrigger value="positions" className="whitespace-nowrap shrink-0">
+              Позиции
+            </TabsTrigger>
+            <TabsTrigger value="equity" className="whitespace-nowrap shrink-0">
+              <LineChart className="mr-1.5 h-3.5 w-3.5" />
+              Equity
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="whitespace-nowrap shrink-0">
+              Логи
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ---- Signals Tab ---- */}
         <TabsContent value="signals">
@@ -851,40 +868,42 @@ export function BotDetail() {
             <EmptyState message="Нет ордеров" />
           ) : (
             <Card className="border-white/5 bg-white/[0.02] overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Время</TableHead>
-                    <TableHead>Символ</TableHead>
-                    <TableHead>Сторона</TableHead>
-                    <TableHead>Тип</TableHead>
-                    <TableHead>Количество</TableHead>
-                    <TableHead>Цена</TableHead>
-                    <TableHead>Цена исполнения</TableHead>
-                    <TableHead>Статус</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orders.map((o) => (
-                    <TableRow key={o.id}>
-                      <TableCell className="text-xs whitespace-nowrap">{formatDatetime(o.created_at)}</TableCell>
-                      <TableCell className="font-mono text-white font-medium">{o.symbol}</TableCell>
-                      <TableCell>
-                        <Badge variant={o.side === 'buy' ? 'profit' : 'loss'}>
-                          {o.side === 'buy' ? 'BUY' : 'SELL'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="uppercase text-xs">{o.type}</TableCell>
-                      <TableCell className="font-mono">{formatQty(o.quantity)}</TableCell>
-                      <TableCell className="font-mono">{formatPrice(o.price)}</TableCell>
-                      <TableCell className="font-mono">{formatPrice(o.filled_price)}</TableCell>
-                      <TableCell>
-                        <OrderStatusBadge status={o.status} />
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table className="min-w-[760px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="whitespace-nowrap">Время</TableHead>
+                      <TableHead className="whitespace-nowrap">Символ</TableHead>
+                      <TableHead className="whitespace-nowrap">Сторона</TableHead>
+                      <TableHead className="whitespace-nowrap">Тип</TableHead>
+                      <TableHead className="whitespace-nowrap">Количество</TableHead>
+                      <TableHead className="whitespace-nowrap">Цена</TableHead>
+                      <TableHead className="whitespace-nowrap">Цена исполнения</TableHead>
+                      <TableHead className="whitespace-nowrap">Статус</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {orders.map((o) => (
+                      <TableRow key={o.id}>
+                        <TableCell className="text-xs whitespace-nowrap">{formatDatetime(o.created_at)}</TableCell>
+                        <TableCell className="font-mono text-white font-medium whitespace-nowrap">{o.symbol}</TableCell>
+                        <TableCell>
+                          <Badge variant={o.side === 'buy' ? 'profit' : 'loss'}>
+                            {o.side === 'buy' ? 'BUY' : 'SELL'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="uppercase text-xs whitespace-nowrap">{o.type}</TableCell>
+                        <TableCell className="font-mono whitespace-nowrap">{formatQty(o.quantity)}</TableCell>
+                        <TableCell className="font-mono whitespace-nowrap">{formatPrice(o.price)}</TableCell>
+                        <TableCell className="font-mono whitespace-nowrap">{formatPrice(o.filled_price)}</TableCell>
+                        <TableCell>
+                          <OrderStatusBadge status={o.status} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </Card>
           )}
         </TabsContent>
@@ -912,14 +931,14 @@ export function BotDetail() {
         {/* ---- Logs Tab ---- */}
         <TabsContent value="logs">
           {/* Log filter bar */}
-          <div className="flex items-center gap-2 mb-3">
-            <Filter className="h-3.5 w-3.5 text-gray-400" />
-            <span className="text-xs text-gray-400 mr-1">Фильтр:</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-3 flex-wrap">
+            <Filter className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+            <span className="text-xs text-gray-400 mr-1 shrink-0">Фильтр:</span>
             {(['all', 'info', 'warn', 'error', 'debug'] as const).map((level) => (
               <button
                 key={level}
                 onClick={() => setLogFilter(level)}
-                className={`text-[10px] font-medium px-2 py-0.5 rounded-md transition-colors ${
+                className={`text-[10px] font-medium px-2.5 py-1 min-h-[28px] rounded-md transition-colors ${
                   logFilter === level ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-gray-300'
                 }`}
               >
@@ -944,17 +963,21 @@ export function BotDetail() {
                 const isExpanded = expandedLogs.has(log.id);
 
                 return (
-                  <div key={log.id} className="rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3">
-                    <div className="flex items-start gap-3">
+                  <div
+                    key={log.id}
+                    className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2.5 sm:px-4 sm:py-3"
+                  >
+                    <div className="flex items-start gap-2.5 sm:gap-3">
                       <LevelIcon className={`h-4 w-4 mt-0.5 shrink-0 ${levelCfg.color}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-300 break-words">{log.message}</p>
+                        <p className="text-xs sm:text-sm text-gray-300 break-words">{log.message}</p>
                         <p className="text-[10px] text-gray-600 mt-1">{formatDatetime(log.created_at)}</p>
                       </div>
                       {log.details && (
                         <button
                           onClick={() => toggleLogExpand(log.id)}
-                          className="text-gray-400 hover:text-gray-300 transition-colors shrink-0"
+                          className="text-gray-400 hover:text-gray-300 transition-colors shrink-0 p-1 -m-1"
+                          aria-label={isExpanded ? 'Свернуть' : 'Развернуть'}
                         >
                           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </button>
@@ -1048,11 +1071,11 @@ function SignalsList({ signals }: { signals: TradeSignalResponse[] }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1.5">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap">
           <button
             onClick={() => setFilter('all')}
-            className={`px-3 py-1 rounded-full text-[10px] border transition-colors ${
+            className={`px-3 py-1.5 min-h-[28px] rounded-full text-[10px] border transition-colors ${
               filter === 'all'
                 ? 'bg-white/[0.05] text-white border-white/[0.08]'
                 : 'bg-transparent text-gray-500 border-transparent hover:border-white/[0.05]'
@@ -1062,7 +1085,7 @@ function SignalsList({ signals }: { signals: TradeSignalResponse[] }) {
           </button>
           <button
             onClick={() => setFilter('short')}
-            className={`px-3 py-1 rounded-full text-[10px] border transition-colors ${
+            className={`px-3 py-1.5 min-h-[28px] rounded-full text-[10px] border transition-colors ${
               filter === 'short'
                 ? 'bg-brand-loss/[0.06] text-brand-loss border-brand-loss/15'
                 : 'bg-transparent text-gray-500 border-transparent hover:border-brand-loss/10'
@@ -1072,7 +1095,7 @@ function SignalsList({ signals }: { signals: TradeSignalResponse[] }) {
           </button>
           <button
             onClick={() => setFilter('long')}
-            className={`px-3 py-1 rounded-full text-[10px] border transition-colors ${
+            className={`px-3 py-1.5 min-h-[28px] rounded-full text-[10px] border transition-colors ${
               filter === 'long'
                 ? 'bg-brand-profit/[0.06] text-brand-profit border-brand-profit/15'
                 : 'bg-transparent text-gray-500 border-transparent hover:border-brand-profit/10'
@@ -1081,7 +1104,7 @@ function SignalsList({ signals }: { signals: TradeSignalResponse[] }) {
             LONG ({longCount})
           </button>
         </div>
-        <span className="text-[9px] text-gray-600">
+        <span className="text-[9px] text-gray-600 shrink-0">
           Исполнено:{' '}
           <span className="text-brand-premium font-mono">
             {signals.filter((s) => s.was_executed).length}/{signals.length}
@@ -1150,9 +1173,9 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
       onClick={() => setExpanded(!expanded)}
     >
       <div className={`w-[3px] shrink-0 ${s.direction === 'long' ? 'bg-brand-profit' : 'bg-brand-loss'}`} />
-      <div className="flex-1">
-        <div className="flex items-center justify-between px-3 py-2.5 bg-white/[0.02]">
-          <div className="flex items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2 px-3 py-2.5 bg-white/[0.02]">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
             <span
               className={`font-bold text-xs min-w-[42px] ${s.direction === 'long' ? 'text-brand-profit' : 'text-brand-loss'}`}
             >
@@ -1163,7 +1186,7 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
             </span>
             {entry > 0 && (
               <>
-                <div className="w-px h-4 bg-white/5" />
+                <div className="hidden sm:block w-px h-4 bg-white/5" />
                 <span className="text-white/30 font-mono text-[11px]">{formatPrice(entry)}</span>
               </>
             )}
@@ -1171,13 +1194,15 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
               <span className="text-brand-premium font-mono text-[11px] font-semibold">R/R 1:{rrRatio.toFixed(1)}</span>
             )}
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
             {s.was_executed ? (
               <span className="text-brand-profit text-[10px]">&#10003;</span>
             ) : (
               <span className="text-gray-600 text-[10px]">-</span>
             )}
-            <span className="text-gray-500 text-[11px]">{formatDatetime(s.created_at)}</span>
+            <span className="text-gray-500 text-[10px] sm:text-[11px] hidden sm:inline">
+              {formatDatetime(s.created_at)}
+            </span>
             <ChevronDown className={`h-4 w-4 text-gray-600 transition-transform ${expanded ? 'rotate-180' : ''}`} />
           </div>
         </div>
@@ -1185,28 +1210,28 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
         {expanded && (
           <div className="px-3 py-2.5 border-t border-white/5">
             {entry > 0 && (
-              <div className="flex gap-[2px] mb-2.5">
-                <div className="flex-1 px-2.5 py-2 bg-white/[0.02] rounded-l-md">
+              <div className="grid grid-cols-2 gap-[2px] mb-2.5 sm:flex">
+                <div className="px-2.5 py-2 bg-white/[0.02] rounded-tl-md sm:rounded-l-md sm:rounded-tr-none sm:flex-1 min-w-0">
                   <p className="text-[8px] text-gray-600 uppercase">Entry</p>
-                  <p className="font-mono text-white text-sm font-semibold">{formatPrice(entry)}</p>
+                  <p className="font-mono text-white text-sm font-semibold truncate">{formatPrice(entry)}</p>
                 </div>
-                <div className="flex-1 px-2.5 py-2 bg-brand-loss/[0.03]">
+                <div className="px-2.5 py-2 bg-brand-loss/[0.03] rounded-tr-md sm:rounded-none sm:flex-1 min-w-0">
                   <p className="text-[8px] text-gray-600 uppercase">SL</p>
-                  <p className="font-mono text-brand-loss text-sm font-semibold">{formatPrice(sl)}</p>
+                  <p className="font-mono text-brand-loss text-sm font-semibold truncate">{formatPrice(sl)}</p>
                   <p className="font-mono text-brand-loss/40 text-[9px]">
                     {slPct >= 0 ? '+' : ''}
                     {slPct.toFixed(2)}%
                   </p>
                 </div>
-                <div className="flex-1 px-2.5 py-2 bg-brand-profit/[0.03]">
+                <div className="px-2.5 py-2 bg-brand-profit/[0.03] rounded-bl-md sm:rounded-none sm:flex-1 min-w-0">
                   <p className="text-[8px] text-gray-600 uppercase">TP</p>
-                  <p className="font-mono text-brand-profit text-sm font-semibold">{formatPrice(tp)}</p>
+                  <p className="font-mono text-brand-profit text-sm font-semibold truncate">{formatPrice(tp)}</p>
                   <p className="font-mono text-brand-profit/40 text-[9px]">
                     {tpPct >= 0 ? '+' : ''}
                     {tpPct.toFixed(2)}%
                   </p>
                 </div>
-                <div className="flex-1 px-2.5 py-2 bg-brand-premium/[0.02] rounded-r-md">
+                <div className="px-2.5 py-2 bg-brand-premium/[0.02] rounded-br-md sm:rounded-r-md sm:rounded-bl-none sm:flex-1 min-w-0">
                   <p className="text-[8px] text-gray-600 uppercase">R/R</p>
                   <p className="font-mono text-brand-premium text-sm font-semibold">1:{rrRatio.toFixed(1)}</p>
                 </div>
@@ -1280,7 +1305,7 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
               </div>
             )}
 
-            <div className="flex items-center gap-2.5 mt-2 pt-1.5 border-t border-white/[0.03] text-[9px] text-gray-600">
+            <div className="flex items-center gap-x-2.5 gap-y-1 mt-2 pt-1.5 border-t border-white/[0.03] text-[9px] text-gray-600 flex-wrap">
               <span>
                 KNN:{' '}
                 <span className={knnColor}>
@@ -1308,6 +1333,8 @@ function SignalCard({ signal: s }: { signal: TradeSignalResponse }) {
                   </span>
                 </>
               )}
+              <span className="text-white/5 sm:hidden">|</span>
+              <span className="sm:hidden">{formatDatetime(s.created_at)}</span>
             </div>
           </div>
         )}
@@ -1354,37 +1381,39 @@ function PositionExpandableCard({ position: p, leverage }: { position: PositionR
       {!isClosed && <div className="h-[2px] bg-gradient-to-r from-brand-profit to-transparent" />}
 
       {/* Summary row */}
-      <div className="flex items-center justify-between px-4 py-2.5">
-        <div className="flex items-center gap-2.5">
+      <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap min-w-0">
           <Badge variant={p.side === 'long' ? 'profit' : 'loss'} className={isClosed ? 'opacity-60' : ''}>
             {p.side === 'long' ? 'LONG' : 'SHORT'}
           </Badge>
-          <span className={`font-mono font-semibold ${isClosed ? 'text-white/60' : 'text-white'}`}>{p.symbol}</span>
+          <span className={`font-mono font-semibold text-sm sm:text-base ${isClosed ? 'text-white/60' : 'text-white'}`}>
+            {p.symbol}
+          </span>
           <span className={`text-[10px] font-mono ${isClosed ? 'text-gray-600' : 'text-gray-500'}`}>
             {formatQty(qty)}
           </span>
-          <div className="w-px h-4 bg-white/5" />
-          <span className={`text-[10px] font-mono ${isClosed ? 'text-white/[0.12]' : 'text-white/[0.25]'}`}>
+          <div className="hidden sm:block w-px h-4 bg-white/5" />
+          <span className={`text-[10px] font-mono truncate ${isClosed ? 'text-white/[0.12]' : 'text-white/[0.25]'}`}>
             {formatPrice(entryPrice)} &rarr; {formatPrice(currentPrice)}
           </span>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <div className="text-right">
-            <span className={`font-mono font-bold text-[15px] ${pnlColor}`}>{formatPnl(pnlValue)}</span>
+            <span className={`font-mono font-bold text-sm sm:text-[15px] ${pnlColor}`}>{formatPnl(pnlValue)}</span>
             <span
-              className={`text-[9px] font-mono ml-1.5 ${roiPct >= 0 ? 'text-brand-profit/40' : 'text-brand-loss/40'}`}
+              className={`text-[9px] font-mono ml-1 sm:ml-1.5 ${roiPct >= 0 ? 'text-brand-profit/40' : 'text-brand-loss/40'}`}
             >
               {formatPct(roiPct)}
             </span>
           </div>
-          <div className="w-px h-6 bg-white/5" />
+          <div className="hidden sm:block w-px h-6 bg-white/5" />
           {!isClosed ? (
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-brand-profit/[0.06] rounded">
+            <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-brand-profit/[0.06] rounded">
               <div className="w-[5px] h-[5px] rounded-full bg-brand-profit shadow-[0_0_4px_rgba(0,230,118,0.4)] animate-pulse" />
               <span className="text-brand-profit text-[10px]">{durationText}</span>
             </div>
           ) : (
-            <span className="text-gray-600 text-[10px]">{durationText}</span>
+            <span className="hidden sm:inline text-gray-600 text-[10px]">{durationText}</span>
           )}
           <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </div>
@@ -1392,60 +1421,72 @@ function PositionExpandableCard({ position: p, leverage }: { position: PositionR
 
       {/* Expanded details */}
       {expanded && (
-        <div className="border-t border-white/5 px-4 py-3">
+        <div className="border-t border-white/5 px-3 sm:px-4 py-3">
+          {/* Mobile duration chip (hidden on desktop; shown above price grid) */}
+          <div className="flex items-center justify-between mb-2 sm:hidden">
+            {!isClosed ? (
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-brand-profit/[0.06] rounded">
+                <div className="w-[5px] h-[5px] rounded-full bg-brand-profit shadow-[0_0_4px_rgba(0,230,118,0.4)] animate-pulse" />
+                <span className="text-brand-profit text-[10px]">{durationText}</span>
+              </div>
+            ) : (
+              <span className="text-gray-600 text-[10px]">{durationText}</span>
+            )}
+          </div>
+
           {/* Prices row */}
-          <div className="flex gap-[2px] mb-3">
-            <div className="flex-1 px-2.5 py-2 bg-white/[0.02] rounded-l-md">
+          <div className="grid grid-cols-2 gap-[2px] mb-3 sm:flex">
+            <div className="px-2.5 py-2 bg-white/[0.02] rounded-tl-md sm:rounded-l-md sm:rounded-tr-none sm:flex-1 min-w-0">
               <p className="text-[8px] text-gray-600 uppercase tracking-wider">Вход</p>
-              <p className="font-mono text-white text-sm font-semibold">{formatPrice(entryPrice)}</p>
+              <p className="font-mono text-white text-sm font-semibold truncate">{formatPrice(entryPrice)}</p>
             </div>
-            <div className="flex-1 px-2.5 py-2 bg-white/[0.02]">
+            <div className="px-2.5 py-2 bg-white/[0.02] rounded-tr-md sm:rounded-none sm:flex-1 min-w-0">
               <p className="text-[8px] text-gray-600 uppercase tracking-wider">{isClosed ? 'Выход' : 'Текущая'}</p>
               <p
-                className={`font-mono text-sm font-semibold ${pnlValue >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
+                className={`font-mono text-sm font-semibold truncate ${pnlValue >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
               >
                 {formatPrice(currentPrice)}
               </p>
             </div>
-            <div className="flex-1 px-2.5 py-2 bg-brand-loss/[0.03]">
+            <div className="px-2.5 py-2 bg-brand-loss/[0.03] sm:flex-1 min-w-0">
               <p className="text-[8px] text-gray-600 uppercase tracking-wider">SL</p>
-              <p className="font-mono text-brand-loss text-sm font-semibold">{formatPrice(p.stop_loss)}</p>
+              <p className="font-mono text-brand-loss text-sm font-semibold truncate">{formatPrice(p.stop_loss)}</p>
             </div>
-            <div className="flex-1 px-2.5 py-2 bg-brand-profit/[0.03]">
+            <div className="px-2.5 py-2 bg-brand-profit/[0.03] sm:flex-1 min-w-0">
               <p className="text-[8px] text-gray-600 uppercase tracking-wider">
                 {p.tp1_price ? (p.tp1_hit ? 'TP2' : 'TP1') : 'TP'}
               </p>
-              <p className="font-mono text-brand-profit text-sm font-semibold">{formatPrice(p.take_profit)}</p>
+              <p className="font-mono text-brand-profit text-sm font-semibold truncate">{formatPrice(p.take_profit)}</p>
               {p.tp1_price && p.tp1_hit && (
-                <p className="text-[8px] text-brand-profit/40 line-through">TP1: {formatPrice(p.tp1_price)}</p>
+                <p className="text-[8px] text-brand-profit/40 line-through truncate">TP1: {formatPrice(p.tp1_price)}</p>
               )}
             </div>
             {leverage != null && (
-              <div className="px-2.5 py-2 bg-brand-premium/[0.03] min-w-[56px]">
+              <div className="px-2.5 py-2 bg-brand-premium/[0.03] sm:min-w-[56px] min-w-0">
                 <p className="text-[8px] text-gray-600 uppercase tracking-wider">Плечо</p>
                 <p className="font-mono text-brand-premium text-sm font-bold">{leverage}x</p>
               </div>
             )}
-            <div className="px-2.5 py-2 bg-white/[0.02] rounded-r-md min-w-[72px]">
+            <div className="px-2.5 py-2 bg-white/[0.02] rounded-b-md sm:rounded-r-md sm:rounded-bl-none sm:min-w-[72px] col-span-2 sm:col-span-1 min-w-0">
               <p className="text-[8px] text-gray-600 uppercase tracking-wider">Сумма</p>
-              <p className="font-mono text-white/70 text-sm font-semibold">${entryAmount.toFixed(2)}</p>
+              <p className="font-mono text-white/70 text-sm font-semibold truncate">${entryAmount.toFixed(2)}</p>
             </div>
           </div>
 
           {/* P&L row */}
-          <div className="flex gap-[2px] mb-3">
-            <div className="flex-1 px-2.5 py-2 bg-white/[0.02] rounded-l-md">
+          <div className="grid grid-cols-2 gap-[2px] mb-3 sm:flex">
+            <div className="px-2.5 py-2 bg-white/[0.02] rounded-tl-md sm:rounded-l-md sm:rounded-tr-none sm:flex-1 min-w-0">
               <p className="text-[8px] text-gray-600 uppercase tracking-wider">Нереализ.</p>
               <p
-                className={`font-mono text-sm font-bold ${Number(p.unrealized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
+                className={`font-mono text-sm font-bold truncate ${Number(p.unrealized_pnl) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
               >
                 {isClosed ? '—' : formatPnl(p.unrealized_pnl)}
               </p>
             </div>
-            <div className="flex-1 px-2.5 py-2 bg-white/[0.02]">
+            <div className="px-2.5 py-2 bg-white/[0.02] rounded-tr-md sm:rounded-none sm:flex-1 min-w-0">
               <p className="text-[8px] text-gray-600 uppercase tracking-wider">Реализ.</p>
               <p
-                className={`font-mono text-sm font-bold ${Number(p.realized_pnl ?? 0) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
+                className={`font-mono text-sm font-bold truncate ${Number(p.realized_pnl ?? 0) >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
               >
                 {p.realized_pnl != null && Number(p.realized_pnl) !== 0
                   ? formatPnl(p.realized_pnl)
@@ -1457,18 +1498,18 @@ function PositionExpandableCard({ position: p, leverage }: { position: PositionR
                 <p className="text-[8px] text-brand-profit/40">от TP1</p>
               )}
             </div>
-            <div className="flex-1 px-2.5 py-2 bg-brand-profit/[0.02]">
+            <div className="px-2.5 py-2 bg-brand-profit/[0.02] rounded-bl-md sm:rounded-none sm:flex-1 min-w-0">
               <p className="text-[8px] text-gray-600 uppercase tracking-wider">Пик</p>
-              <p className="font-mono text-brand-profit text-sm">{formatPnl(p.max_pnl)}</p>
+              <p className="font-mono text-brand-profit text-sm truncate">{formatPnl(p.max_pnl)}</p>
             </div>
-            <div className="flex-1 px-2.5 py-2 bg-brand-loss/[0.02] rounded-r-md">
+            <div className="px-2.5 py-2 bg-brand-loss/[0.02] rounded-br-md sm:rounded-r-md sm:rounded-bl-none sm:flex-1 min-w-0">
               <p className="text-[8px] text-gray-600 uppercase tracking-wider">Мин</p>
-              <p className="font-mono text-brand-loss text-sm">{formatPnl(p.min_pnl)}</p>
+              <p className="font-mono text-brand-loss text-sm truncate">{formatPnl(p.min_pnl)}</p>
             </div>
           </div>
 
           {/* Meta row */}
-          <div className="flex items-center gap-3 text-[10px] text-gray-600">
+          <div className="flex items-center gap-x-2 gap-y-1 text-[10px] text-gray-600 flex-wrap">
             {p.original_quantity && Number(p.original_quantity) !== Number(p.quantity) && (
               <>
                 <span>
@@ -1505,7 +1546,7 @@ function PositionExpandableCard({ position: p, leverage }: { position: PositionR
               </>
             )}
             <span className="text-white/5">|</span>
-            <span className="text-gray-700 font-mono">{p.id.slice(0, 8)}</span>
+            <span className="text-gray-700 font-mono break-all">{p.id.slice(0, 8)}</span>
           </div>
         </div>
       )}
@@ -1599,29 +1640,31 @@ function RiskRewardCard({
 
   return (
     <Card className="border-brand-premium/[0.06] bg-white/[0.02]">
-      <CardContent className="px-5 py-3">
-        <div className="flex items-center gap-4">
+      <CardContent className="px-3 sm:px-5 py-3">
+        <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
           {/* R/R Badge */}
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-md bg-gradient-to-br from-brand-premium/15 to-brand-premium/5 flex items-center justify-center">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-7 h-7 rounded-md bg-gradient-to-br from-brand-premium/15 to-brand-premium/5 flex items-center justify-center shrink-0">
               <Shield className="h-3.5 w-3.5 text-brand-premium" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="text-[8px] text-gray-500 uppercase tracking-wider">R/R Ratio</div>
               <div className="text-lg font-bold font-mono text-brand-premium leading-tight">1:{rrRatio.toFixed(1)}</div>
             </div>
           </div>
 
-          <div className="w-px h-8 bg-white/5" />
+          <div className="hidden sm:block w-px h-8 bg-white/5" />
 
           {/* Reward */}
-          <div className="flex items-center gap-2">
-            <div className="w-[3px] h-6 rounded-full bg-brand-profit" />
-            <div>
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-[3px] h-6 rounded-full bg-brand-profit shrink-0" />
+            <div className="min-w-0">
               <div className="text-[8px] text-gray-500 uppercase">Цель</div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-base font-bold font-mono text-brand-profit">+${rewardActive.toFixed(2)}</span>
-                <span className="text-[9px] font-mono text-brand-profit/30">
+              <div className="flex items-baseline gap-1 sm:gap-1.5 flex-wrap">
+                <span className="text-sm sm:text-base font-bold font-mono text-brand-profit">
+                  +${rewardActive.toFixed(2)}
+                </span>
+                <span className="text-[9px] font-mono text-brand-profit/30 truncate">
                   {activeTpLabel} {formatPrice(activeTpDisplayPrice)}
                 </span>
               </div>
@@ -1631,38 +1674,40 @@ function RiskRewardCard({
           {/* TP2 hint when TP1 active */}
           {hasMultiTp && !tp1Hit && tp2Price != null && rewardTp2 != null && (
             <>
-              <div className="w-px h-8 bg-white/5" />
-              <div className="flex items-center gap-2">
-                <div className="w-[3px] h-6 rounded-full bg-brand-profit/30" />
-                <div>
+              <div className="hidden sm:block w-px h-8 bg-white/5" />
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-[3px] h-6 rounded-full bg-brand-profit/30 shrink-0" />
+                <div className="min-w-0">
                   <div className="text-[8px] text-gray-500 uppercase">TP2</div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-base font-bold font-mono text-gray-500">+${rewardTp2.toFixed(2)}</span>
-                    <span className="text-[9px] font-mono text-white/15">{formatPrice(tp2Price)}</span>
+                  <div className="flex items-baseline gap-1 sm:gap-1.5 flex-wrap">
+                    <span className="text-sm sm:text-base font-bold font-mono text-gray-500">
+                      +${rewardTp2.toFixed(2)}
+                    </span>
+                    <span className="text-[9px] font-mono text-white/15 truncate">{formatPrice(tp2Price)}</span>
                   </div>
                 </div>
               </div>
             </>
           )}
 
-          <div className="w-px h-8 bg-white/5" />
+          <div className="hidden sm:block w-px h-8 bg-white/5" />
 
           {/* Risk */}
-          <div className="flex items-center gap-2">
-            <div className="w-[3px] h-6 rounded-full bg-brand-loss" />
-            <div>
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-[3px] h-6 rounded-full bg-brand-loss shrink-0" />
+            <div className="min-w-0">
               <div className="text-[8px] text-gray-500 uppercase">Риск</div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-base font-bold font-mono text-brand-loss">-${risk.toFixed(2)}</span>
-                <span className="text-[9px] font-mono text-brand-loss/30">SL {formatPrice(stopLoss)}</span>
+              <div className="flex items-baseline gap-1 sm:gap-1.5 flex-wrap">
+                <span className="text-sm sm:text-base font-bold font-mono text-brand-loss">-${risk.toFixed(2)}</span>
+                <span className="text-[9px] font-mono text-brand-loss/30 truncate">SL {formatPrice(stopLoss)}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex-1" />
+          <div className="hidden sm:block flex-1" />
 
           {/* Summary + badge */}
-          <div className="text-right">
+          <div className="text-left sm:text-right w-full sm:w-auto pt-1 sm:pt-0 border-t border-white/5 sm:border-t-0 mt-1 sm:mt-0">
             {isLastClosed && (
               <div className="text-[8px] text-gray-600 bg-white/[0.03] px-2 py-0.5 rounded inline-block mb-0.5">
                 Последняя сделка
@@ -1723,60 +1768,64 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
           className={`h-[2px] ${isProfit ? 'bg-gradient-to-r from-brand-profit via-brand-profit/60 to-transparent' : 'bg-gradient-to-r from-brand-loss via-brand-loss/60 to-transparent'}`}
         />
 
-        <div className="px-5 py-3">
+        <div className="px-3 sm:px-5 py-3">
           {/* Row 1: Header strip */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <Target className="h-4 w-4 text-brand-accent" />
-              <span className="text-base font-bold font-mono text-white">{position.symbol}</span>
+          <div className="flex items-start sm:items-center justify-between gap-2 mb-3 flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <Target className="h-4 w-4 text-brand-accent shrink-0" />
+              <span className="text-sm sm:text-base font-bold font-mono text-white truncate">{position.symbol}</span>
               <Badge variant={position.side === 'long' ? 'profit' : 'loss'}>
                 {position.side === 'long' ? 'LONG' : 'SHORT'}
               </Badge>
-              <span className="text-[10px] font-mono text-gray-500">qty {formatQty(quantity)}</span>
+              <span className="text-[10px] font-mono text-gray-500 truncate">qty {formatQty(quantity)}</span>
             </div>
-            <div className="flex items-center gap-4">
-              <span className={`text-2xl font-bold font-mono ${isProfit ? 'text-brand-profit' : 'text-brand-loss'}`}>
+            <div className="flex items-baseline gap-2 sm:gap-4 shrink-0 flex-wrap justify-end">
+              <span
+                className={`text-xl sm:text-2xl font-bold font-mono ${isProfit ? 'text-brand-profit' : 'text-brand-loss'}`}
+              >
                 {formatPnl(unrealizedPnl)}
               </span>
-              <span className={`text-xs font-mono ${roiPct >= 0 ? 'text-brand-profit/70' : 'text-brand-loss/70'}`}>
+              <span
+                className={`text-[11px] sm:text-xs font-mono ${roiPct >= 0 ? 'text-brand-profit/70' : 'text-brand-loss/70'}`}
+              >
                 {formatPct(roiPct)}
               </span>
               <span className="text-[10px] text-gray-500">{formatDuration(position.opened_at)}</span>
             </div>
           </div>
 
-          {/* Row 2: Price metrics strip */}
-          <div className="flex items-center gap-6 text-xs mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500 uppercase text-[9px] tracking-wider">Вход</span>
-              <span className="font-mono text-white">{formatPrice(entryPrice)}</span>
+          {/* Row 2: Price metrics strip (grid on mobile, flex on desktop) */}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs mb-3 sm:flex sm:items-center sm:gap-6">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-gray-500 uppercase text-[9px] tracking-wider shrink-0">Вход</span>
+              <span className="font-mono text-white truncate">{formatPrice(entryPrice)}</span>
             </div>
-            <div className="w-px h-4 bg-white/5" />
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500 uppercase text-[9px] tracking-wider">Тек.</span>
-              <span className={`font-mono ${isProfit ? 'text-brand-profit' : 'text-brand-loss'}`}>
+            <div className="hidden sm:block w-px h-4 bg-white/5" />
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-gray-500 uppercase text-[9px] tracking-wider shrink-0">Тек.</span>
+              <span className={`font-mono truncate ${isProfit ? 'text-brand-profit' : 'text-brand-loss'}`}>
                 {formatPrice(currentPrice)}
               </span>
             </div>
-            <div className="w-px h-4 bg-white/5" />
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500 uppercase text-[9px] tracking-wider">SL</span>
-              <span className="font-mono text-brand-loss/70">{formatPrice(stopLoss)}</span>
+            <div className="hidden sm:block w-px h-4 bg-white/5" />
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-gray-500 uppercase text-[9px] tracking-wider shrink-0">SL</span>
+              <span className="font-mono text-brand-loss/70 truncate">{formatPrice(stopLoss)}</span>
             </div>
-            <div className="w-px h-4 bg-white/5" />
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500 uppercase text-[9px] tracking-wider">{activeTpLabel}</span>
-              <span className="font-mono text-brand-profit/70">{formatPrice(takeProfit)}</span>
+            <div className="hidden sm:block w-px h-4 bg-white/5" />
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-gray-500 uppercase text-[9px] tracking-wider shrink-0">{activeTpLabel}</span>
+              <span className="font-mono text-brand-profit/70 truncate">{formatPrice(takeProfit)}</span>
             </div>
-            <div className="w-px h-4 bg-white/5" />
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500 uppercase text-[9px] tracking-wider">Trail</span>
-              <span className="font-mono text-white/60">
+            <div className="hidden sm:block w-px h-4 bg-white/5" />
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-gray-500 uppercase text-[9px] tracking-wider shrink-0">Trail</span>
+              <span className="font-mono text-white/60 truncate">
                 {trailingStop !== null ? formatPrice(trailingStop) : '--'}
               </span>
             </div>
-            <div className="flex-1" />
-            <div className="flex items-center gap-2 text-[10px] font-mono">
+            <div className="hidden sm:flex flex-1" />
+            <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] font-mono col-span-2 pt-1 border-t border-white/5 sm:pt-0 sm:border-t-0 flex-wrap">
               <span className="text-brand-profit/40">max {formatPnl(maxPnl)}</span>
               <span className="text-gray-700">/</span>
               <span className="text-brand-loss/40">min {formatPnl(minPnl)}</span>
@@ -1826,10 +1875,14 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
               </div>
 
               {/* Labels on the bar */}
-              <div className="absolute inset-0 flex items-center justify-between px-3 z-20 pointer-events-none">
-                <span className="text-[9px] font-mono text-brand-loss/60">SL {formatPrice(stopLoss)}</span>
-                <span className="text-[9px] font-mono text-white/25">{formatPrice(entryPrice)}</span>
-                <span className="text-[9px] font-mono text-brand-profit/60">
+              <div className="absolute inset-0 flex items-center justify-between px-2 sm:px-3 z-20 pointer-events-none gap-1">
+                <span className="text-[8px] sm:text-[9px] font-mono text-brand-loss/60 truncate">
+                  SL {formatPrice(stopLoss)}
+                </span>
+                <span className="text-[8px] sm:text-[9px] font-mono text-white/25 truncate">
+                  {formatPrice(entryPrice)}
+                </span>
+                <span className="text-[8px] sm:text-[9px] font-mono text-brand-profit/60 truncate">
                   {activeTpLabel} {formatPrice(takeProfit)}
                 </span>
               </div>
@@ -1838,7 +1891,7 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
 
           {/* Row 4: TP levels (if multi-TP) */}
           {tp1Price && (
-            <div className="flex items-center gap-4 mt-2 text-[10px]">
+            <div className="flex items-center gap-x-3 gap-y-1 mt-2 text-[10px] flex-wrap">
               <div className="flex items-center gap-1.5">
                 <span className="text-gray-500">TP1:</span>
                 <span
@@ -1850,7 +1903,7 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
               </div>
               {tp2Price && (
                 <>
-                  <div className="w-px h-3 bg-white/5" />
+                  <div className="hidden sm:block w-px h-3 bg-white/5" />
                   <div className="flex items-center gap-1.5">
                     <span className="text-gray-500">TP2:</span>
                     <span className={`font-mono ${position.tp1_hit ? 'text-brand-accent' : 'text-gray-400'}`}>
@@ -1861,7 +1914,7 @@ function LivePositionCard({ position }: { position: PositionResponse }) {
               )}
               {position.realized_pnl != null && Number(position.realized_pnl) !== 0 && (
                 <>
-                  <div className="w-px h-3 bg-white/5" />
+                  <div className="hidden sm:block w-px h-3 bg-white/5" />
                   <div className="flex items-center gap-1.5">
                     <span className="text-gray-500">Реализ.:</span>
                     <span
@@ -1947,23 +2000,25 @@ function EquityCurveTab({ positions, loading }: { positions: PositionResponse[];
 
   return (
     <Card className="border-white/5 bg-white/[0.02] overflow-hidden">
-      <CardContent className="pt-5 pb-4 px-4">
+      <CardContent className="pt-4 pb-3 px-3 sm:pt-5 sm:pb-4 sm:px-4">
         {/* Header with total PnL */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <LineChart className="h-4 w-4 text-gray-400" />
-            <span className="text-sm text-gray-400">Кривая доходности</span>
+        <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <LineChart className="h-4 w-4 text-gray-400 shrink-0" />
+            <span className="text-xs sm:text-sm text-gray-400 truncate">Кривая доходности</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {isPositive ? (
               <TrendingUp className="h-4 w-4 text-brand-profit" />
             ) : (
               <TrendingDown className="h-4 w-4 text-brand-loss" />
             )}
-            <span className={`font-mono text-lg font-semibold ${isPositive ? 'text-brand-profit' : 'text-brand-loss'}`}>
+            <span
+              className={`font-mono text-base sm:text-lg font-semibold ${isPositive ? 'text-brand-profit' : 'text-brand-loss'}`}
+            >
               {formatPnl(totalPnl)}
             </span>
-            <span className="text-xs text-gray-500">USDT</span>
+            <span className="text-[10px] sm:text-xs text-gray-500">USDT</span>
           </div>
         </div>
 
@@ -1971,16 +2026,18 @@ function EquityCurveTab({ positions, loading }: { positions: PositionResponse[];
         <BotEquityChart data={equityData} />
 
         {/* Footer stats */}
-        <div className="flex items-center gap-6 mt-4 pt-3 border-t border-white/5">
+        <div className="flex items-center gap-x-4 gap-y-1 sm:gap-6 mt-3 sm:mt-4 pt-3 border-t border-white/5 flex-wrap">
           <div className="flex items-center gap-1.5">
             <Hash className="h-3 w-3 text-gray-500" />
-            <span className="text-xs text-gray-500">Сделок:</span>
-            <span className="text-xs font-mono text-gray-300">{tradeCount}</span>
+            <span className="text-[11px] sm:text-xs text-gray-500">Сделок:</span>
+            <span className="text-[11px] sm:text-xs font-mono text-gray-300">{tradeCount}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <BarChart3 className="h-3 w-3 text-gray-500" />
-            <span className="text-xs text-gray-500">Средняя:</span>
-            <span className={`text-xs font-mono ${avgPnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}>
+            <span className="text-[11px] sm:text-xs text-gray-500">Средняя:</span>
+            <span
+              className={`text-[11px] sm:text-xs font-mono ${avgPnl >= 0 ? 'text-brand-profit' : 'text-brand-loss'}`}
+            >
               {formatPnl(avgPnl)}
             </span>
           </div>

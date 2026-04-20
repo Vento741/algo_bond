@@ -1,15 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Brain,
-  ChevronRight,
-  Search,
-  X,
-  Globe,
-  Lock,
-  Cpu,
-  Sparkles,
-} from 'lucide-react';
+import { Brain, ChevronRight, Search, X, Globe, Lock, Cpu, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import api from '@/lib/api';
@@ -47,21 +38,19 @@ export function Strategies() {
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* --- Page Header --- */}
       <div className="relative">
         <div className="absolute -inset-x-4 -top-4 h-32 bg-gradient-to-b from-brand-accent/[0.03] to-transparent rounded-2xl pointer-events-none" />
         <div className="relative">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-brand-accent/20 to-brand-premium/10 border border-brand-accent/20 shadow-lg shadow-brand-accent/5">
-                <Brain className="h-6 w-6 text-brand-accent" />
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0 w-full">
+              <div className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-brand-accent/20 to-brand-premium/10 border border-brand-accent/20 shadow-lg shadow-brand-accent/5 flex-shrink-0">
+                <Brain className="h-5 w-5 sm:h-6 sm:w-6 text-brand-accent" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight font-[Tektur]">
-                  Стратегии
-                </h1>
-                <p className="text-sm text-gray-500 mt-0.5">
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-[Tektur]">Стратегии</h1>
+                <p className="text-xs sm:text-sm text-gray-500 mt-0.5 line-clamp-2 sm:line-clamp-1">
                   {strategies.length > 0
                     ? `${strategies.length} ${pluralStrategies(strategies.length)} - ML-алгоритмы для анализа рынка`
                     : 'ML-алгоритмы для анализа рынка и генерации сигналов'}
@@ -96,14 +85,14 @@ export function Strategies() {
       {/* --- Content --- */}
       {loading ? (
         /* Skeleton Loading */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {[1, 2, 3].map((i) => (
             <Card
               key={i}
               className="border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01] overflow-hidden"
             >
               <div className="h-1 bg-gradient-to-r from-white/[0.04] to-transparent" />
-              <CardContent className="p-5 space-y-4">
+              <CardContent className="p-4 sm:p-5 space-y-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-white/[0.04] animate-pulse" />
@@ -161,7 +150,7 @@ export function Strategies() {
         </Card>
       ) : (
         /* Strategy Cards Grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {filtered.map((strategy) => (
             <Link key={strategy.id} to={`/strategies/${strategy.slug}`}>
               <Card
@@ -175,7 +164,7 @@ export function Strategies() {
                 {/* Top gradient accent */}
                 <div className="h-[2px] bg-gradient-to-r from-brand-accent/40 via-brand-premium/20 to-transparent opacity-60 group-hover:opacity-100 transition-opacity" />
 
-                <CardContent className="p-5">
+                <CardContent className="p-4 sm:p-5">
                   {/* Top row: icon + name + engine badge */}
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3 min-w-0">

@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Brain,
   ArrowLeft,
@@ -17,30 +17,25 @@ import {
   Upload,
   Play,
   CopyPlus,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { SymbolSearch } from "@/components/ui/symbol-search";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/toast";
-import { useAuthStore } from "@/stores/auth";
-import api from "@/lib/api";
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { SymbolSearch } from '@/components/ui/symbol-search';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/toast';
+import { useAuthStore } from '@/stores/auth';
+import api from '@/lib/api';
 import type {
   StrategyDetail as StrategyDetailType,
   StrategyConfig,
   StrategyConfigCreate,
   StrategyConfigUpdate,
-} from "@/types/api";
+} from '@/types/api';
 
 /* ================================================================
    Типы и компоненты конфигурации - из shared модуля
@@ -57,14 +52,14 @@ import {
   ToggleField,
   MasArrayField,
   CollapsibleSection,
-} from "@/components/strategy-config";
+} from '@/components/strategy-config';
 
 const TIMEFRAMES = [
-  { value: "1", label: "1m" },
-  { value: "5", label: "5m" },
-  { value: "15", label: "15m" },
-  { value: "60", label: "1h" },
-  { value: "240", label: "4h" },
+  { value: '1', label: '1m' },
+  { value: '5', label: '5m' },
+  { value: '15', label: '15m' },
+  { value: '60', label: '1h' },
+  { value: '240', label: '4h' },
 ];
 
 /* ================================================================
@@ -95,9 +90,9 @@ function ConfigEditorDialog({
   const [saving, setSaving] = useState(false);
 
   // Основные поля
-  const [name, setName] = useState("");
-  const [symbol, setSymbol] = useState("RIVERUSDT");
-  const [timeframe, setTimeframe] = useState("5");
+  const [name, setName] = useState('');
+  const [symbol, setSymbol] = useState('RIVERUSDT');
+  const [timeframe, setTimeframe] = useState('5');
 
   // Секции конфига
   const [config, setConfig] = useState<FullStrategyConfig>(DEFAULT_CONFIG);
@@ -111,18 +106,15 @@ function ConfigEditorDialog({
       setTimeframe(editingConfig.timeframe);
       setConfig(mergeConfig(DEFAULT_CONFIG, editingConfig.config));
     } else {
-      setName("");
-      setSymbol("RIVERUSDT");
-      setTimeframe("5");
+      setName('');
+      setSymbol('RIVERUSDT');
+      setTimeframe('5');
       setConfig(mergeConfig(DEFAULT_CONFIG, defaultConfig));
     }
   }, [open, editingConfig, defaultConfig]);
 
   // Обновление вложенных секций
-  const updateSection = <K extends keyof FullStrategyConfig>(
-    section: K,
-    patch: Partial<FullStrategyConfig[K]>,
-  ) => {
+  const updateSection = <K extends keyof FullStrategyConfig>(section: K, patch: Partial<FullStrategyConfig[K]>) => {
     setConfig((prev) => ({
       ...prev,
       [section]: { ...prev[section], ...patch },
@@ -148,30 +140,24 @@ function ConfigEditorDialog({
       timeframe,
       config: cleanConfig,
     };
-    const { data } = await api.post<StrategyConfig>(
-      "/strategies/configs",
-      payload,
-    );
+    const { data } = await api.post<StrategyConfig>('/strategies/configs', payload);
     return data.id;
   };
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      toast("Введите название конфигурации", "error");
+      toast('Введите название конфигурации', 'error');
       return;
     }
 
     setSaving(true);
     try {
       await saveConfig();
-      toast(
-        editingConfig ? "Конфигурация обновлена" : "Конфигурация создана",
-        "success",
-      );
+      toast(editingConfig ? 'Конфигурация обновлена' : 'Конфигурация создана', 'success');
       onSaved();
       onClose();
     } catch {
-      toast("Ошибка сохранения конфигурации", "error");
+      toast('Ошибка сохранения конфигурации', 'error');
     } finally {
       setSaving(false);
     }
@@ -181,9 +167,9 @@ function ConfigEditorDialog({
     const fullConfig = { name, symbol, timeframe, config };
     try {
       await navigator.clipboard.writeText(JSON.stringify(fullConfig, null, 2));
-      toast("JSON скопирован в буфер обмена", "success");
+      toast('JSON скопирован в буфер обмена', 'success');
     } catch {
-      toast("Не удалось скопировать в буфер обмена", "error");
+      toast('Не удалось скопировать в буфер обмена', 'error');
     }
   };
 
@@ -191,35 +177,29 @@ function ConfigEditorDialog({
     try {
       const text = await navigator.clipboard.readText();
       const parsed: unknown = JSON.parse(text);
-      if (typeof parsed !== "object" || parsed === null) {
-        toast("Невалидный JSON: ожидается объект", "error");
+      if (typeof parsed !== 'object' || parsed === null) {
+        toast('Невалидный JSON: ожидается объект', 'error');
         return;
       }
       const obj = parsed as Record<string, unknown>;
 
-      if (
-        "config" in obj &&
-        typeof obj.config === "object" &&
-        obj.config !== null
-      ) {
-        if (typeof obj.name === "string") setName(obj.name);
-        if (typeof obj.symbol === "string") setSymbol(obj.symbol);
-        if (typeof obj.timeframe === "string") setTimeframe(obj.timeframe);
-        setConfig(
-          mergeConfig(DEFAULT_CONFIG, obj.config as Record<string, unknown>),
-        );
+      if ('config' in obj && typeof obj.config === 'object' && obj.config !== null) {
+        if (typeof obj.name === 'string') setName(obj.name);
+        if (typeof obj.symbol === 'string') setSymbol(obj.symbol);
+        if (typeof obj.timeframe === 'string') setTimeframe(obj.timeframe);
+        setConfig(mergeConfig(DEFAULT_CONFIG, obj.config as Record<string, unknown>));
       } else {
         setConfig(mergeConfig(DEFAULT_CONFIG, obj));
       }
-      toast("JSON вставлен из буфера обмена", "success");
+      toast('JSON вставлен из буфера обмена', 'success');
     } catch {
-      toast("Не удалось прочитать JSON из буфера обмена", "error");
+      toast('Не удалось прочитать JSON из буфера обмена', 'error');
     }
   };
 
   const handleSaveAndBacktest = async () => {
     if (!name.trim()) {
-      toast("Введите название конфигурации", "error");
+      toast('Введите название конфигурации', 'error');
       return;
     }
 
@@ -230,7 +210,7 @@ function ConfigEditorDialog({
       onClose();
       navigate(`/backtest?config_id=${configId}`);
     } catch {
-      toast("Ошибка сохранения конфигурации", "error");
+      toast('Ошибка сохранения конфигурации', 'error');
     } finally {
       setSaving(false);
     }
@@ -238,13 +218,9 @@ function ConfigEditorDialog({
 
   return (
     <Dialog open={open} onClose={onClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[calc(100vw-1rem)] sm:w-auto">
         <DialogHeader onClose={onClose}>
-          <DialogTitle>
-            {editingConfig
-              ? "Редактировать конфигурацию"
-              : "Создать конфигурацию"}
-          </DialogTitle>
+          <DialogTitle>{editingConfig ? 'Редактировать конфигурацию' : 'Создать конфигурацию'}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -262,47 +238,39 @@ function ConfigEditorDialog({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs text-gray-400">Символ</Label>
                 <SymbolSearch value={symbol} onChange={setSymbol} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-gray-400">Таймфрейм</Label>
-                <Select
-                  options={TIMEFRAMES}
-                  value={timeframe}
-                  onChange={setTimeframe}
-                />
+                <Select options={TIMEFRAMES} value={timeframe} onChange={setTimeframe} />
               </div>
             </div>
           </div>
 
           {/* Секция 2: KNN */}
-          <CollapsibleSection
-            title="KNN"
-            description="Параметры Lorentzian KNN классификатора"
-            defaultOpen
-          >
-            <div className="grid grid-cols-2 gap-3">
+          <CollapsibleSection title="KNN" description="Параметры Lorentzian KNN классификатора" defaultOpen>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <NumberField
                 label="Соседи (neighbors)"
                 value={config.knn.neighbors}
-                onChange={(v) => updateSection("knn", { neighbors: v })}
+                onChange={(v) => updateSection('knn', { neighbors: v })}
                 min={1}
                 max={50}
               />
               <NumberField
                 label="Глубина (lookback)"
                 value={config.knn.lookback}
-                onChange={(v) => updateSection("knn", { lookback: v })}
+                onChange={(v) => updateSection('knn', { lookback: v })}
                 min={10}
                 max={200}
               />
               <NumberField
                 label="Вес (weight)"
                 value={config.knn.weight}
-                onChange={(v) => updateSection("knn", { weight: v })}
+                onChange={(v) => updateSection('knn', { weight: v })}
                 min={0}
                 max={1}
                 step={0.1}
@@ -310,31 +278,31 @@ function ConfigEditorDialog({
               <NumberField
                 label="RSI период"
                 value={config.knn.rsi_period}
-                onChange={(v) => updateSection("knn", { rsi_period: v })}
+                onChange={(v) => updateSection('knn', { rsi_period: v })}
                 min={1}
               />
               <NumberField
                 label="WT Channel Length"
                 value={config.knn.wt_ch_len}
-                onChange={(v) => updateSection("knn", { wt_ch_len: v })}
+                onChange={(v) => updateSection('knn', { wt_ch_len: v })}
                 min={1}
               />
               <NumberField
                 label="WT Average Length"
                 value={config.knn.wt_avg_len}
-                onChange={(v) => updateSection("knn", { wt_avg_len: v })}
+                onChange={(v) => updateSection('knn', { wt_avg_len: v })}
                 min={1}
               />
               <NumberField
                 label="CCI период"
                 value={config.knn.cci_period}
-                onChange={(v) => updateSection("knn", { cci_period: v })}
+                onChange={(v) => updateSection('knn', { cci_period: v })}
                 min={1}
               />
               <NumberField
                 label="ADX период"
                 value={config.knn.adx_period}
-                onChange={(v) => updateSection("knn", { adx_period: v })}
+                onChange={(v) => updateSection('knn', { adx_period: v })}
                 min={1}
               />
             </div>
@@ -342,83 +310,72 @@ function ConfigEditorDialog({
 
           {/* Секция 3: Trend */}
           <CollapsibleSection title="Trend" description="EMA фильтры тренда">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               <NumberField
                 label="EMA Fast"
                 value={config.trend.ema_fast}
-                onChange={(v) => updateSection("trend", { ema_fast: v })}
+                onChange={(v) => updateSection('trend', { ema_fast: v })}
                 min={1}
               />
               <NumberField
                 label="EMA Slow"
                 value={config.trend.ema_slow}
-                onChange={(v) => updateSection("trend", { ema_slow: v })}
+                onChange={(v) => updateSection('trend', { ema_slow: v })}
                 min={1}
               />
               <NumberField
                 label="EMA Filter"
                 value={config.trend.ema_filter}
-                onChange={(v) => updateSection("trend", { ema_filter: v })}
+                onChange={(v) => updateSection('trend', { ema_filter: v })}
                 min={1}
               />
             </div>
           </CollapsibleSection>
 
           {/* Секция 4: MA Ribbon */}
-          <CollapsibleSection
-            title="MA Ribbon"
-            description="Лента скользящих средних"
-          >
+          <CollapsibleSection title="MA Ribbon" description="Лента скользящих средних">
             <ToggleField
               label="Использовать"
               value={config.ribbon.use}
-              onChange={(v) => updateSection("ribbon", { use: v })}
+              onChange={(v) => updateSection('ribbon', { use: v })}
             />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs text-gray-400">Тип MA</Label>
                 <Select
                   options={RIBBON_TYPES}
                   value={config.ribbon.type}
-                  onChange={(v) => updateSection("ribbon", { type: v })}
+                  onChange={(v) => updateSection('ribbon', { type: v })}
                 />
               </div>
               <NumberField
                 label="Порог (threshold)"
                 value={config.ribbon.threshold}
-                onChange={(v) => updateSection("ribbon", { threshold: v })}
+                onChange={(v) => updateSection('ribbon', { threshold: v })}
                 min={1}
               />
             </div>
-            <MasArrayField
-              value={config.ribbon.mas}
-              onChange={(v) => updateSection("ribbon", { mas: v })}
-            />
+            <MasArrayField value={config.ribbon.mas} onChange={(v) => updateSection('ribbon', { mas: v })} />
           </CollapsibleSection>
 
           {/* Секция 5: Order Flow */}
-          <CollapsibleSection
-            title="Order Flow"
-            description="Анализ потока ордеров (CVD)"
-          >
+          <CollapsibleSection title="Order Flow" description="Анализ потока ордеров (CVD)">
             <ToggleField
               label="Использовать"
               value={config.order_flow.use}
-              onChange={(v) => updateSection("order_flow", { use: v })}
+              onChange={(v) => updateSection('order_flow', { use: v })}
             />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <NumberField
                 label="CVD период"
                 value={config.order_flow.cvd_period}
-                onChange={(v) => updateSection("order_flow", { cvd_period: v })}
+                onChange={(v) => updateSection('order_flow', { cvd_period: v })}
                 min={1}
               />
               <NumberField
                 label="CVD порог"
                 value={config.order_flow.cvd_threshold}
-                onChange={(v) =>
-                  updateSection("order_flow", { cvd_threshold: v })
-                }
+                onChange={(v) => updateSection('order_flow', { cvd_threshold: v })}
                 min={0}
                 max={1}
                 step={0.1}
@@ -427,72 +384,62 @@ function ConfigEditorDialog({
           </CollapsibleSection>
 
           {/* Секция 6: SMC */}
-          <CollapsibleSection
-            title="SMC"
-            description="Smart Money Concepts: FVG, ликвидность, BOS"
-          >
+          <CollapsibleSection title="SMC" description="Smart Money Concepts: FVG, ликвидность, BOS">
             <ToggleField
               label="Использовать"
               value={config.smc.use}
-              onChange={(v) => updateSection("smc", { use: v })}
+              onChange={(v) => updateSection('smc', { use: v })}
             />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               <NumberField
                 label="FVG мин. размер"
                 value={config.smc.fvg_min_size}
-                onChange={(v) => updateSection("smc", { fvg_min_size: v })}
+                onChange={(v) => updateSection('smc', { fvg_min_size: v })}
                 min={0}
                 step={0.1}
               />
               <NumberField
                 label="Ликвидность lookback"
                 value={config.smc.liquidity_lookback}
-                onChange={(v) =>
-                  updateSection("smc", { liquidity_lookback: v })
-                }
+                onChange={(v) => updateSection('smc', { liquidity_lookback: v })}
                 min={1}
               />
               <NumberField
                 label="BOS pivot"
                 value={config.smc.bos_pivot}
-                onChange={(v) => updateSection("smc", { bos_pivot: v })}
+                onChange={(v) => updateSection('smc', { bos_pivot: v })}
                 min={1}
               />
             </div>
           </CollapsibleSection>
 
           {/* Секция 7: Risk Management */}
-          <CollapsibleSection
-            title="Risk Management"
-            description="Стоп-лосс, тейк-профит, трейлинг"
-          >
-            <div className="grid grid-cols-2 gap-3">
+          <CollapsibleSection title="Risk Management" description="Стоп-лосс, тейк-профит, трейлинг">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <NumberField
                 label="ATR период"
                 value={config.risk.atr_period}
-                onChange={(v) => updateSection("risk", { atr_period: v })}
+                onChange={(v) => updateSection('risk', { atr_period: v })}
                 min={1}
               />
               <NumberField
                 label="Stop (ATR x)"
                 value={config.risk.stop_atr_mult}
-                onChange={(v) => updateSection("risk", { stop_atr_mult: v })}
+                onChange={(v) => updateSection('risk', { stop_atr_mult: v })}
                 min={0.5}
                 step={0.5}
               />
               <NumberField
                 label="Take Profit (ATR x)"
                 value={config.risk.tp_atr_mult}
-                onChange={(v) => updateSection("risk", { tp_atr_mult: v })}
+                onChange={(v) => updateSection('risk', { tp_atr_mult: v })}
                 min={1}
                 step={1}
               />
               <NumberField
                 label="Trailing (ATR x)"
                 value={config.risk.trailing_atr_mult}
-                onChange={(v) =>
-                  updateSection("risk", { trailing_atr_mult: v })
-                }
+                onChange={(v) => updateSection('risk', { trailing_atr_mult: v })}
                 min={1}
                 step={1}
               />
@@ -500,22 +447,20 @@ function ConfigEditorDialog({
             <ToggleField
               label="Трейлинг-стоп"
               value={config.risk.use_trailing}
-              onChange={(v) => updateSection("risk", { use_trailing: v })}
+              onChange={(v) => updateSection('risk', { use_trailing: v })}
             />
-            <div className="grid grid-cols-2 gap-3 mt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               <NumberField
                 label="Min баров до trailing"
                 value={config.risk.min_bars_trailing}
-                onChange={(v) =>
-                  updateSection("risk", { min_bars_trailing: v })
-                }
+                onChange={(v) => updateSection('risk', { min_bars_trailing: v })}
                 min={0}
                 max={50}
               />
               <NumberField
                 label="Cooldown после стопа"
                 value={config.risk.cooldown_bars}
-                onChange={(v) => updateSection("risk", { cooldown_bars: v })}
+                onChange={(v) => updateSection('risk', { cooldown_bars: v })}
                 min={0}
                 max={50}
                 suffix="баров"
@@ -524,26 +469,23 @@ function ConfigEditorDialog({
           </CollapsibleSection>
 
           {/* Секция 8: Multi-TP + Breakeven */}
-          <CollapsibleSection
-            title="Multi-TP / Breakeven"
-            description="Частичное закрытие + безубыток"
-          >
+          <CollapsibleSection title="Multi-TP / Breakeven" description="Частичное закрытие + безубыток">
             <ToggleField
               label="Multi-level TP (частичное закрытие)"
               value={config.risk.use_multi_tp}
-              onChange={(v) => updateSection("risk", { use_multi_tp: v })}
+              onChange={(v) => updateSection('risk', { use_multi_tp: v })}
             />
             {config.risk.use_multi_tp && (
               <div className="space-y-2 mt-3">
                 {config.risk.tp_levels.map((lvl, idx) => (
-                  <div key={idx} className="grid grid-cols-2 gap-3">
+                  <div key={idx} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <NumberField
                       label={`TP${idx + 1} расстояние`}
                       value={lvl.atr_mult}
                       onChange={(v) => {
                         const levels = [...config.risk.tp_levels];
                         levels[idx] = { ...levels[idx], atr_mult: v };
-                        updateSection("risk", { tp_levels: levels });
+                        updateSection('risk', { tp_levels: levels });
                       }}
                       min={1}
                       suffix="× ATR"
@@ -554,7 +496,7 @@ function ConfigEditorDialog({
                       onChange={(v) => {
                         const levels = [...config.risk.tp_levels];
                         levels[idx] = { ...levels[idx], close_pct: v };
-                        updateSection("risk", { tp_levels: levels });
+                        updateSection('risk', { tp_levels: levels });
                       }}
                       min={1}
                       max={100}
@@ -568,42 +510,37 @@ function ConfigEditorDialog({
               <ToggleField
                 label="Безубыток при TP1 (SL → цена входа)"
                 value={config.risk.use_breakeven}
-                onChange={(v) => updateSection("risk", { use_breakeven: v })}
+                onChange={(v) => updateSection('risk', { use_breakeven: v })}
               />
             </div>
           </CollapsibleSection>
 
           {/* Секция 9: Filters */}
-          <CollapsibleSection
-            title="Filters"
-            description="ADX, объём и confluence фильтры"
-          >
-            <div className="grid grid-cols-2 gap-3">
+          <CollapsibleSection title="Filters" description="ADX, объём и confluence фильтры">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <NumberField
                 label="ADX период"
                 value={config.filters.adx_period}
-                onChange={(v) => updateSection("filters", { adx_period: v })}
+                onChange={(v) => updateSection('filters', { adx_period: v })}
                 min={1}
               />
               <NumberField
                 label="ADX порог"
                 value={config.filters.adx_threshold}
-                onChange={(v) => updateSection("filters", { adx_threshold: v })}
+                onChange={(v) => updateSection('filters', { adx_threshold: v })}
                 min={0}
               />
               <NumberField
                 label="Объём множитель"
                 value={config.filters.volume_mult}
-                onChange={(v) => updateSection("filters", { volume_mult: v })}
+                onChange={(v) => updateSection('filters', { volume_mult: v })}
                 min={0}
                 step={0.1}
               />
               <NumberField
                 label="Min confluence"
                 value={config.filters.min_confluence}
-                onChange={(v) =>
-                  updateSection("filters", { min_confluence: v })
-                }
+                onChange={(v) => updateSection('filters', { min_confluence: v })}
                 min={0}
                 max={5.5}
                 step={0.5}
@@ -612,286 +549,218 @@ function ConfigEditorDialog({
           </CollapsibleSection>
 
           {/* Секции SuperTrend Squeeze / Hybrid */}
-          {(engineType === "supertrend_squeeze" ||
-            engineType === "hybrid_knn_supertrend") && (
+          {(engineType === 'supertrend_squeeze' || engineType === 'hybrid_knn_supertrend') && (
             <>
-              <CollapsibleSection
-                title="SuperTrend"
-                description="Triple SuperTrend параметры"
-                defaultOpen
-              >
-                <div className="grid grid-cols-2 gap-3">
+              <CollapsibleSection title="SuperTrend" description="Triple SuperTrend параметры" defaultOpen>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <NumberField
                     label="ST1 период"
                     value={config.supertrend.st1_period}
-                    onChange={(v) =>
-                      updateSection("supertrend", { st1_period: v })
-                    }
+                    onChange={(v) => updateSection('supertrend', { st1_period: v })}
                     min={2}
                   />
                   <NumberField
                     label="ST1 множитель"
                     value={config.supertrend.st1_mult}
-                    onChange={(v) =>
-                      updateSection("supertrend", { st1_mult: v })
-                    }
+                    onChange={(v) => updateSection('supertrend', { st1_mult: v })}
                     min={0.1}
                     step={0.1}
                   />
                   <NumberField
                     label="ST2 период"
                     value={config.supertrend.st2_period}
-                    onChange={(v) =>
-                      updateSection("supertrend", { st2_period: v })
-                    }
+                    onChange={(v) => updateSection('supertrend', { st2_period: v })}
                     min={2}
                   />
                   <NumberField
                     label="ST2 множитель"
                     value={config.supertrend.st2_mult}
-                    onChange={(v) =>
-                      updateSection("supertrend", { st2_mult: v })
-                    }
+                    onChange={(v) => updateSection('supertrend', { st2_mult: v })}
                     min={0.1}
                     step={0.25}
                   />
                   <NumberField
                     label="ST3 период"
                     value={config.supertrend.st3_period}
-                    onChange={(v) =>
-                      updateSection("supertrend", { st3_period: v })
-                    }
+                    onChange={(v) => updateSection('supertrend', { st3_period: v })}
                     min={2}
                   />
                   <NumberField
                     label="ST3 множитель"
                     value={config.supertrend.st3_mult}
-                    onChange={(v) =>
-                      updateSection("supertrend", { st3_mult: v })
-                    }
+                    onChange={(v) => updateSection('supertrend', { st3_mult: v })}
                     min={0.1}
                     step={0.5}
                   />
                   <NumberField
                     label="Мин. согласие"
                     value={config.supertrend.min_agree}
-                    onChange={(v) =>
-                      updateSection("supertrend", { min_agree: v })
-                    }
+                    onChange={(v) => updateSection('supertrend', { min_agree: v })}
                     min={1}
                     max={3}
                   />
                 </div>
               </CollapsibleSection>
 
-              <CollapsibleSection
-                title="Squeeze Momentum"
-                description="Bollinger/Keltner squeeze + momentum"
-              >
-                <div className="grid grid-cols-2 gap-3">
+              <CollapsibleSection title="Squeeze Momentum" description="Bollinger/Keltner squeeze + momentum">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="col-span-2 flex items-center justify-between">
-                    <span className="text-xs text-gray-400">
-                      Включить Squeeze
-                    </span>
-                    <Checkbox
-                      checked={config.squeeze.use}
-                      onChange={(v) => updateSection("squeeze", { use: v })}
-                    />
+                    <span className="text-xs text-gray-400">Включить Squeeze</span>
+                    <Checkbox checked={config.squeeze.use} onChange={(v) => updateSection('squeeze', { use: v })} />
                   </div>
                   <NumberField
                     label="BB период"
                     value={config.squeeze.bb_period}
-                    onChange={(v) => updateSection("squeeze", { bb_period: v })}
+                    onChange={(v) => updateSection('squeeze', { bb_period: v })}
                     min={2}
                   />
                   <NumberField
                     label="BB множитель"
                     value={config.squeeze.bb_mult}
-                    onChange={(v) => updateSection("squeeze", { bb_mult: v })}
+                    onChange={(v) => updateSection('squeeze', { bb_mult: v })}
                     min={0.1}
                     step={0.1}
                   />
                   <NumberField
                     label="KC период"
                     value={config.squeeze.kc_period}
-                    onChange={(v) => updateSection("squeeze", { kc_period: v })}
+                    onChange={(v) => updateSection('squeeze', { kc_period: v })}
                     min={2}
                   />
                   <NumberField
                     label="KC множитель"
                     value={config.squeeze.kc_mult}
-                    onChange={(v) => updateSection("squeeze", { kc_mult: v })}
+                    onChange={(v) => updateSection('squeeze', { kc_mult: v })}
                     min={0.1}
                     step={0.1}
                   />
                   <NumberField
                     label="Мин. длительность"
                     value={config.squeeze.min_duration}
-                    onChange={(v) =>
-                      updateSection("squeeze", { min_duration: v })
-                    }
+                    onChange={(v) => updateSection('squeeze', { min_duration: v })}
                     min={0}
                   />
                   <NumberField
                     label="Макс. вес"
                     value={config.squeeze.max_weight}
-                    onChange={(v) =>
-                      updateSection("squeeze", { max_weight: v })
-                    }
+                    onChange={(v) => updateSection('squeeze', { max_weight: v })}
                     min={0.1}
                     step={0.1}
                   />
                 </div>
               </CollapsibleSection>
 
-              <CollapsibleSection
-                title="Entry"
-                description="RSI фильтры и объём"
-              >
-                <div className="grid grid-cols-2 gap-3">
+              <CollapsibleSection title="Entry" description="RSI фильтры и объём">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <NumberField
                     label="RSI период"
                     value={config.entry.rsi_period}
-                    onChange={(v) => updateSection("entry", { rsi_period: v })}
+                    onChange={(v) => updateSection('entry', { rsi_period: v })}
                     min={2}
                   />
                   <NumberField
                     label="RSI long max"
                     value={config.entry.rsi_long_max}
-                    onChange={(v) =>
-                      updateSection("entry", { rsi_long_max: v })
-                    }
+                    onChange={(v) => updateSection('entry', { rsi_long_max: v })}
                     min={0}
                     max={100}
                   />
                   <NumberField
                     label="RSI short min"
                     value={config.entry.rsi_short_min}
-                    onChange={(v) =>
-                      updateSection("entry", { rsi_short_min: v })
-                    }
+                    onChange={(v) => updateSection('entry', { rsi_short_min: v })}
                     min={0}
                     max={100}
                   />
                   <NumberField
                     label="Объём множитель"
                     value={config.entry.volume_mult}
-                    onChange={(v) => updateSection("entry", { volume_mult: v })}
+                    onChange={(v) => updateSection('entry', { volume_mult: v })}
                     min={0.1}
                     step={0.1}
                   />
                 </div>
               </CollapsibleSection>
 
-              <CollapsibleSection
-                title="Trend Filter"
-                description="EMA + ADX тренд-фильтр"
-              >
-                <div className="grid grid-cols-2 gap-3">
+              <CollapsibleSection title="Trend Filter" description="EMA + ADX тренд-фильтр">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <NumberField
                     label="EMA период"
                     value={config.trend_filter.ema_period}
-                    onChange={(v) =>
-                      updateSection("trend_filter", { ema_period: v })
-                    }
+                    onChange={(v) => updateSection('trend_filter', { ema_period: v })}
                     min={2}
                   />
                   <NumberField
                     label="ADX период"
                     value={config.trend_filter.adx_period}
-                    onChange={(v) =>
-                      updateSection("trend_filter", { adx_period: v })
-                    }
+                    onChange={(v) => updateSection('trend_filter', { adx_period: v })}
                     min={2}
                   />
                   <NumberField
                     label="ADX порог"
                     value={config.trend_filter.adx_threshold}
-                    onChange={(v) =>
-                      updateSection("trend_filter", { adx_threshold: v })
-                    }
+                    onChange={(v) => updateSection('trend_filter', { adx_threshold: v })}
                     min={0}
                   />
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">
-                      Использовать ADX
-                    </span>
+                    <span className="text-xs text-gray-400">Использовать ADX</span>
                     <Checkbox
                       checked={config.trend_filter.use_adx}
-                      onChange={(v) =>
-                        updateSection("trend_filter", { use_adx: v })
-                      }
+                      onChange={(v) => updateSection('trend_filter', { use_adx: v })}
                     />
                   </div>
                 </div>
               </CollapsibleSection>
 
-              <CollapsibleSection
-                title="Режим волатильности"
-                description="Адаптация к рыночным условиям"
-              >
-                <div className="grid grid-cols-2 gap-3">
+              <CollapsibleSection title="Режим волатильности" description="Адаптация к рыночным условиям">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="col-span-2 flex items-center justify-between">
                     <span className="text-xs text-gray-400">Включить</span>
-                    <Checkbox
-                      checked={config.regime.use}
-                      onChange={(v) => updateSection("regime", { use: v })}
-                    />
+                    <Checkbox checked={config.regime.use} onChange={(v) => updateSection('regime', { use: v })} />
                   </div>
                   <NumberField
                     label="ADX ranging"
                     value={config.regime.adx_ranging}
-                    onChange={(v) =>
-                      updateSection("regime", { adx_ranging: v })
-                    }
+                    onChange={(v) => updateSection('regime', { adx_ranging: v })}
                     min={0}
                   />
                   <NumberField
                     label="ATR high vol %"
                     value={config.regime.atr_high_vol_pct}
-                    onChange={(v) =>
-                      updateSection("regime", { atr_high_vol_pct: v })
-                    }
+                    onChange={(v) => updateSection('regime', { atr_high_vol_pct: v })}
                     min={0}
                     max={100}
                   />
                   <NumberField
                     label="Vol scale"
                     value={config.regime.vol_scale}
-                    onChange={(v) => updateSection("regime", { vol_scale: v })}
+                    onChange={(v) => updateSection('regime', { vol_scale: v })}
                     min={1}
                     step={0.1}
                   />
                 </div>
               </CollapsibleSection>
 
-              <CollapsibleSection
-                title="Time Filter"
-                description="Блокировка входов в шумные часы UTC"
-              >
-                <div className="grid grid-cols-2 gap-3">
+              <CollapsibleSection title="Time Filter" description="Блокировка входов в шумные часы UTC">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="col-span-2 flex items-center justify-between">
                     <span className="text-xs text-gray-400">Включить</span>
                     <Checkbox
                       checked={config.time_filter.use}
-                      onChange={(v) => updateSection("time_filter", { use: v })}
+                      onChange={(v) => updateSection('time_filter', { use: v })}
                     />
                   </div>
                   <NumberField
                     label="Блок с (UTC)"
                     value={config.time_filter.block_start_utc}
-                    onChange={(v) =>
-                      updateSection("time_filter", { block_start_utc: v })
-                    }
+                    onChange={(v) => updateSection('time_filter', { block_start_utc: v })}
                     min={0}
                     max={23}
                   />
                   <NumberField
                     label="Блок до (UTC)"
                     value={config.time_filter.block_end_utc}
-                    onChange={(v) =>
-                      updateSection("time_filter", { block_end_utc: v })
-                    }
+                    onChange={(v) => updateSection('time_filter', { block_end_utc: v })}
                     min={0}
                     max={23}
                   />
@@ -901,19 +770,17 @@ function ConfigEditorDialog({
           )}
 
           {/* Секция Hybrid KNN Filter */}
-          {engineType === "hybrid_knn_supertrend" && (
+          {engineType === 'hybrid_knn_supertrend' && (
             <CollapsibleSection
               title="Hybrid KNN Filter"
               description="Фильтрация сигналов через KNN confidence"
               defaultOpen
             >
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <NumberField
                   label="Мин. confidence"
                   value={config.hybrid.knn_min_confidence}
-                  onChange={(v) =>
-                    updateSection("hybrid", { knn_min_confidence: v })
-                  }
+                  onChange={(v) => updateSection('hybrid', { knn_min_confidence: v })}
                   min={0}
                   max={100}
                   step={5}
@@ -921,9 +788,7 @@ function ConfigEditorDialog({
                 <NumberField
                   label="Мин. score"
                   value={config.hybrid.knn_min_score}
-                  onChange={(v) =>
-                    updateSection("hybrid", { knn_min_score: v })
-                  }
+                  onChange={(v) => updateSection('hybrid', { knn_min_score: v })}
                   min={0}
                   max={1}
                   step={0.05}
@@ -931,9 +796,7 @@ function ConfigEditorDialog({
                 <NumberField
                   label="Boost порог"
                   value={config.hybrid.knn_boost_threshold}
-                  onChange={(v) =>
-                    updateSection("hybrid", { knn_boost_threshold: v })
-                  }
+                  onChange={(v) => updateSection('hybrid', { knn_boost_threshold: v })}
                   min={0}
                   max={100}
                   step={5}
@@ -941,22 +804,16 @@ function ConfigEditorDialog({
                 <NumberField
                   label="Boost множитель"
                   value={config.hybrid.knn_boost_mult}
-                  onChange={(v) =>
-                    updateSection("hybrid", { knn_boost_mult: v })
-                  }
+                  onChange={(v) => updateSection('hybrid', { knn_boost_mult: v })}
                   min={1}
                   max={3}
                   step={0.1}
                 />
                 <div className="col-span-2 flex items-center justify-between">
-                  <span className="text-xs text-gray-400">
-                    Проверять направление KNN
-                  </span>
+                  <span className="text-xs text-gray-400">Проверять направление KNN</span>
                   <Checkbox
                     checked={config.hybrid.use_knn_direction}
-                    onChange={(v) =>
-                      updateSection("hybrid", { use_knn_direction: v })
-                    }
+                    onChange={(v) => updateSection('hybrid', { use_knn_direction: v })}
                   />
                 </div>
               </div>
@@ -964,44 +821,37 @@ function ConfigEditorDialog({
           )}
 
           {/* Секция 10: Общие параметры торговли */}
-          <CollapsibleSection
-            title="Торговля"
-            description="Плечо, размеры ордеров, режим реверса"
-          >
+          <CollapsibleSection title="Торговля" description="Плечо, размеры ордеров, режим реверса">
             {/* Плечо + Реверс - компактно в одну строку */}
             <div className="flex items-end gap-3">
               <div className="w-24 shrink-0">
                 <NumberField
                   label="Плечо"
                   value={config.live.leverage}
-                  onChange={(v) => updateSection("live", { leverage: v })}
+                  onChange={(v) => updateSection('live', { leverage: v })}
                   min={1}
                   max={100}
                   suffix="×"
                 />
               </div>
               <div className="flex-1 space-y-1.5">
-                <Label className="text-xs text-gray-400">
-                  При обратном сигнале
-                </Label>
+                <Label className="text-xs text-gray-400">При обратном сигнале</Label>
                 <Select
                   options={ON_REVERSE_OPTIONS}
                   value={config.live.on_reverse}
-                  onChange={(v) => updateSection("live", { on_reverse: v })}
+                  onChange={(v) => updateSection('live', { on_reverse: v })}
                 />
               </div>
             </div>
 
             {/* Бэктест / Live - бок о бок */}
-            <div className="grid grid-cols-2 gap-4 pt-3 mt-3 border-t border-white/5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 mt-3 border-t border-white/5">
               <div className="space-y-2.5">
-                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
-                  Бэктест
-                </span>
+                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Бэктест</span>
                 <NumberField
                   label="Ордер"
                   value={config.backtest.order_size}
-                  onChange={(v) => updateSection("backtest", { order_size: v })}
+                  onChange={(v) => updateSection('backtest', { order_size: v })}
                   min={1}
                   max={100}
                   suffix="%"
@@ -1009,7 +859,7 @@ function ConfigEditorDialog({
                 <NumberField
                   label="Комиссия"
                   value={config.backtest.commission}
-                  onChange={(v) => updateSection("backtest", { commission: v })}
+                  onChange={(v) => updateSection('backtest', { commission: v })}
                   min={0}
                   step={0.01}
                   suffix="%"
@@ -1017,7 +867,7 @@ function ConfigEditorDialog({
                 <NumberField
                   label="Slippage"
                   value={config.backtest.slippage}
-                  onChange={(v) => updateSection("backtest", { slippage: v })}
+                  onChange={(v) => updateSection('backtest', { slippage: v })}
                   min={0}
                   step={0.01}
                   suffix="%"
@@ -1027,7 +877,7 @@ function ConfigEditorDialog({
                   <Checkbox
                     checked={config.backtest.use_supertrend_exit}
                     onChange={(checked: boolean) =>
-                      updateSection("backtest", {
+                      updateSection('backtest', {
                         use_supertrend_exit: checked,
                       })
                     }
@@ -1036,13 +886,11 @@ function ConfigEditorDialog({
                 </div>
               </div>
               <div className="space-y-2.5">
-                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
-                  Live / Demo
-                </span>
+                <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Live / Demo</span>
                 <NumberField
                   label="Ордер"
                   value={config.live.order_size}
-                  onChange={(v) => updateSection("live", { order_size: v })}
+                  onChange={(v) => updateSection('live', { order_size: v })}
                   min={1}
                   max={100}
                   suffix="%"
@@ -1076,23 +924,18 @@ function ConfigEditorDialog({
           </div>
 
           {/* Кнопки действий */}
-          <div className="flex items-center justify-between pt-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="text-gray-400"
-            >
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-between gap-2 pt-2">
+            <Button variant="ghost" size="sm" onClick={onClose} className="text-gray-400 min-h-[44px] justify-center">
               <X className="mr-1.5 h-3.5 w-3.5" />
               Отмена
             </Button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleSaveAndBacktest}
                 disabled={saving}
-                className="text-brand-accent hover:text-brand-accent hover:bg-brand-accent/10"
+                className="text-brand-accent hover:text-brand-accent hover:bg-brand-accent/10 flex-1 sm:flex-none min-h-[44px] justify-center"
                 title="Сохранить и запустить бэктест"
               >
                 <Play className="mr-1.5 h-3.5 w-3.5" />
@@ -1103,13 +946,14 @@ function ConfigEditorDialog({
                 size="sm"
                 onClick={handleSubmit}
                 disabled={saving}
+                className="flex-1 sm:flex-none min-h-[44px] justify-center"
               >
                 {saving ? (
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Save className="mr-1.5 h-3.5 w-3.5" />
                 )}
-                {editingConfig ? "Сохранить" : "Создать"}
+                {editingConfig ? 'Сохранить' : 'Создать'}
               </Button>
             </div>
           </div>
@@ -1153,33 +997,22 @@ function ConfigCard({
   return (
     <div
       className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-        selected
-          ? "border-brand-accent/30 bg-brand-accent/5"
-          : "border-white/5 bg-white/[0.02] hover:bg-white/[0.04]"
+        selected ? 'border-brand-accent/30 bg-brand-accent/5' : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.04]'
       }`}
     >
       {/* Checkbox */}
-      <Checkbox
-        checked={selected}
-        onChange={onSelect}
-        aria-label={`Выбрать ${cfg.name}`}
-        className="shrink-0"
-      />
+      <Checkbox checked={selected} onChange={onSelect} aria-label={`Выбрать ${cfg.name}`} className="shrink-0" />
 
       {/* Info */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <Settings className="h-3.5 w-3.5 text-gray-400 shrink-0 hidden sm:block" />
-          <span className="text-sm font-medium text-white truncate">
-            {cfg.name}
-          </span>
+          <span className="text-sm font-medium text-white truncate">{cfg.name}</span>
         </div>
         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
           <Badge variant="accent">{cfg.symbol}</Badge>
           <Badge variant="default">{cfg.timeframe}m</Badge>
-          <span className="text-xs text-gray-600">
-            {new Date(cfg.created_at).toLocaleDateString("ru-RU")}
-          </span>
+          <span className="text-xs text-gray-600">{new Date(cfg.created_at).toLocaleDateString('ru-RU')}</span>
         </div>
       </div>
 
@@ -1202,11 +1035,7 @@ function ConfigCard({
           disabled={duplicating}
           title="Дублировать"
         >
-          {duplicating ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <CopyPlus className="h-3.5 w-3.5" />
-          )}
+          {duplicating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CopyPlus className="h-3.5 w-3.5" />}
         </Button>
         <Button
           variant="ghost"
@@ -1225,11 +1054,7 @@ function ConfigCard({
           disabled={deleting}
           title="Удалить"
         >
-          {deleting ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Trash2 className="h-3.5 w-3.5" />
-          )}
+          {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
         </Button>
       </div>
     </div>
@@ -1244,7 +1069,7 @@ export function StrategyDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { toast } = useToast();
   const { user } = useAuthStore();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === 'admin';
 
   const [strategy, setStrategy] = useState<StrategyDetailType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1253,7 +1078,7 @@ export function StrategyDetail() {
 
   // Редактирование версии (admin)
   const [editingVersion, setEditingVersion] = useState(false);
-  const [versionDraft, setVersionDraft] = useState("");
+  const [versionDraft, setVersionDraft] = useState('');
   const [savingVersion, setSavingVersion] = useState(false);
 
   const saveVersion = useCallback(async () => {
@@ -1265,9 +1090,9 @@ export function StrategyDetail() {
       });
       setStrategy(data);
       setEditingVersion(false);
-      toast("Версия обновлена", "success");
+      toast('Версия обновлена', 'success');
     } catch {
-      toast("Ошибка обновления версии", "error");
+      toast('Ошибка обновления версии', 'error');
     } finally {
       setSavingVersion(false);
     }
@@ -1278,14 +1103,12 @@ export function StrategyDetail() {
   const [configsLoading, setConfigsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [configFilter, setConfigFilter] = useState("");
+  const [configFilter, setConfigFilter] = useState('');
 
   const filteredConfigs = configs.filter((c) => {
     if (!configFilter) return true;
     const q = configFilter.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q)
-    );
+    return c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q);
   });
 
   const toggleSelect = (id: string, checked: boolean) => {
@@ -1316,14 +1139,12 @@ export function StrategyDetail() {
     }
     setSelectedIds(new Set());
     fetchConfigs();
-    toast(`Удалено ${selectedIds.size} конфигов`, "success");
+    toast(`Удалено ${selectedIds.size} конфигов`, 'success');
   };
 
   // Диалог редактора
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editingConfig, setEditingConfig] = useState<StrategyConfig | null>(
-    null,
-  );
+  const [editingConfig, setEditingConfig] = useState<StrategyConfig | null>(null);
 
   // Дублирование
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
@@ -1338,11 +1159,7 @@ export function StrategyDetail() {
       .get(`/strategies/${slug}`)
       .then(({ data }) => setStrategy(data))
       .catch((err) => {
-        setError(
-          err.response?.status === 404
-            ? "Стратегия не найдена"
-            : "Ошибка загрузки",
-        );
+        setError(err.response?.status === 404 ? 'Стратегия не найдена' : 'Ошибка загрузки');
       })
       .finally(() => setLoading(false));
   }, [slug]);
@@ -1352,7 +1169,7 @@ export function StrategyDetail() {
     if (!strategy) return;
     setConfigsLoading(true);
     api
-      .get<StrategyConfig[]>("/strategies/configs/my", {
+      .get<StrategyConfig[]>('/strategies/configs/my', {
         params: { strategy_id: strategy.id },
       })
       .then(({ data }) => setConfigs(data))
@@ -1368,9 +1185,7 @@ export function StrategyDetail() {
 
   const handleCopyConfig = () => {
     if (!strategy) return;
-    navigator.clipboard.writeText(
-      JSON.stringify(strategy.default_config, null, 2),
-    );
+    navigator.clipboard.writeText(JSON.stringify(strategy.default_config, null, 2));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -1389,10 +1204,10 @@ export function StrategyDetail() {
     setDeletingId(id);
     try {
       await api.delete(`/strategies/configs/${id}`);
-      toast("Конфигурация удалена", "success");
+      toast('Конфигурация удалена', 'success');
       fetchConfigs();
     } catch {
-      toast("Ошибка удаления", "error");
+      toast('Ошибка удаления', 'error');
     } finally {
       setDeletingId(null);
     }
@@ -1409,11 +1224,11 @@ export function StrategyDetail() {
         timeframe: cfg.timeframe,
         config: cfg.config,
       };
-      await api.post("/strategies/configs", payload);
-      toast("Конфигурация дублирована", "success");
+      await api.post('/strategies/configs', payload);
+      toast('Конфигурация дублирована', 'success');
       fetchConfigs();
     } catch {
-      toast("Ошибка дублирования", "error");
+      toast('Ошибка дублирования', 'error');
     } finally {
       setDuplicatingId(null);
     }
@@ -1428,17 +1243,17 @@ export function StrategyDetail() {
       config: cfg.config,
     };
     const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-      type: "application/json",
+      type: 'application/json',
     });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
-    a.download = `${cfg.name.replace(/[^a-zA-Z0-9а-яА-ЯёЁ_-]/g, "_")}.json`;
+    a.download = `${cfg.name.replace(/[^a-zA-Z0-9а-яА-ЯёЁ_-]/g, '_')}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast("Конфигурация экспортирована", "success");
+    toast('Конфигурация экспортирована', 'success');
   };
 
   /* Импорт конфига из .json файла */
@@ -1449,25 +1264,20 @@ export function StrategyDetail() {
     try {
       const text = await file.text();
       const parsed: unknown = JSON.parse(text);
-      if (typeof parsed !== "object" || parsed === null) {
-        toast("Невалидный JSON: ожидается объект", "error");
+      if (typeof parsed !== 'object' || parsed === null) {
+        toast('Невалидный JSON: ожидается объект', 'error');
         return;
       }
 
       const obj = parsed as Record<string, unknown>;
       const configData =
-        "config" in obj && typeof obj.config === "object" && obj.config !== null
+        'config' in obj && typeof obj.config === 'object' && obj.config !== null
           ? (obj.config as Record<string, unknown>)
           : obj;
 
-      const importName =
-        typeof obj.name === "string"
-          ? `${obj.name} (импорт)`
-          : `Импорт ${file.name}`;
-      const importSymbol =
-        typeof obj.symbol === "string" ? obj.symbol : "BTCUSDT";
-      const importTimeframe =
-        typeof obj.timeframe === "string" ? obj.timeframe : "5";
+      const importName = typeof obj.name === 'string' ? `${obj.name} (импорт)` : `Импорт ${file.name}`;
+      const importSymbol = typeof obj.symbol === 'string' ? obj.symbol : 'BTCUSDT';
+      const importTimeframe = typeof obj.timeframe === 'string' ? obj.timeframe : '5';
 
       const payload: StrategyConfigCreate = {
         strategy_id: strategy.id,
@@ -1477,15 +1287,15 @@ export function StrategyDetail() {
         config: configData,
       };
 
-      await api.post("/strategies/configs", payload);
-      toast("Конфигурация импортирована", "success");
+      await api.post('/strategies/configs', payload);
+      toast('Конфигурация импортирована', 'success');
       fetchConfigs();
     } catch {
-      toast("Ошибка импорта: невалидный JSON файл", "error");
+      toast('Ошибка импорта: невалидный JSON файл', 'error');
     } finally {
       // Сброс input, чтобы можно было загрузить тот же файл повторно
       if (importInputRef.current) {
-        importInputRef.current.value = "";
+        importInputRef.current.value = '';
       }
     }
   };
@@ -1510,7 +1320,7 @@ export function StrategyDetail() {
         <Card className="border-white/5 bg-white/[0.02]">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Brain className="h-12 w-12 text-gray-600 mb-4" />
-            <p className="text-gray-400 text-lg">{error || "Не найдено"}</p>
+            <p className="text-gray-400 text-lg">{error || 'Не найдено'}</p>
           </CardContent>
         </Card>
       </div>
@@ -1521,30 +1331,24 @@ export function StrategyDetail() {
     <div className="space-y-6">
       {/* Back link */}
       <Link to="/strategies">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-gray-400 hover:text-white"
-        >
+        <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Назад к стратегиям
         </Button>
       </Link>
 
       {/* Header */}
-      <div className="flex items-start gap-4">
-        <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-brand-premium/10">
-          <Brain className="h-7 w-7 text-brand-premium" />
+      <div className="flex items-start gap-3 sm:gap-4">
+        <div className="flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-brand-premium/10 flex-shrink-0">
+          <Brain className="h-6 w-6 sm:h-7 sm:w-7 text-brand-premium" />
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-white">{strategy.name}</h1>
-          <div className="flex items-center gap-3 mt-1">
-            <span className="px-2 py-0.5 rounded-md bg-brand-accent/10 text-brand-accent text-xs font-medium">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-white break-words">{strategy.name}</h1>
+          <div className="flex items-center gap-2 sm:gap-3 mt-1.5 flex-wrap">
+            <span className="px-2 py-0.5 rounded-md bg-brand-accent/10 text-brand-accent text-xs font-medium break-all">
               {strategy.engine_type}
             </span>
-            <span className="text-gray-400 text-xs font-mono">
-              v{strategy.version}
-            </span>
+            <span className="text-gray-400 text-xs font-mono">v{strategy.version}</span>
             {isAdmin && (
               <button
                 onClick={() => {
@@ -1567,7 +1371,7 @@ export function StrategyDetail() {
       </div>
 
       {/* Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left column */}
         <div className="lg:col-span-2 space-y-6">
           {/* Description */}
@@ -1576,24 +1380,20 @@ export function StrategyDetail() {
               <CardTitle className="text-base text-white">Описание</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-400 leading-relaxed">
-                {strategy.description || "Описание не указано"}
-              </p>
+              <p className="text-gray-400 leading-relaxed">{strategy.description || 'Описание не указано'}</p>
             </CardContent>
           </Card>
 
           {/* My Configs */}
           <Card className="border-white/5 bg-white/[0.02]">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base text-white">
-                Мои конфигурации
-              </CardTitle>
-              <div className="flex items-center gap-2">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2">
+              <CardTitle className="text-base text-white">Мои конфигурации</CardTitle>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => importInputRef.current?.click()}
-                  className="text-gray-400 hover:text-brand-premium"
+                  className="text-gray-400 hover:text-brand-premium flex-1 sm:flex-none min-h-[40px]"
                   title="Импорт из JSON файла"
                 >
                   <Upload className="mr-1.5 h-3.5 w-3.5" />
@@ -1603,6 +1403,7 @@ export function StrategyDetail() {
                   variant="premium"
                   size="sm"
                   onClick={handleCreateConfig}
+                  className="flex-1 sm:flex-none min-h-[40px]"
                 >
                   <Plus className="mr-1.5 h-3.5 w-3.5" />
                   Создать
@@ -1618,8 +1419,7 @@ export function StrategyDetail() {
                 <div className="text-center py-8">
                   <Settings className="h-8 w-8 text-gray-700 mx-auto mb-2" />
                   <p className="text-sm text-gray-400">
-                    Нет конфигураций. Создайте первую для запуска бота или
-                    бэктеста.
+                    Нет конфигураций. Создайте первую для запуска бота или бэктеста.
                   </p>
                 </div>
               ) : (
@@ -1638,17 +1438,13 @@ export function StrategyDetail() {
                         className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors px-2 py-1 rounded border border-white/[0.06] hover:border-white/[0.1]"
                       >
                         <Checkbox
-                          checked={
-                            filteredConfigs.length > 0 &&
-                            selectedIds.size === filteredConfigs.length
-                          }
+                          checked={filteredConfigs.length > 0 && selectedIds.size === filteredConfigs.length}
                           className="h-3.5 w-3.5"
                           tabIndex={-1}
                         />
-                        {selectedIds.size === filteredConfigs.length &&
-                        filteredConfigs.length > 0
-                          ? "Снять все"
-                          : "Выбрать все"}
+                        {selectedIds.size === filteredConfigs.length && filteredConfigs.length > 0
+                          ? 'Снять все'
+                          : 'Выбрать все'}
                       </button>
                       {selectedIds.size > 0 && (
                         <Button
@@ -1703,15 +1499,13 @@ export function StrategyDetail() {
 
           {/* Default config */}
           <Card className="border-white/5 bg-white/[0.02]">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base text-white">
-                Конфигурация по умолчанию
-              </CardTitle>
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2">
+              <CardTitle className="text-base text-white">Конфигурация по умолчанию</CardTitle>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleCopyConfig}
-                className="text-gray-400 hover:text-white"
+                className="text-gray-400 hover:text-white min-h-[40px] w-full sm:w-auto justify-center"
               >
                 {copied ? (
                   <>
@@ -1727,7 +1521,7 @@ export function StrategyDetail() {
               </Button>
             </CardHeader>
             <CardContent>
-              <pre className="p-4 rounded-lg bg-black/30 text-sm font-mono text-gray-300 overflow-x-auto">
+              <pre className="p-3 sm:p-4 rounded-lg bg-black/30 text-[11px] sm:text-sm font-mono text-gray-300 overflow-x-auto max-h-[50vh]">
                 {JSON.stringify(strategy.default_config, null, 2)}
               </pre>
             </CardContent>
@@ -1741,21 +1535,17 @@ export function StrategyDetail() {
               <CardTitle className="text-base text-white">Информация</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">ID</span>
-                <span className="text-gray-300 font-mono text-xs truncate max-w-[140px]">
-                  {strategy.id}
-                </span>
+              <div className="flex justify-between gap-2 text-sm">
+                <span className="text-gray-400 flex-shrink-0">ID</span>
+                <span className="text-gray-300 font-mono text-xs truncate min-w-0">{strategy.id}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Slug</span>
-                <span className="text-gray-300 font-mono text-xs">
-                  {strategy.slug}
-                </span>
+              <div className="flex justify-between gap-2 text-sm">
+                <span className="text-gray-400 flex-shrink-0">Slug</span>
+                <span className="text-gray-300 font-mono text-xs truncate min-w-0">{strategy.slug}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Движок</span>
-                <span className="text-gray-300">{strategy.engine_type}</span>
+              <div className="flex justify-between gap-2 text-sm">
+                <span className="text-gray-400 flex-shrink-0">Движок</span>
+                <span className="text-gray-300 truncate min-w-0 text-right">{strategy.engine_type}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-400">Версия</span>
@@ -1766,8 +1556,8 @@ export function StrategyDetail() {
                       value={versionDraft}
                       onChange={(e) => setVersionDraft(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") saveVersion();
-                        if (e.key === "Escape") setEditingVersion(false);
+                        if (e.key === 'Enter') saveVersion();
+                        if (e.key === 'Escape') setEditingVersion(false);
                       }}
                       autoFocus
                     />
@@ -1787,9 +1577,7 @@ export function StrategyDetail() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-gray-300 font-mono">
-                      {strategy.version}
-                    </span>
+                    <span className="text-gray-300 font-mono">{strategy.version}</span>
                     {isAdmin && (
                       <button
                         onClick={() => {
@@ -1807,7 +1595,7 @@ export function StrategyDetail() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Создана</span>
                 <span className="text-gray-300 text-xs">
-                  {new Date(strategy.created_at).toLocaleDateString("ru-RU")}
+                  {new Date(strategy.created_at).toLocaleDateString('ru-RU')}
                 </span>
               </div>
             </CardContent>
@@ -1826,9 +1614,7 @@ export function StrategyDetail() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Символы</span>
-                  <span className="text-gray-300 text-xs">
-                    {[...new Set(configs.map((c) => c.symbol))].join(", ")}
-                  </span>
+                  <span className="text-gray-300 text-xs">{[...new Set(configs.map((c) => c.symbol))].join(', ')}</span>
                 </div>
               </CardContent>
             </Card>

@@ -39,12 +39,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { SymbolSearch } from '@/components/ui/symbol-search';
 import { Separator } from '@/components/ui/separator';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { useAuthStore } from '@/stores/auth';
 import api from '@/lib/api';
@@ -390,33 +385,31 @@ export function Settings() {
   const profileChanged = username.trim() !== (user?.username ?? '');
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* --- Заголовок страницы --- */}
       <div className="relative">
         {/* Декоративный градиент за заголовком */}
         <div className="absolute -inset-x-4 -top-4 h-32 bg-gradient-to-b from-brand-premium/[0.03] to-transparent rounded-2xl pointer-events-none" />
         <div className="relative">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-brand-premium/20 to-brand-accent/10 border border-brand-premium/20 shadow-lg shadow-brand-premium/5">
-              <SettingsIcon className="h-6 w-6 text-brand-premium" />
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-brand-premium/20 to-brand-accent/10 border border-brand-premium/20 shadow-lg shadow-brand-premium/5 flex-shrink-0">
+              <SettingsIcon className="h-5 w-5 sm:h-6 sm:w-6 text-brand-premium" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white tracking-tight font-[Tektur]">
-                Настройки
-              </h1>
-              <p className="text-sm text-gray-500 mt-0.5">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-[Tektur]">Настройки</h1>
+              <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
                 Управление профилем, биржевыми аккаунтами и предпочтениями
               </p>
             </div>
           </div>
           {/* Декоративная линия-акцент */}
-          <div className="mt-5 h-px bg-gradient-to-r from-brand-premium/30 via-brand-accent/10 to-transparent" />
+          <div className="mt-4 sm:mt-5 h-px bg-gradient-to-r from-brand-premium/30 via-brand-accent/10 to-transparent" />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Левая колонка: Профиль + Предпочтения */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* ---- Профиль ---- */}
           <Card className="border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-all duration-300 group">
             <CardHeader className="pb-3">
@@ -438,9 +431,7 @@ export function Settings() {
                   <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-brand-profit border-2 border-brand-bg" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-white truncate">
-                    {user?.username || user?.email || '...'}
-                  </p>
+                  <p className="text-sm font-medium text-white truncate">{user?.username || user?.email || '...'}</p>
                   <Badge variant="premium" className="mt-1.5">
                     {roleLabel(user?.role ?? 'user')}
                   </Badge>
@@ -451,28 +442,24 @@ export function Settings() {
 
               {/* Email (readonly) */}
               <div>
-                <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">
-                  Email
-                </label>
-                <div className="flex items-center gap-2.5 h-10 px-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
+                <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">Email</label>
+                <div className="flex items-center gap-2.5 min-h-[44px] py-2 px-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
                   <Lock className="h-3.5 w-3.5 text-gray-600 flex-shrink-0" />
-                  <span className="text-sm text-gray-400 font-mono truncate">
+                  <span className="text-xs sm:text-sm text-gray-400 font-mono truncate min-w-0 flex-1">
                     {user?.email ?? '...'}
                   </span>
-                  <Shield className="h-3.5 w-3.5 text-brand-profit/50 ml-auto flex-shrink-0" />
+                  <Shield className="h-3.5 w-3.5 text-brand-profit/50 flex-shrink-0" />
                 </div>
               </div>
 
               {/* Username */}
               <div>
-                <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">
-                  Имя пользователя
-                </label>
+                <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5">Имя пользователя</label>
                 <Input
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Введите имя"
-                  className="bg-white/[0.03] border-white/[0.08] text-white placeholder:text-gray-600 focus:border-brand-accent/40 transition-colors"
+                  className="bg-white/[0.03] border-white/[0.08] text-white placeholder:text-gray-600 focus:border-brand-accent/40 transition-colors min-h-[44px]"
                 />
               </div>
 
@@ -527,11 +514,7 @@ export function Settings() {
                       <LineChart className="h-3 w-3" />
                       Символ по умолчанию
                     </label>
-                    <SymbolSearch
-                      value={defaultSymbol}
-                      onChange={setDefaultSymbol}
-                      className="w-full"
-                    />
+                    <SymbolSearch value={defaultSymbol} onChange={setDefaultSymbol} className="w-full" />
                   </div>
 
                   <Separator className="bg-white/5" />
@@ -558,12 +541,7 @@ export function Settings() {
                       <Palette className="h-3 w-3" />
                       Тема оформления
                     </label>
-                    <Select
-                      value={theme}
-                      onChange={setTheme}
-                      options={THEME_OPTIONS}
-                      className="w-full"
-                    />
+                    <Select value={theme} onChange={setTheme} options={THEME_OPTIONS} className="w-full" />
                   </div>
 
                   <Button
@@ -588,18 +566,17 @@ export function Settings() {
               )}
             </CardContent>
           </Card>
-
         </div>
 
         {/* Правая колонка: Биржевые аккаунты + Уведомления */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <Card className="border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] transition-all duration-300">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-base text-white flex items-center gap-2">
-                <Key className="h-4 w-4 text-brand-premium" />
-                Биржевые аккаунты
+            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+              <CardTitle className="text-base text-white flex items-center gap-2 min-w-0">
+                <Key className="h-4 w-4 text-brand-premium flex-shrink-0" />
+                <span className="truncate">Биржевые аккаунты</span>
                 {accounts.length > 0 && (
-                  <span className="text-xs text-gray-500 font-mono font-normal ml-1">
+                  <span className="text-xs text-gray-500 font-mono font-normal ml-1 flex-shrink-0">
                     ({accounts.length})
                   </span>
                 )}
@@ -607,7 +584,7 @@ export function Settings() {
               <Button
                 onClick={() => setShowAddAccount(true)}
                 size="sm"
-                className="bg-brand-premium text-brand-bg hover:bg-brand-premium/90 min-h-[36px] shadow-md shadow-brand-premium/10 transition-all duration-200 hover:shadow-lg hover:shadow-brand-premium/20"
+                className="bg-brand-premium text-brand-bg hover:bg-brand-premium/90 min-h-[40px] shadow-md shadow-brand-premium/10 transition-all duration-200 hover:shadow-lg hover:shadow-brand-premium/20 flex-shrink-0"
               >
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
                 Добавить
@@ -637,9 +614,7 @@ export function Settings() {
                       <ShieldCheck className="h-3 w-3 text-brand-profit/30" />
                     </div>
                   </div>
-                  <p className="text-gray-300 text-sm font-medium">
-                    Нет подключенных аккаунтов
-                  </p>
+                  <p className="text-gray-300 text-sm font-medium">Нет подключенных аккаунтов</p>
                   <p className="text-gray-500 text-xs mt-1.5 text-center max-w-[260px]">
                     Добавьте API-ключи биржи для начала автоматической торговли
                   </p>
@@ -658,15 +633,13 @@ export function Settings() {
                   {accounts.map((account) => (
                     <div
                       key={account.id}
-                      className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] hover:bg-white/[0.03] transition-all duration-200 group/item"
+                      className="flex items-center justify-between gap-2 p-3 sm:p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] hover:bg-white/[0.03] transition-all duration-200 group/item"
                     >
-                      <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="flex items-center gap-3 sm:gap-3.5 min-w-0 flex-1">
                         {/* Иконка биржи с индикатором статуса */}
                         <div className="relative flex-shrink-0">
                           <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br from-brand-premium/15 to-brand-premium/5 border border-brand-premium/10">
-                            <span className="text-xs font-bold text-brand-premium font-[Tektur] select-none">
-                              BY
-                            </span>
+                            <span className="text-xs font-bold text-brand-premium font-[Tektur] select-none">BY</span>
                           </div>
                           {/* Статус-точка */}
                           {account.is_active && (
@@ -677,9 +650,7 @@ export function Settings() {
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-medium text-white truncate">
-                              {account.label}
-                            </p>
+                            <p className="text-sm font-medium text-white truncate">{account.label}</p>
                             {account.is_testnet && (
                               <Badge variant="accent" className="text-[10px] px-1.5 py-0">
                                 DEMO
@@ -692,13 +663,9 @@ export function Settings() {
                             )}
                           </div>
                           <div className="flex items-center gap-2.5 mt-1">
-                            <span className="text-xs text-gray-500 uppercase font-medium">
-                              {account.exchange}
-                            </span>
+                            <span className="text-xs text-gray-500 uppercase font-medium">{account.exchange}</span>
                             <span className="w-1 h-1 rounded-full bg-gray-700" />
-                            <span className="text-xs text-gray-600 font-mono">
-                              {formatDate(account.created_at)}
-                            </span>
+                            <span className="text-xs text-gray-600 font-mono">{formatDate(account.created_at)}</span>
                           </div>
                         </div>
                       </div>
@@ -707,7 +674,7 @@ export function Settings() {
                         size="icon"
                         onClick={() => setShowDeleteConfirm(account.id)}
                         disabled={deletingId === account.id}
-                        className="text-gray-600 hover:text-brand-loss hover:bg-brand-loss/10 flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-all duration-200 min-w-[44px] min-h-[44px]"
+                        className="text-gray-600 hover:text-brand-loss hover:bg-brand-loss/10 flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover/item:opacity-100 transition-all duration-200 min-w-[44px] min-h-[44px]"
                         aria-label={`Удалить аккаунт ${account.label}`}
                       >
                         {deletingId === account.id ? (
@@ -731,8 +698,8 @@ export function Settings() {
                     <div>
                       <p className="text-xs font-medium text-gray-300 mb-1">Безопасность ключей</p>
                       <p className="text-xs text-gray-500 leading-relaxed">
-                        API-ключи шифруются при хранении. Рекомендуем использовать отдельные ключи
-                        с ограниченными правами (только торговля, без вывода).
+                        API-ключи шифруются при хранении. Рекомендуем использовать отдельные ключи с ограниченными
+                        правами (только торговля, без вывода).
                       </p>
                     </div>
                   </div>
@@ -769,9 +736,7 @@ export function Settings() {
                         <CheckCircle2 className="h-3.5 w-3.5 text-brand-profit flex-shrink-0" />
                       </div>
                       {tgLink.linked_at && (
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          Привязан {formatDate(tgLink.linked_at)}
-                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">Привязан {formatDate(tgLink.linked_at)}</p>
                       )}
                     </div>
                     <button
@@ -782,7 +747,8 @@ export function Settings() {
                       onClick={() => {
                         const next = { ...tgSettings, telegram_enabled: !tgSettings.telegram_enabled };
                         setTgSettings(next);
-                        api.patch('/telegram/settings', { telegram_enabled: next.telegram_enabled })
+                        api
+                          .patch('/telegram/settings', { telegram_enabled: next.telegram_enabled })
                           .then(({ data }) => {
                             setTgSettings(data as TelegramSettings);
                             setTgSettingsOriginal(data as TelegramSettings);
@@ -791,13 +757,17 @@ export function Settings() {
                       }}
                       className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none ${tgSettings.telegram_enabled ? 'bg-[#26A5E4]' : 'bg-gray-600'}`}
                     >
-                      <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${tgSettings.telegram_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                      <span
+                        className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${tgSettings.telegram_enabled ? 'translate-x-6' : 'translate-x-1'}`}
+                      />
                     </button>
                   </div>
 
                   {showUnlinkConfirm ? (
                     <div className="p-3.5 rounded-xl bg-brand-loss/5 border border-brand-loss/20 space-y-3">
-                      <p className="text-xs text-gray-300">Отвязать Telegram аккаунт? Уведомления перестанут приходить.</p>
+                      <p className="text-xs text-gray-300">
+                        Отвязать Telegram аккаунт? Уведомления перестанут приходить.
+                      </p>
                       <div className="flex gap-2">
                         <Button
                           size="sm"
@@ -883,28 +853,83 @@ export function Settings() {
                   {/* Заголовок колонок */}
                   <div className="flex items-center gap-3 px-3 pb-1">
                     <div className="flex-1 min-w-0" />
-                    <div className="flex items-center gap-4 flex-shrink-0">
+                    <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
                       <div className="flex items-center gap-1 w-10 justify-center">
                         <Monitor className="h-3 w-3 text-gray-500" />
                         <span className="text-[10px] text-gray-500 uppercase tracking-wider">Web</span>
                       </div>
-                      <div className={`flex items-center gap-1 w-10 justify-center ${!tgLink?.is_linked ? 'opacity-40' : ''}`}>
+                      <div
+                        className={`flex items-center gap-1 w-10 justify-center ${!tgLink?.is_linked ? 'opacity-40' : ''}`}
+                      >
                         <MessageCircle className="h-3 w-3 text-[#26A5E4]" />
                         <span className="text-[10px] text-[#26A5E4] uppercase tracking-wider">TG</span>
                       </div>
                     </div>
                   </div>
 
-                  {([
-                    { webKey: 'positions_enabled', tgKey: 'positions_telegram', label: 'Позиции', desc: 'Открытие, закрытие, TP/SL', icon: TrendingUp },
-                    { webKey: 'bots_enabled', tgKey: 'bots_telegram', label: 'Боты', desc: 'Старт, стоп, ошибки', icon: Bot, critical: true },
-                    { webKey: 'orders_enabled', tgKey: 'orders_telegram', label: 'Ордера', desc: 'Исполнение, отмена', icon: ClipboardList },
-                    { webKey: 'backtest_enabled', tgKey: 'backtest_telegram', label: 'Бэктесты', desc: 'Завершение, ошибки', icon: BarChart3 },
-                    { webKey: 'system_enabled', tgKey: 'system_telegram', label: 'Системные', desc: 'Соединение, ошибки сервисов', icon: Cog, critical: true, adminOnly: true },
-                    { webKey: 'billing_enabled', tgKey: null, label: 'Биллинг', desc: 'Подписки, платежи', icon: CreditCard },
-                    { webKey: null, tgKey: 'finance_telegram', label: 'Финансы', desc: 'P&L отчёты, баланс, маржа', icon: DollarSign },
-                    { webKey: null, tgKey: 'security_telegram', label: 'Безопасность', desc: 'Вход, изменение ключей', icon: ShieldAlert },
-                  ] as const).map((cat) => {
+                  {(
+                    [
+                      {
+                        webKey: 'positions_enabled',
+                        tgKey: 'positions_telegram',
+                        label: 'Позиции',
+                        desc: 'Открытие, закрытие, TP/SL',
+                        icon: TrendingUp,
+                      },
+                      {
+                        webKey: 'bots_enabled',
+                        tgKey: 'bots_telegram',
+                        label: 'Боты',
+                        desc: 'Старт, стоп, ошибки',
+                        icon: Bot,
+                        critical: true,
+                      },
+                      {
+                        webKey: 'orders_enabled',
+                        tgKey: 'orders_telegram',
+                        label: 'Ордера',
+                        desc: 'Исполнение, отмена',
+                        icon: ClipboardList,
+                      },
+                      {
+                        webKey: 'backtest_enabled',
+                        tgKey: 'backtest_telegram',
+                        label: 'Бэктесты',
+                        desc: 'Завершение, ошибки',
+                        icon: BarChart3,
+                      },
+                      {
+                        webKey: 'system_enabled',
+                        tgKey: 'system_telegram',
+                        label: 'Системные',
+                        desc: 'Соединение, ошибки сервисов',
+                        icon: Cog,
+                        critical: true,
+                        adminOnly: true,
+                      },
+                      {
+                        webKey: 'billing_enabled',
+                        tgKey: null,
+                        label: 'Биллинг',
+                        desc: 'Подписки, платежи',
+                        icon: CreditCard,
+                      },
+                      {
+                        webKey: null,
+                        tgKey: 'finance_telegram',
+                        label: 'Финансы',
+                        desc: 'P&L отчёты, баланс, маржа',
+                        icon: DollarSign,
+                      },
+                      {
+                        webKey: null,
+                        tgKey: 'security_telegram',
+                        label: 'Безопасность',
+                        desc: 'Вход, изменение ключей',
+                        icon: ShieldAlert,
+                      },
+                    ] as const
+                  ).map((cat) => {
                     const Icon = cat.icon;
                     const webEnabled = cat.webKey ? notifPrefs[cat.webKey as keyof typeof notifPrefs] : null;
                     const tgEnabled = cat.tgKey ? tgSettings[cat.tgKey as keyof TelegramSettings] : null;
@@ -914,7 +939,9 @@ export function Settings() {
                         key={cat.label}
                         className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 hover:bg-white/[0.03] transition-colors"
                       >
-                        <Icon className={`h-4 w-4 flex-shrink-0 ${(webEnabled ?? tgEnabled) ? 'text-brand-accent' : 'text-gray-600'} transition-colors`} />
+                        <Icon
+                          className={`h-4 w-4 flex-shrink-0 ${(webEnabled ?? tgEnabled) ? 'text-brand-accent' : 'text-gray-600'} transition-colors`}
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm text-white truncate">{cat.label}</p>
@@ -924,7 +951,7 @@ export function Settings() {
                           </div>
                           <p className="text-xs text-gray-500 mt-0.5">{cat.desc}</p>
                         </div>
-                        <div className="flex items-center gap-4 flex-shrink-0">
+                        <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
                           {/* Web toggle */}
                           <div className="w-10 flex justify-center">
                             {webEnabled !== null ? (
@@ -933,12 +960,21 @@ export function Settings() {
                                 role="switch"
                                 aria-checked={webEnabled as boolean}
                                 aria-label={`${cat.label} Web`}
-                                onClick={() => setNotifPrefs((prev) => ({ ...prev, [cat.webKey as string]: !prev[cat.webKey as keyof typeof prev] }))}
+                                onClick={() =>
+                                  setNotifPrefs((prev) => ({
+                                    ...prev,
+                                    [cat.webKey as string]: !prev[cat.webKey as keyof typeof prev],
+                                  }))
+                                }
                                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none ${webEnabled ? 'bg-brand-profit' : 'bg-gray-600'}`}
                               >
-                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${webEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                                <span
+                                  className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${webEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`}
+                                />
                               </button>
-                            ) : <div className="w-9" />}
+                            ) : (
+                              <div className="w-9" />
+                            )}
                           </div>
                           {/* TG toggle */}
                           <div className="w-10 flex justify-center">
@@ -949,12 +985,21 @@ export function Settings() {
                                 aria-checked={tgEnabled as boolean}
                                 aria-label={`${cat.label} TG`}
                                 disabled={tgDisabled}
-                                onClick={() => setTgSettings((prev) => ({ ...prev, [cat.tgKey as string]: !prev[cat.tgKey as keyof TelegramSettings] }))}
+                                onClick={() =>
+                                  setTgSettings((prev) => ({
+                                    ...prev,
+                                    [cat.tgKey as string]: !prev[cat.tgKey as keyof TelegramSettings],
+                                  }))
+                                }
                                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-none disabled:opacity-30 disabled:cursor-not-allowed ${tgEnabled && !tgDisabled ? 'bg-[#26A5E4]' : 'bg-gray-600'}`}
                               >
-                                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${tgEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                                <span
+                                  className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${tgEnabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`}
+                                />
                               </button>
-                            ) : <div className="w-9" />}
+                            ) : (
+                              <div className="w-9" />
+                            )}
                           </div>
                         </div>
                       </div>
@@ -971,8 +1016,8 @@ export function Settings() {
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="h-4 w-4 text-brand-loss mt-0.5 flex-shrink-0" />
                       <p className="text-xs text-gray-400">
-                        <span className="text-brand-loss font-medium">Внимание:</span>{' '}
-                        отключение критических уведомлений (боты, системные) может привести к пропуску важных событий.
+                        <span className="text-brand-loss font-medium">Внимание:</span> отключение критических
+                        уведомлений (боты, системные) может привести к пропуску важных событий.
                       </p>
                     </div>
                   </div>
@@ -1051,15 +1096,7 @@ export function Settings() {
 
 /* ---- Диалог добавления биржевого аккаунта ---- */
 
-function AddAccountDialog({
-  open,
-  onClose,
-  onCreated,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onCreated: () => void;
-}) {
+function AddAccountDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
   const { toast } = useToast();
   const [label, setLabel] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -1166,22 +1203,16 @@ function AddAccountDialog({
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors p-1"
                 aria-label={showSecret ? 'Скрыть секрет' : 'Показать секрет'}
               >
-                {showSecret ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
+                {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
 
           {/* Demo mode toggle */}
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-            <div>
+          <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+            <div className="min-w-0">
               <p className="text-sm text-white">Demo-режим</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Реальные цены, симулированные ордера (без риска)
-              </p>
+              <p className="text-xs text-gray-500 mt-0.5">Реальные цены, симулированные ордера (без риска)</p>
             </div>
             <button
               type="button"
@@ -1209,20 +1240,15 @@ function AddAccountDialog({
             <div className="flex items-start gap-2.5">
               <Shield className="h-4 w-4 text-brand-premium mt-0.5 flex-shrink-0" />
               <p className="text-xs text-gray-400 leading-relaxed">
-                API-ключи будут зашифрованы. Рекомендуем создать ключи с правами только на торговлю,
-                без возможности вывода средств.
+                API-ключи будут зашифрованы. Рекомендуем создать ключи с правами только на торговлю, без возможности
+                вывода средств.
               </p>
             </div>
           </div>
 
           {/* Кнопки */}
           <div className="flex gap-3 pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleClose}
-              className="flex-1 text-gray-400 min-h-[44px]"
-            >
+            <Button type="button" variant="ghost" onClick={handleClose} className="flex-1 text-gray-400 min-h-[44px]">
               Отмена
             </Button>
             <Button
@@ -1270,16 +1296,10 @@ function DeleteConfirmDialog({
         <div className="space-y-4">
           <p className="text-sm text-gray-400">
             Вы действительно хотите удалить биржевой аккаунт{' '}
-            <span className="text-white font-medium">{accountLabel}</span>?
-            Все связанные боты будут остановлены.
+            <span className="text-white font-medium">{accountLabel}</span>? Все связанные боты будут остановлены.
           </p>
           <div className="flex gap-3">
-            <Button
-              variant="ghost"
-              onClick={onClose}
-              disabled={deleting}
-              className="flex-1 text-gray-400 min-h-[44px]"
-            >
+            <Button variant="ghost" onClick={onClose} disabled={deleting} className="flex-1 text-gray-400 min-h-[44px]">
               Отмена
             </Button>
             <Button

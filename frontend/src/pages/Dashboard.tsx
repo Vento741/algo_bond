@@ -87,41 +87,40 @@ export function Dashboard() {
       : 0;
 
   // Max drawdown: максимальный из всех live ботов
-  const maxDrawdown =
-    liveBots.length > 0 ? Math.max(...liveBots.map((b) => Math.abs(Number(b.max_drawdown)))) : 0;
+  const maxDrawdown = liveBots.length > 0 ? Math.max(...liveBots.map((b) => Math.abs(Number(b.max_drawdown)))) : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* ---- Header ---- */}
       <div className="relative">
         <div className="absolute -inset-x-4 -top-4 h-32 bg-gradient-to-b from-brand-accent/[0.03] to-transparent rounded-2xl pointer-events-none" />
         <div className="relative">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-brand-accent/20 to-brand-premium/10 border border-brand-accent/20 shadow-lg shadow-brand-accent/5">
-                <LayoutDashboard className="h-6 w-6 text-brand-accent" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-brand-accent/20 to-brand-premium/10 border border-brand-accent/20 shadow-lg shadow-brand-accent/5 flex-shrink-0">
+                <LayoutDashboard className="h-5 w-5 sm:h-6 sm:w-6 text-brand-accent" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight font-[Tektur]">
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-[Tektur] truncate">
                   Панель управления
                 </h1>
-                <p className="text-sm text-gray-500 mt-0.5">
+                <p className="text-xs sm:text-sm text-gray-500 mt-0.5 truncate">
                   {user?.username ? `${user.username} - ` : ''}обзор торговой активности
                 </p>
               </div>
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500 font-data">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500 font-data flex-shrink-0">
               <CircleDot className="h-3 w-3 text-brand-profit animate-pulse" />
               <span>{activeBots} live</span>
             </div>
           </div>
-          <div className="mt-5 h-px bg-gradient-to-r from-brand-accent/30 via-brand-premium/10 to-transparent" />
+          <div className="mt-4 sm:mt-5 h-px bg-gradient-to-r from-brand-accent/30 via-brand-premium/10 to-transparent" />
         </div>
       </div>
 
       {/* ---- Hero P&L Card ---- */}
       <div
-        className="relative overflow-hidden rounded-xl border border-white/[0.08] p-6 sm:p-8"
+        className="relative overflow-hidden rounded-xl border border-white/[0.08] p-4 sm:p-6 md:p-8"
         style={{
           background:
             totalPnl > 0
@@ -144,36 +143,26 @@ export function Dashboard() {
         />
 
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-          <div>
-            <p className="text-xs text-gray-500 uppercase tracking-widest font-heading mb-2">
-              Общий P&L (Live)
-            </p>
-            <p className={`text-4xl sm:text-5xl font-bold font-data tracking-tight ${pnlColor}`}>
-              {loadingBots ? (
-                <span className="text-gray-600">---</span>
-              ) : (
-                pnlFormatted
-              )}
+          <div className="min-w-0">
+            <p className="text-xs text-gray-500 uppercase tracking-widest font-heading mb-2">Общий P&L (Live)</p>
+            <p className={`text-3xl sm:text-4xl md:text-5xl font-bold font-data tracking-tight break-all ${pnlColor}`}>
+              {loadingBots ? <span className="text-gray-600">---</span> : pnlFormatted}
             </p>
             <p className="text-xs text-gray-600 font-data mt-2">
               {loadingBots ? '...' : `${totalTrades} сделок по ${liveBots.length} ботам`}
             </p>
           </div>
 
-          <div className="flex gap-6 sm:gap-8">
-            <div className="text-right">
-              <p className="text-[10px] text-gray-600 uppercase tracking-wider font-heading">
-                Win Rate
-              </p>
-              <p className="text-lg font-bold font-data text-white mt-0.5">
+          <div className="flex gap-4 sm:gap-8 justify-between sm:justify-end">
+            <div className="text-left sm:text-right">
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider font-heading">Win Rate</p>
+              <p className="text-base sm:text-lg font-bold font-data text-white mt-0.5">
                 {loadingBots ? '---' : formatPercent(avgWinRate)}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] text-gray-600 uppercase tracking-wider font-heading">
-                Max DD
-              </p>
-              <p className="text-lg font-bold font-data text-brand-loss mt-0.5">
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider font-heading">Max DD</p>
+              <p className="text-base sm:text-lg font-bold font-data text-brand-loss mt-0.5">
                 {loadingBots ? '---' : `-$${maxDrawdown.toFixed(2)}`}
               </p>
             </div>
@@ -225,11 +214,7 @@ export function Dashboard() {
                 Live боты
               </CardTitle>
               <Link to="/bots">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-500 hover:text-white text-xs cursor-pointer"
-                >
+                <Button variant="ghost" size="sm" className="text-gray-500 hover:text-white text-xs cursor-pointer">
                   Все боты
                   <ArrowUpRight className="ml-1 h-3 w-3" />
                 </Button>
@@ -257,32 +242,30 @@ export function Dashboard() {
                       <Link
                         key={bot.id}
                         to={`/bots/${bot.id}`}
-                        className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-white/[0.1] transition-all duration-200 group cursor-pointer"
+                        className="flex items-center justify-between gap-3 p-3 min-h-[44px] rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-white/[0.1] transition-all duration-200 group cursor-pointer"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="relative">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="relative flex-shrink-0">
                             <div className={`w-2 h-2 rounded-full ${st.dot}`} />
                             {bot.status === 'running' && (
-                              <div className={`absolute inset-0 w-2 h-2 rounded-full ${st.dot} animate-ping opacity-50`} />
+                              <div
+                                className={`absolute inset-0 w-2 h-2 rounded-full ${st.dot} animate-ping opacity-50`}
+                              />
                             )}
                           </div>
-                          <div>
-                            <p className="text-xs font-medium text-gray-300 font-data group-hover:text-white transition-colors">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-gray-300 font-data group-hover:text-white transition-colors truncate">
                               BOT-{shortenId(bot.id)}
                             </p>
-                            <p className="text-[10px] text-gray-600">
+                            <p className="text-[10px] text-gray-600 truncate">
                               {st.label} / {bot.total_trades} сделок
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex-shrink-0">
                           <p
                             className={`text-sm font-bold font-data ${
-                              botPnl > 0
-                                ? 'text-brand-profit'
-                                : botPnl < 0
-                                  ? 'text-brand-loss'
-                                  : 'text-gray-500'
+                              botPnl > 0 ? 'text-brand-profit' : botPnl < 0 ? 'text-brand-loss' : 'text-gray-500'
                             }`}
                           >
                             {formatPnl(botPnl)}
@@ -307,11 +290,7 @@ export function Dashboard() {
                 Доступные стратегии
               </CardTitle>
               <Link to="/strategies">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-500 hover:text-white text-xs cursor-pointer"
-                >
+                <Button variant="ghost" size="sm" className="text-gray-500 hover:text-white text-xs cursor-pointer">
                   Все стратегии
                   <ArrowUpRight className="ml-1 h-3 w-3" />
                 </Button>
@@ -336,27 +315,27 @@ export function Dashboard() {
                     <Link
                       key={strategy.id}
                       to={`/strategies/${strategy.slug}`}
-                      className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-brand-premium/20 transition-all duration-200 group cursor-pointer"
+                      className="flex items-center justify-between gap-3 p-3 min-h-[44px] rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-brand-premium/20 transition-all duration-200 group cursor-pointer"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className="flex items-center justify-center w-8 h-8 rounded-lg"
+                          className="flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0"
                           style={{
                             background: 'linear-gradient(135deg, rgba(255,215,0,0.1) 0%, rgba(255,215,0,0.03) 100%)',
                           }}
                         >
                           <Brain className="h-3.5 w-3.5 text-brand-premium" />
                         </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-300 group-hover:text-brand-premium transition-colors">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-gray-300 group-hover:text-brand-premium transition-colors truncate">
                             {strategy.name}
                           </p>
-                          <p className="text-[10px] text-gray-600 font-data">
+                          <p className="text-[10px] text-gray-600 font-data truncate">
                             {strategy.engine_type} v{strategy.version}
                           </p>
                         </div>
                       </div>
-                      <ArrowUpRight className="h-3.5 w-3.5 text-gray-700 group-hover:text-brand-premium transition-colors" />
+                      <ArrowUpRight className="h-3.5 w-3.5 text-gray-700 group-hover:text-brand-premium transition-colors flex-shrink-0" />
                     </Link>
                   ))}
                 </div>
@@ -418,11 +397,9 @@ export function Dashboard() {
               <CardTitle className="text-sm text-white font-heading">Аккаунт</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-gray-500 uppercase tracking-wider">Email</span>
-                <span className="text-gray-400 font-data truncate ml-2 max-w-[160px]">
-                  {user?.email}
-                </span>
+              <div className="flex justify-between items-center gap-2 text-xs">
+                <span className="text-gray-500 uppercase tracking-wider flex-shrink-0">Email</span>
+                <span className="text-gray-400 font-data truncate min-w-0">{user?.email}</span>
               </div>
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-500 uppercase tracking-wider">Роль</span>
@@ -434,9 +411,7 @@ export function Dashboard() {
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${user?.is_active ? 'bg-brand-profit' : 'bg-brand-loss'}`}
                   />
-                  <span
-                    className={`font-data ${user?.is_active ? 'text-brand-profit' : 'text-brand-loss'}`}
-                  >
+                  <span className={`font-data ${user?.is_active ? 'text-brand-profit' : 'text-brand-loss'}`}>
                     {user?.is_active ? 'Активен' : 'Неактивен'}
                   </span>
                 </span>
@@ -455,11 +430,7 @@ export function Dashboard() {
             <CardContent className="space-y-3">
               <MetricRow
                 label="Лучший P&L"
-                value={
-                  loadingBots
-                    ? '---'
-                    : `+$${Math.max(0, ...liveBots.map((b) => Number(b.max_pnl))).toFixed(2)}`
-                }
+                value={loadingBots ? '---' : `+$${Math.max(0, ...liveBots.map((b) => Number(b.max_pnl))).toFixed(2)}`}
                 color="text-brand-profit"
                 loading={loadingBots}
               />
@@ -511,9 +482,7 @@ function StatCard({ title, value, icon: Icon, accentColor, loading }: StatCardPr
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] text-gray-600 font-heading uppercase tracking-widest">
-              {title}
-            </p>
+            <p className="text-[10px] text-gray-600 font-heading uppercase tracking-widest">{title}</p>
             <p className="text-xl font-bold font-data text-white mt-1">
               {loading ? <span className="text-gray-700">---</span> : value}
             </p>
@@ -543,9 +512,7 @@ function MetricRow({ label, value, color, loading }: MetricRowProps) {
   return (
     <div className="flex justify-between items-center text-xs">
       <span className="text-gray-500">{label}</span>
-      <span className={`font-data font-medium ${loading ? 'text-gray-700' : color}`}>
-        {value}
-      </span>
+      <span className={`font-data font-medium ${loading ? 'text-gray-700' : color}`}>{value}</span>
     </div>
   );
 }

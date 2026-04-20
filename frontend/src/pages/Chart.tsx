@@ -41,7 +41,8 @@ export function Chart() {
   useEffect(() => {
     if (paramSymbol) return;
     const controller = new AbortController();
-    api.get<{ default_symbol: string; default_timeframe: string }>('/auth/settings', { signal: controller.signal })
+    api
+      .get<{ default_symbol: string; default_timeframe: string }>('/auth/settings', { signal: controller.signal })
       .then(({ data }) => {
         if (controller.signal.aborted) return;
         const sym = data.default_symbol || 'BTCUSDT';
@@ -103,7 +104,13 @@ export function Chart() {
 
   // Ленивая подгрузка истории при скролле влево
   const { isLoadingOlder } = useChartLazyLoad({
-    chartApi, candleSeries, volumeSeries, klines, setKlines, symbol, interval,
+    chartApi,
+    candleSeries,
+    volumeSeries,
+    klines,
+    setKlines,
+    symbol,
+    interval,
   });
 
   // Бэктест
@@ -144,20 +151,18 @@ export function Chart() {
       })
       .then(({ data }) => {
         const raw = (data as { candles?: Record<string, unknown>[] }).candles ?? (data as Record<string, unknown>[]);
-        const mapped: KlineData[] = (Array.isArray(raw) ? raw : []).map(
-          (d: Record<string, unknown>) => {
-            const rawTs = Number(d.timestamp ?? d.time ?? d.open_time ?? d.t);
-            const timeSec = rawTs > 1e12 ? Math.floor(rawTs / 1000) : rawTs;
-            return {
-              time: timeSec,
-              open: Number(d.open ?? d.o ?? 0),
-              high: Number(d.high ?? d.h ?? 0),
-              low: Number(d.low ?? d.l ?? 0),
-              close: Number(d.close ?? d.c ?? 0),
-              volume: Number(d.volume ?? d.v ?? 0),
-            };
-          },
-        );
+        const mapped: KlineData[] = (Array.isArray(raw) ? raw : []).map((d: Record<string, unknown>) => {
+          const rawTs = Number(d.timestamp ?? d.time ?? d.open_time ?? d.t);
+          const timeSec = rawTs > 1e12 ? Math.floor(rawTs / 1000) : rawTs;
+          return {
+            time: timeSec,
+            open: Number(d.open ?? d.o ?? 0),
+            high: Number(d.high ?? d.h ?? 0),
+            low: Number(d.low ?? d.l ?? 0),
+            close: Number(d.close ?? d.c ?? 0),
+            volume: Number(d.volume ?? d.v ?? 0),
+          };
+        });
         setKlines(mapped);
       })
       .catch(() => {
@@ -207,8 +212,7 @@ export function Chart() {
 
   const displayPrice = crosshair.price ?? lastPrice ?? klines[klines.length - 1]?.close ?? null;
   const prevClose = klines.length >= 2 ? klines[klines.length - 2].close : null;
-  const priceChange =
-    displayPrice && prevClose ? ((displayPrice - prevClose) / prevClose) * 100 : null;
+  const priceChange = displayPrice && prevClose ? ((displayPrice - prevClose) / prevClose) * 100 : null;
 
   const toggleFullscreen = useCallback(() => setIsFullscreen((v) => !v), []);
 
@@ -221,7 +225,7 @@ export function Chart() {
   }, [runBacktest]);
 
   return (
-    <div className={isFullscreen ? 'fixed inset-0 z-50 bg-brand-bg p-2' : 'space-y-4'}>
+    <div className={isFullscreen ? 'fixed inset-0 z-50 bg-brand-bg p-2' : 'space-y-3 sm:space-y-4'}>
       {/* Toolbar */}
       <ChartToolbar
         symbol={symbol}
@@ -243,8 +247,8 @@ export function Chart() {
       />
 
       {/* Price display */}
-      <div className="flex items-center gap-4 px-1">
-        <div className="font-mono text-2xl sm:text-3xl font-bold text-white animate-price-glow tracking-tight">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4 px-1">
+        <div className="font-mono text-xl sm:text-3xl font-bold text-white animate-price-glow tracking-tight truncate max-w-full">
           {displayPrice !== null
             ? `$${displayPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`
             : '--'}
@@ -252,22 +256,19 @@ export function Chart() {
         {priceChange !== null && (
           <Badge
             variant={priceChange >= 0 ? 'profit' : 'loss'}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-sm"
+            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 text-xs sm:text-sm shrink-0"
           >
-            {priceChange >= 0 ? (
-              <TrendingUp className="h-3.5 w-3.5" />
-            ) : (
-              <TrendingDown className="h-3.5 w-3.5" />
-            )}
-            <span className="font-mono font-semibold">{priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}%</span>
+            {priceChange >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+            <span className="font-mono font-semibold">
+              {priceChange >= 0 ? '+' : ''}
+              {priceChange.toFixed(2)}%
+            </span>
           </Badge>
         )}
       </div>
 
       {/* Backtest stats bar */}
-      {backtestActive && btMetrics && (
-        <BacktestStatsBar metrics={btMetrics} error={btError} />
-      )}
+      {backtestActive && btMetrics && <BacktestStatsBar metrics={btMetrics} error={btError} />}
       {backtestActive && btLoading && (
         <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02] border border-brand-premium/10 text-xs text-gray-400 font-mono relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-brand-premium/0 via-brand-premium/30 to-brand-premium/0" />
@@ -288,9 +289,12 @@ export function Chart() {
       )}
 
       {/* Chart + Side panel */}
-      <div className="flex gap-4 flex-1" style={{ height: isFullscreen ? 'calc(100vh - 130px)' : backtestActive && btMetrics ? 'calc(100vh - 300px)' : 'calc(100vh - 260px)', minHeight: '400px' }}>
+      <div
+        className="flex flex-col xl:flex-row gap-3 xl:gap-4 flex-1 h-[65vh] min-h-[360px] xl:min-h-[400px]"
+        style={isFullscreen ? { height: 'calc(100vh - 130px)' } : undefined}
+      >
         {/* Chart */}
-        <div className="relative flex-1 rounded-lg border border-white/[0.06] overflow-hidden bg-brand-bg">
+        <div className="relative flex-1 min-h-[320px] rounded-lg border border-white/[0.06] overflow-hidden bg-brand-bg">
           {/* Demo data warning */}
           {isDemo && (
             <div className="absolute top-12 left-1/2 -translate-x-1/2 z-10 bg-yellow-500/20 border border-yellow-500/50 text-yellow-400 px-3 py-1 rounded text-sm font-mono">
@@ -371,7 +375,10 @@ export function Chart() {
                         {latestSignal.direction === 'long' ? 'LONG' : 'SHORT'}
                       </span>
                       {latestSignal.wasExecuted && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-brand-premium/30 text-brand-premium">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 border-brand-premium/30 text-brand-premium"
+                        >
                           Executed
                         </Badge>
                       )}
@@ -392,19 +399,25 @@ export function Chart() {
                       {latestSignal.tp1Price !== null && (
                         <>
                           <span className="text-gray-500">TP1</span>
-                          <span className="text-brand-profit text-right">{Number(latestSignal.tp1Price).toFixed(4)}</span>
+                          <span className="text-brand-profit text-right">
+                            {Number(latestSignal.tp1Price).toFixed(4)}
+                          </span>
                         </>
                       )}
                       {latestSignal.tp2Price !== null && (
                         <>
                           <span className="text-gray-500">TP2</span>
-                          <span className="text-brand-profit text-right">{Number(latestSignal.tp2Price).toFixed(4)}</span>
+                          <span className="text-brand-profit text-right">
+                            {Number(latestSignal.tp2Price).toFixed(4)}
+                          </span>
                         </>
                       )}
                       {latestSignal.takeProfit !== null && latestSignal.tp1Price === null && (
                         <>
                           <span className="text-gray-500">TP</span>
-                          <span className="text-brand-profit text-right">{Number(latestSignal.takeProfit).toFixed(4)}</span>
+                          <span className="text-brand-profit text-right">
+                            {Number(latestSignal.takeProfit).toFixed(4)}
+                          </span>
                         </>
                       )}
                     </div>
@@ -436,7 +449,9 @@ export function Chart() {
                     <span className="text-gray-500">Price</span>
                     <span className="text-white text-right">{crosshair.price?.toFixed(4)}</span>
                     <span className="text-gray-500">Volume</span>
-                    <span className="text-white text-right">{crosshair.volume?.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
+                    <span className="text-white text-right">
+                      {crosshair.volume?.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                    </span>
                   </div>
                 ) : (
                   <div className="font-mono text-sm text-gray-600">Hover chart to inspect</div>
@@ -540,25 +555,29 @@ function BacktestStatsBar({ metrics, error }: { metrics: BacktestMetrics; error:
   const stats = [
     { label: 'TRADES', value: String(metrics.totalTrades), color: 'text-white' },
     { label: 'WR', value: `${wr.toFixed(1)}%`, color: wr >= 50 ? 'text-brand-profit' : 'text-brand-loss' },
-    { label: 'PnL', value: `${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}%`, color: pnl >= 0 ? 'text-brand-profit' : 'text-brand-loss' },
+    {
+      label: 'PnL',
+      value: `${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}%`,
+      color: pnl >= 0 ? 'text-brand-profit' : 'text-brand-loss',
+    },
     { label: 'DD', value: `${dd.toFixed(1)}%`, color: 'text-brand-loss' },
     { label: 'SHARPE', value: sr.toFixed(2), color: sr >= 1 ? 'text-brand-profit' : 'text-gray-300' },
     { label: 'PF', value: pf.toFixed(2), color: pf >= 1.5 ? 'text-brand-profit' : 'text-gray-300' },
   ];
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02] border border-brand-premium/10 relative overflow-hidden">
+    <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-lg bg-white/[0.02] border border-brand-premium/10 relative overflow-x-auto sm:overflow-hidden">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-brand-premium/0 via-brand-premium/30 to-brand-premium/0" />
       <span className="text-[10px] uppercase tracking-widest text-brand-premium font-semibold flex items-center gap-1.5 shrink-0">
         <Activity className="h-3 w-3" />
         Backtest
       </span>
-      <div className="h-4 w-px bg-white/10" />
-      <div className="flex items-center gap-2 flex-1 flex-wrap">
+      <div className="h-4 w-px bg-white/10 shrink-0" />
+      <div className="flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-wrap">
         {stats.map((s) => (
           <div
             key={s.label}
-            className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.06]"
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/[0.06] shrink-0"
           >
             <span className="text-[10px] text-gray-500 uppercase tracking-wide">{s.label}</span>
             <span className={`text-xs font-mono font-semibold ${s.color}`}>{s.value}</span>
@@ -579,18 +598,17 @@ function generateDemoKlines(symbol: string): KlineData[] {
   const step = 300; // 5 min
   const count = 500;
 
-  let price =
-    symbol.startsWith('BTC')
-      ? 65000
-      : symbol.startsWith('ETH')
-        ? 3500
-        : symbol.startsWith('SOL')
-          ? 140
-          : symbol.startsWith('BNB')
-            ? 550
-            : symbol.startsWith('XRP')
-              ? 0.62
-              : 0.045;
+  let price = symbol.startsWith('BTC')
+    ? 65000
+    : symbol.startsWith('ETH')
+      ? 3500
+      : symbol.startsWith('SOL')
+        ? 140
+        : symbol.startsWith('BNB')
+          ? 550
+          : symbol.startsWith('XRP')
+            ? 0.62
+            : 0.045;
 
   const data: KlineData[] = [];
   for (let i = 0; i < count; i++) {
