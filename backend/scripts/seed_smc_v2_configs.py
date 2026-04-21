@@ -125,6 +125,15 @@ async def seed_configs(portfolio_path: Path, admin_email: str, name_prefix: str)
                 continue
 
             name = generate_name(name_prefix, symbol, metrics)
+
+            # Критический fix: optimizer захардкодил use_multi_tp=True, use_breakeven=True,
+            # но эти флаги не попали в сохранённый config. Celery backtest читает их из
+            # risk section с дефолтом False — в итоге UI backtest работает в single-TP
+            # режиме без breakeven и даёт на порядок меньше сделок чем локальный grid.
+            risk_section = config.setdefault("risk", {})
+            risk_section.setdefault("use_multi_tp", True)
+            risk_section.setdefault("use_breakeven", True)
+
             if name in existing_names:
                 logger.info("[%s] SKIP (уже существует): %s", symbol, name)
                 skipped += 1

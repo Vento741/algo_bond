@@ -378,6 +378,9 @@ STRATEGIES = [
                 # FIX 2
                 "trailing_atr_mult": 4.0,
                 "disable_trailing": True,
+                # Критично для celery backtest: multi-TP + breakeven как в оптимизаторе
+                "use_multi_tp": True,
+                "use_breakeven": True,
             },
             "backtest": {
                 "initial_capital": 100,
