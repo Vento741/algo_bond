@@ -65,6 +65,7 @@ import {
   DEFAULT_CONFIG,
   RIBBON_TYPES,
   ON_REVERSE_OPTIONS,
+  ENGINE_SECTIONS,
   mergeConfig,
   detectEngineType,
   getCleanConfig,
@@ -251,6 +252,14 @@ export function Backtest() {
     }));
     setConfigDirty(true);
   };
+
+  // Какие секции рендерить для текущего engineType. Fallback: всё.
+  const sectionsForEngine =
+    ENGINE_SECTIONS[engineType] || (Object.keys(DEFAULT_CONFIG) as (keyof FullStrategyConfig)[]);
+  const showSection = (section: keyof FullStrategyConfig) => sectionsForEngine.includes(section);
+  const isSmcV2 = engineType === 'smc_sweep_scalper_v2';
+  const isSmc = engineType === 'smc_sweep_scalper' || isSmcV2;
+  const isPivotMr = engineType === 'pivot_point_mr';
 
   // Polling ref for cleanup
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -934,6 +943,414 @@ export function Backtest() {
                         </>
                       )}
 
+                      {/* Trend (для SMC / Pivot MR — одиночный EMA период) */}
+                      {showSection('trend') && (isSmc || isPivotMr) && (
+                        <CollapsibleSection title="Trend" description="EMA тренд-фильтр">
+                          <div className="grid grid-cols-2 gap-3">
+                            <NumberField
+                              label="EMA период"
+                              value={editConfig.trend.ema_period ?? 200}
+                              onChange={(v) => updateSection('trend', { ema_period: v })}
+                              min={1}
+                            />
+                          </div>
+                        </CollapsibleSection>
+                      )}
+
+                      {/* Pivot (pivot_point_mr) */}
+                      {showSection('pivot') && (
+                        <CollapsibleSection title="Pivot" description="Pivot period + velocity lookback" defaultOpen>
+                          <div className="grid grid-cols-2 gap-3">
+                            <NumberField
+                              label="Pivot период"
+                              value={editConfig.pivot.period}
+                              onChange={(v) => updateSection('pivot', { period: v })}
+                              min={1}
+                              suffix="баров"
+                            />
+                            <NumberField
+                              label="Velocity lookback"
+                              value={editConfig.pivot.velocity_lookback}
+                              onChange={(v) => updateSection('pivot', { velocity_lookback: v })}
+                              min={1}
+                            />
+                          </div>
+                        </CollapsibleSection>
+                      )}
+
+                      {/* Sweep (SMC v1 / v2) */}
+                      {showSection('sweep') && (
+                        <CollapsibleSection title="Sweep" description="Liquidity sweep lookback" defaultOpen>
+                          <div className="grid grid-cols-2 gap-3">
+                            <NumberField
+                              label="Lookback"
+                              value={editConfig.sweep.lookback}
+                              onChange={(v) => updateSection('sweep', { lookback: v })}
+                              min={1}
+                              suffix="баров"
+                            />
+                          </div>
+                        </CollapsibleSection>
+                      )}
+
+                      {/* Confirmation (SMC v1 / v2) */}
+                      {showSection('confirmation') && (
+                        <CollapsibleSection title="Confirmation" description="BOS / FVG / OB подтверждение">
+                          <div className="grid grid-cols-2 gap-3">
+                            <NumberField
+                              label="Window"
+                              value={editConfig.confirmation.window}
+                              onChange={(v) => updateSection('confirmation', { window: v })}
+                              min={1}
+                              suffix="баров"
+                            />
+                            <NumberField
+                              label="FVG мин. размер"
+                              value={editConfig.confirmation.fvg_min_size}
+                              onChange={(v) => updateSection('confirmation', { fvg_min_size: v })}
+                              min={0}
+                              step={0.1}
+                            />
+                            <NumberField
+                              label="BOS pivot"
+                              value={editConfig.confirmation.bos_pivot}
+                              onChange={(v) => updateSection('confirmation', { bos_pivot: v })}
+                              min={1}
+                            />
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 pt-2">
+                            <ToggleField
+                              label="Use BOS"
+                              value={editConfig.confirmation.use_bos}
+                              onChange={(v) => updateSection('confirmation', { use_bos: v })}
+                            />
+                            <ToggleField
+                              label="Use FVG"
+                              value={editConfig.confirmation.use_fvg}
+                              onChange={(v) => updateSection('confirmation', { use_fvg: v })}
+                            />
+                            <ToggleField
+                              label="Use OB"
+                              value={editConfig.confirmation.use_ob}
+                              onChange={(v) => updateSection('confirmation', { use_ob: v })}
+                            />
+                          </div>
+                        </CollapsibleSection>
+                      )}
+
+                      {/* Filters для SMC / Pivot MR (отдельный рендер от ADX/confluence) */}
+                      {showSection('filters') && isSmc && (
+                        <CollapsibleSection title="Filters (SMC)" description="RSI / Volume / Session / HTF bias">
+                          <ToggleField
+                            label="Trend filter"
+                            value={editConfig.filters.trend_filter_enabled ?? false}
+                            onChange={(v) => updateSection('filters', { trend_filter_enabled: v })}
+                          />
+                          <ToggleField
+                            label="RSI filter"
+                            value={editConfig.filters.rsi_filter_enabled ?? true}
+                            onChange={(v) => updateSection('filters', { rsi_filter_enabled: v })}
+                          />
+                          <div className="grid grid-cols-2 gap-3">
+                            <NumberField
+                              label="RSI период"
+                              value={editConfig.filters.rsi_period ?? 14}
+                              onChange={(v) => updateSection('filters', { rsi_period: v })}
+                              min={2}
+                            />
+                          </div>
+                          <ToggleField
+                            label="Volume filter"
+                            value={editConfig.filters.volume_filter_enabled ?? true}
+                            onChange={(v) => updateSection('filters', { volume_filter_enabled: v })}
+                          />
+                          <div className="grid grid-cols-2 gap-3">
+                            <NumberField
+                              label="Volume SMA"
+                              value={editConfig.filters.volume_sma_period ?? 20}
+                              onChange={(v) => updateSection('filters', { volume_sma_period: v })}
+                              min={1}
+                            />
+                            <NumberField
+                              label="Volume min ratio"
+                              value={editConfig.filters.volume_min_ratio ?? 1.2}
+                              onChange={(v) => updateSection('filters', { volume_min_ratio: v })}
+                              min={0}
+                              step={0.1}
+                            />
+                          </div>
+
+                          {isSmcV2 && (
+                            <>
+                              <div className="pt-2 mt-2 border-t border-white/5">
+                                <ToggleField
+                                  label="ATR regime filter"
+                                  value={editConfig.filters.atr_regime_enabled ?? true}
+                                  onChange={(v) => updateSection('filters', { atr_regime_enabled: v })}
+                                />
+                                <div className="grid grid-cols-3 gap-3">
+                                  <NumberField
+                                    label="ATR %ile min"
+                                    value={editConfig.filters.atr_percentile_min ?? 0.4}
+                                    onChange={(v) => updateSection('filters', { atr_percentile_min: v })}
+                                    min={0}
+                                    max={1}
+                                    step={0.05}
+                                  />
+                                  <NumberField
+                                    label="ATR %ile max"
+                                    value={editConfig.filters.atr_percentile_max ?? 0.95}
+                                    onChange={(v) => updateSection('filters', { atr_percentile_max: v })}
+                                    min={0}
+                                    max={1}
+                                    step={0.05}
+                                  />
+                                  <NumberField
+                                    label="ATR %ile window"
+                                    value={editConfig.filters.atr_percentile_window ?? 200}
+                                    onChange={(v) => updateSection('filters', { atr_percentile_window: v })}
+                                    min={1}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="pt-2 mt-2 border-t border-white/5">
+                                <ToggleField
+                                  label="Session killzone"
+                                  value={editConfig.filters.session_filter_enabled ?? true}
+                                  onChange={(v) => updateSection('filters', { session_filter_enabled: v })}
+                                />
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs text-gray-400">Session hours (UTC, CSV)</Label>
+                                  <Input
+                                    value={(editConfig.filters.session_hours ?? []).join(',')}
+                                    onChange={(e) => {
+                                      const parts = e.target.value
+                                        .split(',')
+                                        .map((x) => parseInt(x.trim(), 10))
+                                        .filter((n) => !isNaN(n) && n >= 0 && n < 24);
+                                      updateSection('filters', { session_hours: parts });
+                                    }}
+                                    placeholder="7,8,9,13,14,15"
+                                    className="h-8 bg-white/5 border-white/10 text-white font-mono text-sm"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="pt-2 mt-2 border-t border-white/5">
+                                <ToggleField
+                                  label="HTF bias"
+                                  value={editConfig.filters.htf_bias_enabled ?? true}
+                                  onChange={(v) => updateSection('filters', { htf_bias_enabled: v })}
+                                />
+                                <div className="grid grid-cols-2 gap-3">
+                                  <NumberField
+                                    label="HTF EMA period"
+                                    value={editConfig.filters.htf_ema_period ?? 50}
+                                    onChange={(v) => updateSection('filters', { htf_ema_period: v })}
+                                    min={1}
+                                  />
+                                  <NumberField
+                                    label="HTF slope min"
+                                    value={editConfig.filters.htf_slope_min ?? 0.0002}
+                                    onChange={(v) => updateSection('filters', { htf_slope_min: v })}
+                                    min={0}
+                                    step={0.0001}
+                                  />
+                                  <NumberField
+                                    label="HTF bars per HTF"
+                                    value={editConfig.filters.htf_bars_per_htf ?? 12}
+                                    onChange={(v) => updateSection('filters', { htf_bars_per_htf: v })}
+                                    min={1}
+                                  />
+                                  <NumberField
+                                    label="HTF slope lookback"
+                                    value={editConfig.filters.htf_slope_lookback ?? 6}
+                                    onChange={(v) => updateSection('filters', { htf_slope_lookback: v })}
+                                    min={1}
+                                  />
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </CollapsibleSection>
+                      )}
+
+                      {/* Filters для Pivot MR */}
+                      {showSection('filters') && isPivotMr && (
+                        <CollapsibleSection title="Filters (Pivot MR)" description="ADX / RSI / Squeeze / Volume">
+                          <ToggleField
+                            label="ADX filter"
+                            value={editConfig.filters.adx_enabled ?? true}
+                            onChange={(v) => updateSection('filters', { adx_enabled: v })}
+                          />
+                          <NumberField
+                            label="ADX период"
+                            value={editConfig.filters.adx_period}
+                            onChange={(v) => updateSection('filters', { adx_period: v })}
+                            min={1}
+                          />
+                          <ToggleField
+                            label="RSI filter"
+                            value={editConfig.filters.rsi_filter_enabled ?? true}
+                            onChange={(v) => updateSection('filters', { rsi_filter_enabled: v })}
+                          />
+                          <div className="grid grid-cols-3 gap-3">
+                            <NumberField
+                              label="RSI период"
+                              value={editConfig.filters.rsi_period ?? 14}
+                              onChange={(v) => updateSection('filters', { rsi_period: v })}
+                              min={2}
+                            />
+                            <NumberField
+                              label="RSI oversold"
+                              value={editConfig.filters.rsi_oversold ?? 40}
+                              onChange={(v) => updateSection('filters', { rsi_oversold: v })}
+                              min={0}
+                              max={100}
+                            />
+                            <NumberField
+                              label="RSI overbought"
+                              value={editConfig.filters.rsi_overbought ?? 60}
+                              onChange={(v) => updateSection('filters', { rsi_overbought: v })}
+                              min={0}
+                              max={100}
+                            />
+                          </div>
+                          <ToggleField
+                            label="Squeeze filter"
+                            value={editConfig.filters.squeeze_enabled ?? true}
+                            onChange={(v) => updateSection('filters', { squeeze_enabled: v })}
+                          />
+                          <div className="grid grid-cols-2 gap-3">
+                            <NumberField
+                              label="BB len"
+                              value={editConfig.filters.squeeze_bb_len ?? 20}
+                              onChange={(v) => updateSection('filters', { squeeze_bb_len: v })}
+                              min={2}
+                            />
+                            <NumberField
+                              label="BB mult"
+                              value={editConfig.filters.squeeze_bb_mult ?? 2.0}
+                              onChange={(v) => updateSection('filters', { squeeze_bb_mult: v })}
+                              min={0.1}
+                              step={0.1}
+                            />
+                            <NumberField
+                              label="KC len"
+                              value={editConfig.filters.squeeze_kc_len ?? 20}
+                              onChange={(v) => updateSection('filters', { squeeze_kc_len: v })}
+                              min={2}
+                            />
+                            <NumberField
+                              label="KC mult"
+                              value={editConfig.filters.squeeze_kc_mult ?? 1.5}
+                              onChange={(v) => updateSection('filters', { squeeze_kc_mult: v })}
+                              min={0.1}
+                              step={0.1}
+                            />
+                          </div>
+                          <ToggleField
+                            label="Volume filter"
+                            value={editConfig.filters.volume_filter_enabled ?? false}
+                            onChange={(v) => updateSection('filters', { volume_filter_enabled: v })}
+                          />
+                          <div className="grid grid-cols-2 gap-3">
+                            <NumberField
+                              label="Volume SMA"
+                              value={editConfig.filters.volume_sma_period ?? 20}
+                              onChange={(v) => updateSection('filters', { volume_sma_period: v })}
+                              min={1}
+                            />
+                            <NumberField
+                              label="Volume min ratio"
+                              value={editConfig.filters.volume_min_ratio ?? 1.2}
+                              onChange={(v) => updateSection('filters', { volume_min_ratio: v })}
+                              min={0}
+                              step={0.1}
+                            />
+                          </div>
+                        </CollapsibleSection>
+                      )}
+
+                      {/* Entry для SMC / Pivot MR */}
+                      {showSection('entry') && (isSmc || isPivotMr) && (
+                        <CollapsibleSection title="Entry" description="Confluence / cooldown / deep levels">
+                          <div className="grid grid-cols-2 gap-3">
+                            <NumberField
+                              label="Min confluence"
+                              value={editConfig.entry.min_confluence ?? 1.5}
+                              onChange={(v) => updateSection('entry', { min_confluence: v })}
+                              min={0}
+                              max={10}
+                              step={0.25}
+                            />
+                            <NumberField
+                              label="Cooldown bars"
+                              value={editConfig.entry.cooldown_bars ?? 3}
+                              onChange={(v) => updateSection('entry', { cooldown_bars: v })}
+                              min={0}
+                            />
+                            {isPivotMr && (
+                              <>
+                                <NumberField
+                                  label="Min distance %"
+                                  value={editConfig.entry.min_distance_pct ?? 0.15}
+                                  onChange={(v) => updateSection('entry', { min_distance_pct: v })}
+                                  min={0}
+                                  step={0.05}
+                                />
+                                <NumberField
+                                  label="Impulse check bars"
+                                  value={editConfig.entry.impulse_check_bars ?? 5}
+                                  onChange={(v) => updateSection('entry', { impulse_check_bars: v })}
+                                  min={0}
+                                />
+                              </>
+                            )}
+                          </div>
+                          {isPivotMr && (
+                            <ToggleField
+                              label="Use deep levels"
+                              value={editConfig.entry.use_deep_levels ?? true}
+                              onChange={(v) => updateSection('entry', { use_deep_levels: v })}
+                            />
+                          )}
+                        </CollapsibleSection>
+                      )}
+
+                      {/* Regime для Pivot MR */}
+                      {showSection('regime') && isPivotMr && (
+                        <CollapsibleSection title="Режим рынка" description="ADX weak/strong + pivot drift">
+                          <div className="grid grid-cols-2 gap-3">
+                            <NumberField
+                              label="ADX weak trend"
+                              value={editConfig.regime.adx_weak_trend ?? 20}
+                              onChange={(v) => updateSection('regime', { adx_weak_trend: v })}
+                              min={0}
+                            />
+                            <NumberField
+                              label="ADX strong trend"
+                              value={editConfig.regime.adx_strong_trend ?? 30}
+                              onChange={(v) => updateSection('regime', { adx_strong_trend: v })}
+                              min={0}
+                            />
+                            <NumberField
+                              label="Pivot drift max"
+                              value={editConfig.regime.pivot_drift_max ?? 0.3}
+                              onChange={(v) => updateSection('regime', { pivot_drift_max: v })}
+                              min={0}
+                              step={0.05}
+                            />
+                          </div>
+                          <ToggleField
+                            label="Allow strong trend"
+                            value={editConfig.regime.allow_strong_trend ?? false}
+                            onChange={(v) => updateSection('regime', { allow_strong_trend: v })}
+                          />
+                        </CollapsibleSection>
+                      )}
+
                       {/* SuperTrend (supertrend_squeeze и hybrid) */}
                       {(engineType === 'supertrend_squeeze' || engineType === 'hybrid_knn_supertrend') && (
                         <>
@@ -1256,116 +1673,287 @@ export function Backtest() {
                       )}
 
                       {/* Risk Management */}
-                      <CollapsibleSection title="Risk Management" description="Стоп-лосс, тейк-профит, трейлинг">
-                        <div className="grid grid-cols-2 gap-3">
-                          <NumberField
-                            label="ATR период"
-                            value={editConfig.risk.atr_period}
-                            onChange={(v) => updateSection('risk', { atr_period: v })}
-                            min={1}
-                          />
-                          <NumberField
-                            label="Stop (ATR x)"
-                            value={editConfig.risk.stop_atr_mult}
-                            onChange={(v) => updateSection('risk', { stop_atr_mult: v })}
-                            min={0.5}
-                            step={0.5}
-                          />
-                          <NumberField
-                            label="Take Profit (ATR x)"
-                            value={editConfig.risk.tp_atr_mult}
-                            onChange={(v) => updateSection('risk', { tp_atr_mult: v })}
-                            min={1}
-                            step={1}
-                          />
-                          <NumberField
-                            label="Trailing (ATR x)"
-                            value={editConfig.risk.trailing_atr_mult}
-                            onChange={(v) => updateSection('risk', { trailing_atr_mult: v })}
-                            min={1}
-                            step={1}
-                          />
-                        </div>
-                        <ToggleField
-                          label="Трейлинг-стоп"
-                          value={editConfig.risk.use_trailing}
-                          onChange={(v) => updateSection('risk', { use_trailing: v })}
-                        />
-                        <div className="grid grid-cols-2 gap-3 mt-3">
-                          <NumberField
-                            label="Min баров до trailing"
-                            value={editConfig.risk.min_bars_trailing}
-                            onChange={(v) => updateSection('risk', { min_bars_trailing: v })}
-                            min={0}
-                            max={50}
-                          />
-                          <NumberField
-                            label="Cooldown после стопа"
-                            value={editConfig.risk.cooldown_bars}
-                            onChange={(v) => updateSection('risk', { cooldown_bars: v })}
-                            min={0}
-                            max={50}
-                            suffix="баров"
-                          />
-                        </div>
-                      </CollapsibleSection>
-
-                      {/* Multi-TP / Breakeven */}
-                      <CollapsibleSection title="Multi-TP / Breakeven" description="Частичное закрытие + безубыток">
-                        <ToggleField
-                          label="Multi-level TP"
-                          value={editConfig.risk.use_multi_tp}
-                          onChange={(v) => updateSection('risk', { use_multi_tp: v })}
-                        />
-                        {editConfig.risk.use_multi_tp && (
-                          <div className="space-y-2 mt-3">
-                            {editConfig.risk.tp_levels.map((lvl, idx) => (
-                              <div key={idx} className="grid grid-cols-2 gap-3">
+                      {showSection('risk') &&
+                        (isSmc ? (
+                          <CollapsibleSection title="Risk Management" description="SL buffer, multi-TP по R, trailing">
+                            <div className="grid grid-cols-2 gap-3">
+                              <NumberField
+                                label="ATR период"
+                                value={editConfig.risk.atr_period}
+                                onChange={(v) => updateSection('risk', { atr_period: v })}
+                                min={1}
+                              />
+                              <NumberField
+                                label="SL ATR buffer"
+                                value={editConfig.risk.sl_atr_buffer ?? 0.3}
+                                onChange={(v) => updateSection('risk', { sl_atr_buffer: v })}
+                                min={0}
+                                step={0.1}
+                              />
+                              <NumberField
+                                label="SL max %"
+                                value={editConfig.risk.sl_max_pct ?? 0.015}
+                                onChange={(v) => updateSection('risk', { sl_max_pct: v })}
+                                min={0}
+                                step={0.001}
+                              />
+                              <NumberField
+                                label="Trailing (ATR x)"
+                                value={editConfig.risk.trailing_atr_mult}
+                                onChange={(v) => updateSection('risk', { trailing_atr_mult: v })}
+                                min={0.1}
+                                step={0.1}
+                              />
+                            </div>
+                            <div className="pt-3 mt-3 border-t border-white/5 space-y-2.5">
+                              <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                                Take Profit (R-multiple)
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
                                 <NumberField
-                                  label={`TP${idx + 1} расстояние`}
-                                  value={lvl.atr_mult}
-                                  onChange={(v) => {
-                                    const levels = [...editConfig.risk.tp_levels];
-                                    levels[idx] = {
-                                      ...levels[idx],
-                                      atr_mult: v,
-                                    };
-                                    updateSection('risk', {
-                                      tp_levels: levels,
-                                    });
-                                  }}
-                                  min={1}
-                                  suffix="x ATR"
+                                  label="TP1 R"
+                                  value={editConfig.risk.tp1_r_mult ?? 0.5}
+                                  onChange={(v) => updateSection('risk', { tp1_r_mult: v })}
+                                  min={0}
+                                  step={0.1}
+                                  suffix="× R"
                                 />
                                 <NumberField
-                                  label={`TP${idx + 1} объём`}
-                                  value={lvl.close_pct}
-                                  onChange={(v) => {
-                                    const levels = [...editConfig.risk.tp_levels];
-                                    levels[idx] = {
-                                      ...levels[idx],
-                                      close_pct: v,
-                                    };
-                                    updateSection('risk', {
-                                      tp_levels: levels,
-                                    });
-                                  }}
-                                  min={1}
-                                  max={100}
-                                  suffix="%"
+                                  label="TP1 close"
+                                  value={editConfig.risk.tp1_close_pct ?? 0.5}
+                                  onChange={(v) => updateSection('risk', { tp1_close_pct: v })}
+                                  min={0}
+                                  max={1}
+                                  step={0.05}
+                                  suffix="доля"
+                                />
+                                <NumberField
+                                  label="TP2 R"
+                                  value={editConfig.risk.tp2_r_mult ?? 1.5}
+                                  onChange={(v) => updateSection('risk', { tp2_r_mult: v })}
+                                  min={0}
+                                  step={0.1}
+                                  suffix="× R"
+                                />
+                                <NumberField
+                                  label="TP2 close"
+                                  value={editConfig.risk.tp2_close_pct ?? 0.3}
+                                  onChange={(v) => updateSection('risk', { tp2_close_pct: v })}
+                                  min={0}
+                                  max={1}
+                                  step={0.05}
+                                  suffix="доля"
                                 />
                               </div>
-                            ))}
-                          </div>
-                        )}
-                        <div className="mt-3">
+                              {isSmcV2 && (
+                                <>
+                                  <ToggleField
+                                    label="TP3 включён"
+                                    value={editConfig.risk.tp3_enabled ?? true}
+                                    onChange={(v) => updateSection('risk', { tp3_enabled: v })}
+                                  />
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <NumberField
+                                      label="TP3 R"
+                                      value={editConfig.risk.tp3_r_mult ?? 3.0}
+                                      onChange={(v) => updateSection('risk', { tp3_r_mult: v })}
+                                      min={0}
+                                      step={0.1}
+                                      suffix="× R"
+                                    />
+                                    <NumberField
+                                      label="TP3 close"
+                                      value={editConfig.risk.tp3_close_pct ?? 0.2}
+                                      onChange={(v) => updateSection('risk', { tp3_close_pct: v })}
+                                      min={0}
+                                      max={1}
+                                      step={0.05}
+                                      suffix="доля"
+                                    />
+                                  </div>
+                                  <ToggleField
+                                    label="Выключить trailing"
+                                    value={editConfig.risk.disable_trailing ?? true}
+                                    onChange={(v) => updateSection('risk', { disable_trailing: v })}
+                                  />
+                                </>
+                              )}
+                            </div>
+                          </CollapsibleSection>
+                        ) : isPivotMr ? (
+                          <CollapsibleSection
+                            title="Risk Management"
+                            description="SL ATR mult, multi-TP по pivot уровням"
+                          >
+                            <div className="grid grid-cols-2 gap-3">
+                              <NumberField
+                                label="ATR период"
+                                value={editConfig.risk.atr_period}
+                                onChange={(v) => updateSection('risk', { atr_period: v })}
+                                min={1}
+                              />
+                              <NumberField
+                                label="SL ATR mult"
+                                value={editConfig.risk.sl_atr_mult ?? 0.5}
+                                onChange={(v) => updateSection('risk', { sl_atr_mult: v })}
+                                min={0}
+                                step={0.1}
+                              />
+                              <NumberField
+                                label="SL max %"
+                                value={editConfig.risk.sl_max_pct ?? 0.02}
+                                onChange={(v) => updateSection('risk', { sl_max_pct: v })}
+                                min={0}
+                                step={0.001}
+                              />
+                              <NumberField
+                                label="Trailing (ATR x)"
+                                value={editConfig.risk.trailing_atr_mult}
+                                onChange={(v) => updateSection('risk', { trailing_atr_mult: v })}
+                                min={0.1}
+                                step={0.1}
+                              />
+                              <NumberField
+                                label="TP1 close"
+                                value={editConfig.risk.tp1_close_pct ?? 0.6}
+                                onChange={(v) => updateSection('risk', { tp1_close_pct: v })}
+                                min={0}
+                                max={1}
+                                step={0.05}
+                                suffix="доля"
+                              />
+                              <NumberField
+                                label="TP2 close"
+                                value={editConfig.risk.tp2_close_pct ?? 0.4}
+                                onChange={(v) => updateSection('risk', { tp2_close_pct: v })}
+                                min={0}
+                                max={1}
+                                step={0.05}
+                                suffix="доля"
+                              />
+                              <NumberField
+                                label="Max hold bars"
+                                value={editConfig.risk.max_hold_bars ?? 60}
+                                onChange={(v) => updateSection('risk', { max_hold_bars: v })}
+                                min={0}
+                                suffix="баров"
+                              />
+                            </div>
+                          </CollapsibleSection>
+                        ) : (
+                          <CollapsibleSection title="Risk Management" description="Стоп-лосс, тейк-профит, трейлинг">
+                            <div className="grid grid-cols-2 gap-3">
+                              <NumberField
+                                label="ATR период"
+                                value={editConfig.risk.atr_period}
+                                onChange={(v) => updateSection('risk', { atr_period: v })}
+                                min={1}
+                              />
+                              <NumberField
+                                label="Stop (ATR x)"
+                                value={editConfig.risk.stop_atr_mult}
+                                onChange={(v) => updateSection('risk', { stop_atr_mult: v })}
+                                min={0.5}
+                                step={0.5}
+                              />
+                              <NumberField
+                                label="Take Profit (ATR x)"
+                                value={editConfig.risk.tp_atr_mult}
+                                onChange={(v) => updateSection('risk', { tp_atr_mult: v })}
+                                min={1}
+                                step={1}
+                              />
+                              <NumberField
+                                label="Trailing (ATR x)"
+                                value={editConfig.risk.trailing_atr_mult}
+                                onChange={(v) => updateSection('risk', { trailing_atr_mult: v })}
+                                min={1}
+                                step={1}
+                              />
+                            </div>
+                            <ToggleField
+                              label="Трейлинг-стоп"
+                              value={editConfig.risk.use_trailing}
+                              onChange={(v) => updateSection('risk', { use_trailing: v })}
+                            />
+                            <div className="grid grid-cols-2 gap-3 mt-3">
+                              <NumberField
+                                label="Min баров до trailing"
+                                value={editConfig.risk.min_bars_trailing}
+                                onChange={(v) => updateSection('risk', { min_bars_trailing: v })}
+                                min={0}
+                                max={50}
+                              />
+                              <NumberField
+                                label="Cooldown после стопа"
+                                value={editConfig.risk.cooldown_bars}
+                                onChange={(v) => updateSection('risk', { cooldown_bars: v })}
+                                min={0}
+                                max={50}
+                                suffix="баров"
+                              />
+                            </div>
+                          </CollapsibleSection>
+                        ))}
+
+                      {/* Multi-TP / Breakeven — только для legacy (KNN/SuperTrend/Hybrid) */}
+                      {showSection('risk') && !isSmc && !isPivotMr && (
+                        <CollapsibleSection title="Multi-TP / Breakeven" description="Частичное закрытие + безубыток">
                           <ToggleField
-                            label="Безубыток при TP1"
-                            value={editConfig.risk.use_breakeven}
-                            onChange={(v) => updateSection('risk', { use_breakeven: v })}
+                            label="Multi-level TP"
+                            value={editConfig.risk.use_multi_tp}
+                            onChange={(v) => updateSection('risk', { use_multi_tp: v })}
                           />
-                        </div>
-                      </CollapsibleSection>
+                          {editConfig.risk.use_multi_tp && (
+                            <div className="space-y-2 mt-3">
+                              {editConfig.risk.tp_levels.map((lvl, idx) => (
+                                <div key={idx} className="grid grid-cols-2 gap-3">
+                                  <NumberField
+                                    label={`TP${idx + 1} расстояние`}
+                                    value={lvl.atr_mult}
+                                    onChange={(v) => {
+                                      const levels = [...editConfig.risk.tp_levels];
+                                      levels[idx] = {
+                                        ...levels[idx],
+                                        atr_mult: v,
+                                      };
+                                      updateSection('risk', {
+                                        tp_levels: levels,
+                                      });
+                                    }}
+                                    min={1}
+                                    suffix="x ATR"
+                                  />
+                                  <NumberField
+                                    label={`TP${idx + 1} объём`}
+                                    value={lvl.close_pct}
+                                    onChange={(v) => {
+                                      const levels = [...editConfig.risk.tp_levels];
+                                      levels[idx] = {
+                                        ...levels[idx],
+                                        close_pct: v,
+                                      };
+                                      updateSection('risk', {
+                                        tp_levels: levels,
+                                      });
+                                    }}
+                                    min={1}
+                                    max={100}
+                                    suffix="%"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="mt-3">
+                            <ToggleField
+                              label="Безубыток при TP1"
+                              value={editConfig.risk.use_breakeven}
+                              onChange={(v) => updateSection('risk', { use_breakeven: v })}
+                            />
+                          </div>
+                        </CollapsibleSection>
+                      )}
 
                       {/* Торговля */}
                       <CollapsibleSection title="Торговля" description="Плечо, размеры ордеров, комиссия">
@@ -1418,18 +2006,20 @@ export function Backtest() {
                               step={0.01}
                               suffix="%"
                             />
-                            <div className="flex items-center justify-between py-1">
-                              <span className="text-xs text-gray-400">ST Flip Exit</span>
-                              <Checkbox
-                                checked={editConfig.backtest.use_supertrend_exit}
-                                onChange={(checked: boolean) =>
-                                  updateSection('backtest', {
-                                    use_supertrend_exit: checked,
-                                  })
-                                }
-                                className="h-4 w-4"
-                              />
-                            </div>
+                            {(engineType === 'supertrend_squeeze' || engineType === 'hybrid_knn_supertrend') && (
+                              <div className="flex items-center justify-between py-1">
+                                <span className="text-xs text-gray-400">ST Flip Exit</span>
+                                <Checkbox
+                                  checked={editConfig.backtest.use_supertrend_exit}
+                                  onChange={(checked: boolean) =>
+                                    updateSection('backtest', {
+                                      use_supertrend_exit: checked,
+                                    })
+                                  }
+                                  className="h-4 w-4"
+                                />
+                              </div>
+                            )}
                           </div>
                           <div className="space-y-2.5">
                             <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
