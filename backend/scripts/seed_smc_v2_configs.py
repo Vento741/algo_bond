@@ -38,6 +38,7 @@ from sqlalchemy import select
 
 from app.database import async_session
 from app.modules.auth.models import User
+from app.modules.billing.models import Subscription  # noqa: F401 — нужен для relationship resolution
 from app.modules.strategy.models import Strategy, StrategyConfig
 
 logger = logging.getLogger(__name__)
