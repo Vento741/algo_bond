@@ -523,12 +523,155 @@ export function detectEngineType(config: Record<string, unknown>): string {
   return 'lorentzian_knn';
 }
 
+/**
+ * Field-level whitelist per engine_type.
+ * Сохраняет только те поля внутри секций, которые реально принадлежат стратегии.
+ * Нужен чтобы legacy-поля (tp_levels, tp_atr_mult, stop_atr_mult и т.п. из DEFAULT_CONFIG)
+ * не просачивались в JSON при сохранении SMC/Pivot MR конфигов через UI.
+ *
+ * Для legacy-движков (lorentzian_knn, supertrend_squeeze, hybrid_knn_supertrend)
+ * whitelist НЕ применяется — их поля не трогаем (backward compat).
+ */
+export const ENGINE_FIELD_WHITELIST: Record<string, Partial<Record<keyof FullStrategyConfig, string[]>>> = {
+  smc_sweep_scalper: {
+    sweep: ['lookback'],
+    confirmation: ['window', 'fvg_min_size', 'bos_pivot', 'use_bos', 'use_fvg', 'use_ob'],
+    trend: ['ema_period'],
+    entry: ['min_confluence', 'cooldown_bars'],
+    filters: [
+      'trend_filter_enabled',
+      'rsi_filter_enabled',
+      'rsi_period',
+      'volume_filter_enabled',
+      'volume_sma_period',
+      'volume_min_ratio',
+    ],
+    risk: [
+      'atr_period',
+      'sl_atr_buffer',
+      'sl_max_pct',
+      'tp1_r_mult',
+      'tp1_close_pct',
+      'tp2_r_mult',
+      'tp2_close_pct',
+      'trailing_atr_mult',
+      'disable_trailing',
+      'use_multi_tp',
+      'use_breakeven',
+    ],
+  },
+  smc_sweep_scalper_v2: {
+    sweep: ['lookback'],
+    confirmation: ['window', 'fvg_min_size', 'bos_pivot', 'use_bos', 'use_fvg', 'use_ob'],
+    trend: ['ema_period'],
+    entry: ['min_confluence', 'cooldown_bars'],
+    filters: [
+      'trend_filter_enabled',
+      'rsi_filter_enabled',
+      'rsi_period',
+      'volume_filter_enabled',
+      'volume_sma_period',
+      'volume_min_ratio',
+      'session_filter_enabled',
+      'session_hours',
+      'atr_regime_enabled',
+      'atr_percentile_min',
+      'atr_percentile_max',
+      'atr_percentile_window',
+      'htf_bias_enabled',
+      'htf_ema_period',
+      'htf_slope_min',
+      'htf_bars_per_htf',
+      'htf_slope_lookback',
+    ],
+    risk: [
+      'atr_period',
+      'sl_atr_buffer',
+      'sl_max_pct',
+      'tp1_r_mult',
+      'tp1_close_pct',
+      'tp2_r_mult',
+      'tp2_close_pct',
+      'tp3_enabled',
+      'tp3_r_mult',
+      'tp3_close_pct',
+      'trailing_atr_mult',
+      'disable_trailing',
+      'use_multi_tp',
+      'use_breakeven',
+    ],
+  },
+  pivot_point_mr: {
+    pivot: ['period', 'velocity_lookback'],
+    trend: ['ema_period'],
+    regime: ['adx_weak_trend', 'adx_strong_trend', 'pivot_drift_max', 'allow_strong_trend'],
+    entry: ['min_confluence', 'cooldown_bars', 'min_distance_pct', 'use_deep_levels', 'impulse_check_bars'],
+    filters: [
+      'adx_enabled',
+      'adx_period',
+      'adx_threshold',
+      'rsi_enabled',
+      'rsi_period',
+      'rsi_oversold',
+      'rsi_overbought',
+      'squeeze_enabled',
+      'squeeze_bb_len',
+      'squeeze_bb_mult',
+      'squeeze_kc_len',
+      'squeeze_kc_mult',
+      'volume_filter_enabled',
+      'volume_sma_period',
+      'volume_min_ratio',
+    ],
+    risk: [
+      'atr_period',
+      'sl_atr_mult',
+      'sl_max_pct',
+      'tp1_close_pct',
+      'tp2_close_pct',
+      'trailing_atr_mult',
+      'max_hold_bars',
+      'use_multi_tp',
+      'use_breakeven',
+    ],
+  },
+};
+
+const COMMON_SECTIONS_NO_WHITELIST = new Set<keyof FullStrategyConfig>(['backtest', 'live']);
+
 export function getCleanConfig(config: FullStrategyConfig, engineType: string): Record<string, unknown> {
-  const sections = ENGINE_SECTIONS[engineType] || Object.keys(config);
+  const sections = ENGINE_SECTIONS[engineType] || (Object.keys(config) as (keyof FullStrategyConfig)[]);
+  const fieldWhitelist = ENGINE_FIELD_WHITELIST[engineType];
   const clean: Record<string, unknown> = {};
+
   for (const key of sections) {
-    if (key in config) {
-      clean[key] = config[key as keyof FullStrategyConfig];
+    if (!(key in config)) continue;
+    const sectionValue = config[key as keyof FullStrategyConfig];
+
+    // Без whitelist для данной секции — копируем as-is (legacy engines + backtest/live)
+    if (!fieldWhitelist || COMMON_SECTIONS_NO_WHITELIST.has(key)) {
+      clean[key] = sectionValue;
+      continue;
+    }
+
+    const allowedFields = fieldWhitelist[key];
+    if (!allowedFields) {
+      clean[key] = sectionValue;
+      continue;
+    }
+
+    // Применяем field-level whitelist
+    if (sectionValue && typeof sectionValue === 'object' && !Array.isArray(sectionValue)) {
+      const srcFields = sectionValue as unknown as Record<string, unknown>;
+      const filtered: Record<string, unknown> = {};
+      for (const field of allowedFields) {
+        if (field in srcFields) {
+          filtered[field] = srcFields[field];
+        }
+      }
+      clean[key] = filtered;
+    } else {
+      clean[key] = sectionValue;
     }
   }
   return clean;
